@@ -266,3 +266,77 @@ actualiza o verifica los archivos.
 ### 9. Calidad y publicación
 Pruebas automáticas con modelos libres (CC0) y GitHub Actions: `rt.py` byte a byte, los mapas de referencia, el
 `.exe` compilado en cada versión y publicado en *Releases*.
+
+### 10. Ideas sacadas de las herramientas de modding de otros juegos (investigado el 31/10/2026)
+
+Lo que hacen bien otras herramientas y cómo encajaría en Toy Story 3. Nada de esto está hecho; el orden es de más útil
+y más factible a menos.
+
+**Gestión de mods** (Mod Organizer 2, r2modman / Thunderstore, Reloaded-II, Hedge Mod Manager, OpenKH Mod Manager):
+- **Perfiles**: varias combinaciones de mods guardadas (por ejemplo «Woody de KH3 + canciones restauradas» y «todo
+  original»), y cambiar entre ellas con un clic (Mod Organizer 2, r2modman).
+- **Compartir un perfil** como archivo o como un código corto que otro pega en su herramienta y se le instala la misma
+  combinación (los «share codes» de r2modman).
+- **Vista de conflictos**: qué mod «gana» en cada archivo del juego cuando dos tocan el mismo personaje, y elegir el
+  orden (Mod Organizer 2).
+- **Instalar con un clic desde la web**: un enlace propio (`ts3mt://…`) que la herramienta abre; botones «Instalar con
+  TS3 Modding Tool» en GameBanana o GitHub (el «1-Click» de Reloaded-II y Hedge Mod Manager). En Nexus haría falta su
+  API y su permiso (`nxm://`).
+- **Instalar un mod desde un repositorio de GitHub** escribiendo `usuario/repositorio` (OpenKH Mod Manager): encaja
+  con que la comunidad ya tiene el repo de la herramienta.
+- **Arrastrar y soltar** un `.zip` de cualquier mod de Toy Story 3 (los packs con instalador que ya exportamos, los
+  antiguos de «copiar en la carpeta del juego») para que la herramienta lo instale y sepa quitarlo después.
+- **Un formato de mod común** (un `manifest` con nombre, autor, versión, qué archivos toca, dependencias y dónde buscar
+  actualizaciones) y **avisos de actualización** (Reloaded-II, el `mod.ini` de Hedge Mod Manager).
+- **«Códigos»**: ajustes pequeños con casillas, sin crear un mod (la pestaña Codes de Hedge Mod Manager, con cosas
+  como pantalla panorámica). Ver el punto de gráficos.
+
+**Explorar y exportar el juego** (FModel, Noesis, AssetStudio; el volcado de texturas de Dolphin):
+- **Explorador del juego**: todos los archivos (personajes, niveles, Toy Box, menús) en un árbol, con vista 3D de
+  cualquier modelo u objeto, sus texturas y sus sonidos (FModel).
+- **Exportar a glTF / OBJ** un personaje u objeto del juego con su esqueleto y texturas, para editarlo en Blender y
+  volver a meterlo (FModel). Útil como base: retocar el Woody original en vez de empezar de cero; y la puerta a cambiar
+  objetos que no son personajes (vehículos, accesorios).
+- **Volcado completo de texturas** con nombres estables, como Dolphin, para que un pack de texturas sea simplemente
+  una carpeta con esos nombres (amplía el punto 4).
+- **Texturas HD opcionales** reescaladas con IA a partir de las originales, como hacen las comunidades de packs HD de
+  emuladores. Pesado (modelos de IA grandes): mejor como complemento aparte.
+
+**Crear** (Sims 4 Studio, Blockbench):
+- **Recolorear** la ropa de un personaje del juego (cambiar el color de la camisa de Woody, el traje de Buzz) sin
+  necesitar un modelo nuevo, como los «recolors» de Sims 4 Studio. Pocas horas de trabajo y muy pedido.
+- **Conexión con tu editor de imágenes**: «Editar en…» abre la textura en Photoshop/GIMP/Krita y, al guardar, la vista
+  3D se actualiza sola (Blockbench).
+- **Arreglos en lote**: reconvertir todos los proyectos de golpe cuando salga una versión nueva de la herramienta que
+  mejore algo (los «batch fixes» de Sims 4 Studio).
+- **Tienda de plugins**: secciones, formatos o arreglos que la comunidad publica y se instalan desde la herramienta
+  (Blockbench).
+
+**Gráficos y compatibilidad** (los «graphic packs» de Cemu, PCGamingWiki):
+- Para Toy Story 3 en PC solo existe un arreglo de 1920×1080 de 2020 y un parche para un error de `KERNEL32.DLL` en
+  Windows nuevos; **no hay ultrawide ni desbloqueo de FPS**. Hueco real: investigar el ejecutable y la configuración
+  y ofrecerlo como casillas y preajustes (resolución, panorámica, FPS, campo de visión), al estilo de los graphic packs.
+- Detectar y explicar problemas conocidos del juego en Windows modernos.
+
+**Jugar distinto** (Archipelago, randomizers):
+- **Randomizer**: mezclar premios del Toy Box, misiones o aspectos de personajes. A largo plazo, una conexión con
+  Archipelago (multimundo). El tracker del 100 % (`toy-story-3-tracker`) ya sabe leer la partida, que es la base.
+- **Editor de partida**: el tracker lee la partida; escribirla (desbloquear cosas) sería otra sección, con copia de
+  seguridad siempre.
+
+**Plataformas**: Linux / Steam Deck (Proton), como Hedge Mod Manager 8. La herramienta es Python + tkinter, así que
+la base es portable; lo que habría que adaptar es la instalación (hoy usa rutas y PowerShell de Windows).
+
+Fuentes: OpenKH Mod Manager ([openkh.dev](https://openkh.dev), [ejemplo de mod por GitHub](https://github.com/SuperfieldCU/ConsistentLocalizationDDDHGSUI));
+[Reloaded-II](https://github.com/Reloaded-Project/Reloaded-II/releases/tag/0.11.0);
+[Hedge Mod Manager](https://github.com/thesupersonic16/HedgeModManager);
+[Mod Organizer 2](https://geckwiki.com/index.php?title=MO);
+[r2modman / Thunderstore](https://docs.rs/thunderstore-engine/0.1.0/src/thunderstore_engine/profile/portability.rs.html);
+[FModel](https://github.com/4sval/FModel/releases/tag/aug-2026);
+[Dolphin, texturas por hash](https://forums.dolphin-emu.org/Thread-texture-dumping-details);
+[Cemu graphic packs](https://github.com/topics/wiiu-emulator);
+[Sims 4 Studio, batch fixes](https://simscommunity.info/2018/09/03/the-sims-4-how-to-run-a-batch-fix-with-sims-4-studio/);
+[Blockbench](https://gamefromscratch.com/blockbench-3d-modelling-application-review/);
+[Toy Story 3, arreglo 1920×1080](https://www.gamepressure.com/download/toy-story-3-the-video-game-1920x1080-fix-mod/z512819);
+[PCGamingWiki](https://community.pcgamingwiki.com/tags/toy%20story/);
+[Archipelago](https://github.com/ArchipelagoMW/Archipelago/blob/main/docs/world%20api.md).
