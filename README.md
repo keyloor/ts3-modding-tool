@@ -43,6 +43,25 @@ Command line: `python -I kit/kit.py make work/my_model --character woody --fbx m
 **Without Python**: `python -I kit/build_kit.py` builds `Toy Story 3 Modding Tool.exe` (needs PyInstaller); ready-made
 builds will be on the releases page and on Nexus Mods.
 
+### With an AI agent
+
+An AI agent that can run commands and read files (Claude Code, Codex, Cursor...) can do the whole job for you: you
+just tell it what you want.
+
+1. Have the tool (this repository, or the release folder) and Python 3.12 with `pip install numpy pillow`. Without
+   Python, the agent can use the `.exe`: it takes the same commands (`"Toy Story 3 Modding Tool.exe" make ...`).
+2. Give the agent the instructions:
+   - **Claude Code**: copy `skill/ts3-modding-tool/` into `%USERPROFILE%\.claude\skills\` (every project) or into
+     `.claude\skills\` of your project. Claude loads it when you ask for something it covers.
+   - **Other agents**: open them in the tool's folder; many read `AGENTS.md` by themselves (`docs/AGENTS.md` here, at
+     the root of the release folder). If yours doesn't, say "read AGENTS.md first".
+3. Ask in your own words, e.g. *"put `C:\Downloads\bopeep\BoPeep.fbx` in place of Jessie"*.
+
+What the agent then does (`AGENTS.md` tells it): checks the model, converts it, reads the report, **looks at the
+preview images** and fixes the map if something is off, and shows you the previews. It installs into the game only
+when you say so (with the game closed), asks you for screenshots before saying it works, and before exporting a pack
+asks you for its name, your credit and who made the model. It never shares game files or models you have no right to.
+
 ## Repository
 
 | Folder | What |
@@ -71,4 +90,10 @@ pon tu propio modelo 3D (FBX con esqueleto, u OBJ) en lugar de Woody, Buzz Light
 previa, instálalo en tu juego y exporta un pack para Nexus. Después vendrán música, sonidos y texturas.
 
 Para usarla con Python: `pip install numpy pillow` y `python -I kit/app.py`. La guía para hacerlo todo a mano está en
-`docs/GUIA_MANUAL.md`. Para aportar, mira [CONTRIBUTING.md](CONTRIBUTING.md). Licencia: GPL v3 + [NOTICE.md](NOTICE.md).
+`docs/GUIA_MANUAL.md`.
+
+**Con un agente de IA** (Claude Code, Codex, Cursor…): con Claude Code, copia `skill/ts3-modding-tool/` a
+`%USERPROFILE%\.claude\skills\`; con otros agentes, ábrelos en la carpeta de la herramienta y que lean `AGENTS.md`
+(`docs/AGENTS.md` aquí; en la raíz del paquete). Luego pídelo con tus palabras: *«pon este modelo en lugar de
+Jessie»*. El agente convierte, mira las vistas previas, corrige lo que haga falta, instala solo si tú le dices y te
+pide capturas del juego antes de dar nada por bueno. Para aportar, mira [CONTRIBUTING.md](CONTRIBUTING.md). Licencia: GPL v3 + [NOTICE.md](NOTICE.md).

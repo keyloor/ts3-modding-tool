@@ -23,6 +23,15 @@ YOUR MODEL
   from the tool. Textures as PNG, TGA, JPG or DDS. Models from games often come with the eyelids shut: see the manual
   guide, section 8.
 
+WITH AN AI AGENT (Claude Code, Codex, Cursor...)
+  The agent runs the tool for you; you just tell it what you want.
+  1. Claude Code: copy the "skill\ts3-modding-tool" folder into %USERPROFILE%\.claude\skills\ . Other agents: open
+     them in this folder; many read AGENTS.md by themselves (if not, tell yours "read AGENTS.md first").
+  2. Ask in your own words: "put C:\Downloads\bopeep\BoPeep.fbx in place of Jessie".
+  It converts, looks at the previews, fixes what is off, installs only when you say so, and asks you for screenshots
+  from the game before calling it done. It needs Python 3.12 + "pip install numpy pillow", or it uses this .exe,
+  which takes the same commands ("Toy Story 3 Modding Tool.exe" make ...).
+
 MORE
   docs\GUIA_MANUAL.md       every step by hand, all the map options, the game's formats (Spanish)
   docs\ejemplos\            real maps with eyes, face, several materials, colour palettes
@@ -53,5 +62,14 @@ EMPEZAR
      convertir.
   4. "Instalar en el juego" (con el juego cerrado). "Restaurar original" lo deshace. "Exportar pack para Nexus" hace
      un instalador para otros jugadores, solo con tus cambios.
+
+CON UN AGENTE DE IA (Claude Code, Codex, Cursor...)
+  El agente maneja la herramienta por ti; tú solo le dices lo que quieres.
+  1. Claude Code: copia la carpeta "skill\ts3-modding-tool" a %USERPROFILE%\.claude\skills\ . Otros agentes: ábrelos
+     en esta carpeta; muchos leen AGENTS.md solos (si no, dile al tuyo "lee primero AGENTS.md").
+  2. Pídelo con tus palabras: "pon C:\Descargas\bopeep\BoPeep.fbx en lugar de Jessie".
+  Convierte, mira las vistas previas, corrige lo que haga falta, instala solo si tú le dices y te pide capturas del
+  juego antes de darlo por bueno. Necesita Python 3.12 + "pip install numpy pillow", o usa este .exe, que acepta los
+  mismos comandos ("Toy Story 3 Modding Tool.exe" make ...).
 
 Si publicas un mod hecho con la herramienta, pon en su página: "Hecho con TS3 Modding Tool de keyloor".
