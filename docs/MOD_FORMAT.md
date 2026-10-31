@@ -5,8 +5,8 @@ La herramienta reconoce una carpeta o ZIP con `mod.json`, los packs antiguos con
 carpeta contenedora dentro del ZIP. No ejecuta los `.bat`, `.ps1`, `.exe` ni `.py` del pack.
 
 El gestor está disponible por línea de comandos y desde la pantalla «Mods instalados».
-La interfaz y el soporte para arrastrar paquetes están implementados; su prueba manual
-completa queda a cargo del usuario. La consulta de actualizaciones sigue pendiente.
+En la ventana se puede arrastrar un ZIP o una carpeta de mod desde el Explorador. Los mods
+con `update` avisan de versiones nuevas («Buscar actualizaciones» o `mods updates`).
 Para automatización, salida JSON, planes y verificación, consulta [CLI.md](CLI.md).
 
 ## Uso
@@ -64,8 +64,10 @@ Ejemplo de un mod con un archivo de audio y un conjunto de parches:
   deben estar junto al manifiesto. Conservan el formato y los MD5 del instalador anterior.
 - `files`: correspondencias explícitas entre archivos del paquete y destinos del juego.
 - `credits`: lista de textos. `author` y `description` son textos y pueden estar vacíos.
-- `update` es opcional: `{"github": "usuario/repositorio"}`. Se valida y conserva;
-  esta primera implementación todavía no consulta GitHub ni descarga actualizaciones.
+- `update` es opcional: `{"github": "usuario/repositorio"}`. La herramienta compara la
+  versión instalada con la última *release* de ese repositorio (su etiqueta, `v1.2` o `1.2.0`)
+  y avisa con el enlace a su página. Nunca descarga nada; cada repositorio se consulta como
+  mucho una vez al día (caché en `<juego>/TS3 Modding Tool/updates.json`).
 - `requires`, `conflicts`, `credits`, `patches` y `files` vacíos pueden omitirse.
   Debe haber al menos un parche o archivo. Se rechazan versiones de esquema desconocidas.
 

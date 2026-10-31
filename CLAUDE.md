@@ -147,6 +147,14 @@ settings are never touched.
 No unit tests: `tools/rt.py` byte-exact, the previews (look at them), byte-identical output of `tools/` for existing
 maps, and testing in the game. Never claim something works in game before someone has seen it there.
 
+## Every feature from the CLI too
+
+Anything new a user can do in the window must also be possible from the command line, without a window, so an AI
+agent can do it: a `kit.py` command or option (the mod manager's: a `mods` subcommand in `kit/modcli.py`, with
+the JSON contract of `docs/CLI.md`), or a documented key in `kit_project.json` that `make` reads. Document it in
+`docs/CLI.md` or `docs/AGENTS.md` and in the skill, and test it in `tests/`. Only seeing things (the 3D view) is
+exempt; give the agent images instead.
+
 ## Git
 
 Commits carry no `Co-Authored-By` or other AI attribution line: the maintainer is the author.
@@ -158,7 +166,11 @@ Implemented first slice: `kit/modfile.py` (schema 1 + folder/ZIP packages), `kit
 commands, and `mod.json` in exports with a stable project ID. See `docs/MOD_FORMAT.md`.
 Run `python -I tests/test_mods.py`: synthetic integration tests, no game files or user settings.
 Backups in `<game>/TS3 Modding Tool/objects/` are SHA-256 addressed; never delete them manually.
-Update polling and the manager UI/drop support remain pending, as do C–E. Do not claim B is complete.
+Done since: the console CLI (`kit/cli.py`, `kit/modcli.py`, `TS3 Modding CLI.exe`), the "Installed mods"
+screen with review and drag-and-drop (`kit/dropfiles.py`: `WM_DROPFILES` through a window subclass, no extra
+dependency), and update checks (`kit/modupdate.py`: GitHub's latest release for `update.github`, once a day per
+repository, cached in `<game>/TS3 Modding Tool/updates.json`; the window's list reads only the cache, its
+button and `mods updates` ask GitHub; never downloads). A and B are done; C–E not started.
 
 `PLAN.md` §10, "Cómo hacerlo": the plan (in order A–E) for a common mod format, drag-and-drop install and
 removal, a game explorer, texture dumps / folder texture packs, and glTF export / re-import. Read it before starting.

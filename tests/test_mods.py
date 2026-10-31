@@ -320,5 +320,53 @@ class Mods(unittest.TestCase):
         self.assertTrue(self.store.path(MS.JOURNAL).exists())
 
 
+class Updates(unittest.TestCase):
+    """modupdate with a fake GitHub: no network"""
+    def setUp(self):
+        import modupdate
+        self.U = modupdate
+        self.temp = tempfile.TemporaryDirectory(prefix='ts3-updates-test-')
+        self.cache = os.path.join(self.temp.name, 'TS3 Modding Tool', 'updates.json')
+        self.asked = []
+        self.mods = [{'metadata': {'id': 'a.mod', 'name': 'A', 'version': '1.0.0', 'update': {'github': 'o/a'}}},
+                     {'metadata': {'id': 'b.mod', 'name': 'B', 'version': '2.0.0', 'update': {'github': 'o/b'}}},
+                     {'metadata': {'id': 'c.mod', 'name': 'C', 'version': '1.0.0'}}]
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def fetch(self, repo):
+        self.asked.append(repo)
+        if repo == 'o/b':
+            raise OSError('offline')
+        return {'tag': 'v1.2', 'url': 'https://github.com/o/a/releases/tag/v1.2'}
+
+    def test_versions(self):
+        self.assertEqual(self.U.tag_version('v1.2'), '1.2.0')
+        self.assertIsNone(self.U.tag_version('nightly'))
+        self.assertTrue(self.U.newer('1.10.0', '1.9.0'))
+        self.assertFalse(self.U.newer('1.0.0', '1.0.0'))
+
+    def test_check_cache_and_retry(self):
+        out = {u['id']: u for u in self.U.check(self.mods, self.cache, fetch=self.fetch, now=1000)}
+        self.assertEqual(set(out), {'a.mod', 'b.mod'})               # c has no update.github
+        self.assertTrue(out['a.mod']['update'])
+        self.assertEqual(out['a.mod']['latest'], '1.2.0')
+        self.assertEqual(out['b.mod']['error'], 'offline')
+        self.assertFalse(out['b.mod']['update'])
+        self.asked.clear()
+        self.U.check(self.mods, self.cache, fetch=self.fetch, now=1000 + self.U.RETRY)
+        self.assertEqual(self.asked, ['o/b'])                         # only the failed one, after an hour
+        self.asked.clear()
+        self.U.check(self.mods, self.cache, fetch=self.fetch, now=1000 + self.U.DAY)
+        self.assertEqual(sorted(self.asked), ['o/a', 'o/b'])
+        self.asked.clear()
+        cached = self.U.check(self.mods, self.cache, fetch=None, now=10 ** 9)
+        self.assertEqual(self.asked, [])                              # fetch=None never asks
+        self.assertEqual(len(cached), 2)
+        self.U.check(self.mods, self.cache, force=True, fetch=self.fetch, now=1000 + self.U.DAY)
+        self.assertEqual(len(self.asked), 2)                          # force asks again
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

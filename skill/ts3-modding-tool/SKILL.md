@@ -22,6 +22,7 @@ Read `<KIT>/docs/CLI.md` for the JSON contract, errors and command arguments. Di
 without Python. Pass the game folder explicitly. Prepare with `mods plan`, review the
 changes, then use `mods install --expect TICKET` within the user's authorized scope.
 Use `mods verify` to check files and backups and `mods remove --dry-run` before removal.
+`mods updates` lists newer GitHub releases of installed mods (never downloads; ask before getting one).
 Do not bypass conflicts or external changes by deleting the registry or backups.
 The console executable provides stdout and exit codes; the GUI executable logs to a file.
 

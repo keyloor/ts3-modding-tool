@@ -17,7 +17,7 @@ from about import TOOL, VERSION
 KIT = paths.KIT
 TOOLS_USED = ['octlib', 'fbxlib', 'ts3model', 'convert', 'render', 'install', 'build_release', 'zx', 'zls', 'rt',
               'fbxinfo', 'bones5', 'dump', 'texpeek', 'angles', 'skelcmp']
-KIT_FILES = ['about', 'paths', 'automap', 'autotex', 'objlib', 'viewer', 'modfile', 'modstore', 'dropfiles',
+KIT_FILES = ['about', 'paths', 'automap', 'autotex', 'objlib', 'viewer', 'modfile', 'modstore', 'modupdate', 'dropfiles',
              'modcli', 'cli', 'kit', 'app', 'build_kit']
 CLI = 'TS3 Modding CLI'
 SHORTCUT = 'Abrir ' + TOOL + '.lnk'

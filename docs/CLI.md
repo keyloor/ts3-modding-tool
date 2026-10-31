@@ -26,7 +26,9 @@ compatibilidad, pero guarda sus mensajes en un archivo temporal; para automatiza
 `kit/kit.py mods ...` también admite este protocolo. Los comandos anteriores de personajes
 (`doctor`, `characters`, `make`, `install`, `restore`, `export`) funcionan desde la CLI con
 sus argumentos habituales; **`--json` se aplica únicamente a los subcomandos `mods`**.
-No se automatiza la edición de huesos o controles de la ventana con este protocolo.
+Lo que se elige en la ventana (huesos, materiales, ajustes, articulaciones de un OBJ) se guarda
+en `kit_project.json` del proyecto; un agente lo edita ahí (claves en `docs/AGENTS.md`) y
+vuelve a ejecutar `make`. La vista 3D no tiene equivalente: `make` deja imágenes en `previews/`.
 
 ## Flujo de un agente
 
@@ -62,6 +64,18 @@ mods show ID --game JUEGO --json
 mods verify ID --game JUEGO --json
 mods recover --game JUEGO --json
 ```
+
+Para saber si hay versiones nuevas de los mods que declaran `update.github`:
+
+```text
+mods updates --game JUEGO --json
+mods updates --game JUEGO --force --json
+```
+
+Devuelve por mod `installed`, `latest`, `update` (true si hay una versión mayor), `url` (la
+página de la *release*) y `error` (sin conexión, sin *releases*...). Sin `--force` usa lo
+consultado en las últimas 24 h (1 h si falló). Solo lee: descargar e instalar la versión nueva
+es otro paso, con el permiso del usuario.
 
 `verify` informa por archivo si está `ok`, `missing` o `modified`, y si su copia de seguridad
 está `ok`, `missing`, `damaged` o `not_needed` (archivo creado por el mod). No repara nada.

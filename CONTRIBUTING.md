@@ -34,6 +34,8 @@ welcome.
 - Match the code around you: the same naming, short docstrings that say what something is for and why, comments
   only where the reason isn't obvious.
 - Every text the window shows goes in `kit/app.py`'s `TEXT`, in Spanish (`es`) and English (`en`).
+- **Everything the window can do, the command line can do too** (for scripts and AI agents): add the command or
+  option with your feature and document it (`docs/CLI.md` / `docs/AGENTS.md`).
 - `tools/` is shared code (game formats, converter, installer). A change there must not change what it produces for
   maps that already work: add new behaviour as an option whose default is the old behaviour.
 

@@ -4,7 +4,7 @@ A start screen (the game, found through Steam; the workspace folder; the tool's 
 character project in four steps: pick the character, pick the model (FBX or OBJ), convert and check, play or share.
 It only calls kit.py's functions; the work runs in a thread and what it prints goes to the Log tab.
 """
-import hashlib, json, os, queue, re, sys, threading, traceback
+import hashlib, json, os, queue, re, sys, threading, traceback, webbrowser
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, colorchooser
 
@@ -15,6 +15,7 @@ from about import CREDIT, TOOL, VERSION, AUTHOR
 import automap as AM
 import viewer as V
 import kit as K
+import modupdate
 from dropfiles import DropTarget
 from PIL import Image, ImageTk
 
@@ -58,6 +59,13 @@ TEXT = {
         mods_external='El archivo cambió fuera del gestor. Se ha conservado: %s',
         mods_changed='El paquete o el juego cambió después de la revisión. Vuelve a elegir el paquete.',
         mods_closed='Cierra Toy Story 3 antes de cambiar los mods.',
+        mods_check='Buscar actualizaciones', mods_open_update='Abrir página de la actualización',
+        mods_update='Actualización', mods_update_new='%s disponible', mods_update_ok='Al día',
+        mods_update_err='Sin respuesta', mods_update_line='Versión nueva %s: %s',
+        mods_update_fail='No se pudo consultar GitHub (%s). Se reintentará más tarde.',
+        mods_updates_found='Actualizaciones disponibles: %d. Selecciona el mod y abre su página para descargarla.',
+        mods_updates_none='Los mods que avisan de actualizaciones están al día.',
+        mods_updates_nothing='Ningún mod instalado indica dónde buscar actualizaciones.',
         new_project='Nuevo proyecto', open_other='Abrir otro…', recent='Proyectos recientes',
         no_recent='Todavía no hay proyectos.', project_name='Nombre del proyecto (por ejemplo, el del modelo):',
         bad_name='Usa letras, números, espacios o guiones.', back='← Inicio', open_folder='Abrir carpeta',
@@ -172,6 +180,13 @@ TEXT = {
         mods_external='The file changed outside the manager and has been preserved: %s',
         mods_changed='The package or game changed after review. Choose the package again.',
         mods_closed='Close Toy Story 3 before changing mods.',
+        mods_check='Check for updates', mods_open_update='Open the update page',
+        mods_update='Update', mods_update_new='%s available', mods_update_ok='Up to date',
+        mods_update_err='No answer', mods_update_line='New version %s: %s',
+        mods_update_fail='GitHub could not be reached (%s). It will be retried later.',
+        mods_updates_found='Updates available: %d. Select the mod and open its page to download it.',
+        mods_updates_none='The mods that announce updates are up to date.',
+        mods_updates_nothing='No installed mod says where to look for updates.',
         new_project='New project', open_other='Open another…', recent='Recent projects',
         no_recent='No projects yet.', project_name='Project name (for example, the model\'s):',
         bad_name='Use letters, digits, spaces or dashes.', back='← Start', open_folder='Open folder',
@@ -531,17 +546,23 @@ class App:
         self.mods_reload_btn = ttk.Button(bar, text=self.t('mods_refresh'), command=self.reload_mods)
         self.mods_remove_btn = ttk.Button(bar, text=self.t('mods_remove'), command=self.remove_mod)
         self.mods_recover_btn = ttk.Button(bar, text=self.t('mods_recover'), command=self.recover_mods)
-        for b in (self.mods_zip_btn, self.mods_folder_btn, self.mods_reload_btn, self.mods_remove_btn):
+        self.mods_check_btn = ttk.Button(bar, text=self.t('mods_check'), command=self.check_updates)
+        self.mods_page_btn = ttk.Button(bar, text=self.t('mods_open_update'), command=self.open_update)
+        for b in (self.mods_zip_btn, self.mods_folder_btn, self.mods_reload_btn, self.mods_remove_btn,
+                  self.mods_check_btn, self.mods_page_btn):
             b.pack(side='left', padx=(0, 8))
         self.mods_recover_btn.pack(side='right')
         self.buttons = [self.mods_back, self.game_btn, self.mods_zip_btn, self.mods_folder_btn,
-                        self.mods_reload_btn, self.mods_remove_btn, self.mods_recover_btn]
+                        self.mods_reload_btn, self.mods_remove_btn, self.mods_recover_btn,
+                        self.mods_check_btn, self.mods_page_btn]
         pane = ttk.Frame(f); pane.pack(fill='both', expand=True)
         pane.rowconfigure(0, weight=1); pane.columnconfigure(0, weight=1)
-        self.mods_tree = ttk.Treeview(pane, columns=('name', 'version', 'author', 'files'), show='headings',
+        self.mods_tree = ttk.Treeview(pane, columns=('name', 'version', 'author', 'files', 'update'),
+                                     show='headings',
                                      selectmode='browse', height=8)
         for key, label, width in (('name', 'pack_name', 320), ('version', 'version', 100),
-                                  ('author', 'mods_author', 200), ('files', 'mods_files', 120)):
+                                  ('author', 'mods_author', 200), ('files', 'mods_files', 120),
+                                  ('update', 'mods_update', 140)):
             self.mods_tree.heading(key, text=self.t(label))
             self.mods_tree.column(key, width=width, minwidth=80, stretch=key in ('name', 'author'))
         self.mods_tree.grid(row=0, column=0, sticky='nsew')
@@ -554,7 +575,7 @@ class App:
                                     background='#f4f4f4', padx=12, pady=8)
         self.mods_details.pack(fill='x')
         self.set_mod_details(self.t('mods_select'))
-        self.mods_rows = {}
+        self.mods_rows, self.mods_updates = {}, {}
         self.mods_ready = self.mods_pending = False
         self.refresh_mod_controls()
         if load:
@@ -570,6 +591,14 @@ class App:
         selected = bool(self.mods_tree.selection())
         self.mods_remove_btn.state(['!disabled'] if enabled and self.mods_ready and selected else ['disabled'])
         self.mods_recover_btn.state(['!disabled'] if enabled and self.mods_pending else ['disabled'])
+        self.mods_check_btn.state(['!disabled'] if enabled and self.mods_ready and self.mods_rows
+                                  else ['disabled'])
+        self.mods_page_btn.state(['!disabled'] if not self.busy and self.selected_update() else ['disabled'])
+
+    def selected_update(self):
+        sel = self.mods_tree.selection()
+        info = self.mods_updates.get(sel[0]) if sel else None
+        return info if info and info['update'] else None
 
     def set_mod_details(self, text):
         self.mods_details.config(state='normal')
@@ -586,6 +615,11 @@ class App:
             m = mod['metadata']
             text = '%s  %s\n%s\n\n%s:\n%s' % (m['name'], m['version'], m['description'],
                 self.t('mods_files'), '\n'.join(r['path'] for r in mod['files']))
+            info = self.mods_updates.get(m['id'])
+            if info and info['update']:
+                text = self.t('mods_update_line') % (info['latest'], info['url']) + '\n\n' + text
+            elif info and info['error']:
+                text = self.t('mods_update_fail') % info['error'] + '\n\n' + text
         self.set_mod_details(text)
         self.refresh_mod_controls()
 
@@ -600,16 +634,18 @@ class App:
         def read():
             store = K.modstore.Store(game)
             pending = store.path(K.modstore.JOURNAL).exists()
-            return pending, [] if pending else store.list()
+            records = [] if pending else store.list()
+            return pending, records, modupdate.check(records, str(store.path(modupdate.CACHE)), fetch=None)
         def done(result):
-            self.mods_pending, records = result
+            self.mods_pending, records, updates = result
+            self.mods_updates = {u['id']: u for u in updates}
             self.mods_ready = not self.mods_pending
             self.mods_rows = {r['metadata']['id']: r for r in records}
             self.mods_tree.delete(*self.mods_tree.get_children())
             for mid, r in self.mods_rows.items():
                 m = r['metadata']
                 self.mods_tree.insert('', 'end', iid=mid, values=(m['name'], m['version'],
-                    m['author'] or self.t('mods_unknown'), len(r['files'])))
+                    m['author'] or self.t('mods_unknown'), len(r['files']), self.update_text(mid)))
             if selected and selected[0] in self.mods_rows:
                 self.mods_tree.selection_set(selected[0])
             self.mod_selected()
@@ -617,6 +653,44 @@ class App:
                                   self.t('mods_count') % len(records) if records else self.t('mods_empty'))
             self.status.set(notice or self.t('ready'))
         self.run(read, done, on_error=self.mods_failed)
+
+    def update_text(self, mid):
+        info = self.mods_updates.get(mid)
+        if not info:
+            return ''
+        if info['update']:
+            return self.t('mods_update_new') % info['latest']
+        return self.t('mods_update_err') if info['error'] else self.t('mods_update_ok')
+
+    def check_updates(self):
+        """asks GitHub now for every installed mod whose mod.json has update.github (never downloads)"""
+        if self.busy or not self.mods_ready:
+            return
+        store = K.modstore.Store(self.settings['game'])
+        records = list(self.mods_rows.values())
+        def done(updates):
+            self.mods_updates = {u['id']: u for u in updates}
+            for mid in self.mods_rows:
+                self.mods_tree.set(mid, 'update', self.update_text(mid))
+            new = sum(u['update'] for u in updates)
+            if not updates:
+                note = self.t('mods_updates_nothing')
+            elif new:
+                note = self.t('mods_updates_found') % new
+            elif all(u['error'] for u in updates):
+                note = self.t('mods_update_fail') % updates[0]['error']
+            else:
+                note = self.t('mods_updates_none')
+            self.mods_note.config(text=note)
+            self.mod_selected()
+            self.status.set(note)
+        self.run(lambda: modupdate.check(records, str(store.path(modupdate.CACHE)), force=True), done,
+                 on_error=self.mods_failed)
+
+    def open_update(self):
+        info = self.selected_update()
+        if info and info['url'].startswith('https://github.com/'):
+            webbrowser.open(info['url'])
 
     def mods_failed(self, msg):
         exact = {

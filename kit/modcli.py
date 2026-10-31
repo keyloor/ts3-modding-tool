@@ -20,7 +20,8 @@ COMMANDS = {
     'show': 'Show a registered mod and its tracked files.',
     'verify': 'Check installed files and backups; do not repair them.',
     'remove': 'Remove a registered mod, or preview removal with --dry-run.',
-    'recover': 'Restore the state before an interrupted manager operation.'}
+    'recover': 'Restore the state before an interrupted manager operation.',
+    'updates': 'Check installed mods with update.github for a newer GitHub release (never downloads).'}
 EXIT_CODES = {'success': 0, 'invalid_arguments': 2, 'operation_failed': 3, 'verification_failed': 4,
               'internal_error': 5, 'interrupted': 130}
 
@@ -51,6 +52,8 @@ def parser():
             sub.add_argument('id', help='installed mod id from list')
         if action not in ('capabilities', 'inspect'):
             sub.add_argument('--game', help='game folder; agents should pass it explicitly')
+        if action == 'updates':
+            sub.add_argument('--force', action='store_true', help='ask GitHub now, not the once-a-day cache')
         if action in ('install', 'remove'):
             sub.add_argument('--dry-run', action='store_true', help='validate and describe changes without applying them')
             sub.add_argument('--expect', type=ticket, help='require the ticket returned by plan / remove --dry-run')
@@ -95,6 +98,10 @@ def dispatch(a, game_resolver=None):
     game = str(store.game)
     if a.action == 'list':
         return {'game': game, 'mods': store.list()}, 0
+    if a.action == 'updates':
+        import modupdate
+        return {'game': game, 'updates': modupdate.check(store.list(), str(store.path(modupdate.CACHE)),
+                                                         force=a.force)}, 0
     if a.action == 'show':
         mod = next((m for m in store.list() if m['metadata']['id'] == a.id), None)
         if mod is None:

@@ -20,6 +20,7 @@ inspect the package, prepare `mods plan`, and apply it with `mods install --expe
 within the user's authorized scope. `mods verify ID` checks installed files and backups;
 `mods remove ID --dry-run` prepares removal. Tickets are bound to the operation and game
 folder. A failed verification returns exit code 4 and includes its report in `data`.
+`mods updates` says which installed mods have a newer GitHub release (`url` = its page); it never downloads.
 Do not treat successful checks as proof of appearance or behavior in the game. The
 character-conversion workflow below applies when creating or fixing a model, not merely
 installing a package.

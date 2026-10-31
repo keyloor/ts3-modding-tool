@@ -297,14 +297,16 @@ de `mod.json`, versiones y dependencias; `export_pack` lo incluye y conserva un 
 transacciones recuperables y bloqueo concurrente. Comandos `kit.py mods inspect/install/list/remove/recover`.
 Pruebas sintéticas en `tests/test_mods.py`; contrato y uso en `docs/MOD_FORMAT.md`.
 En esta primera versión se rechazan destinos compartidos entre mods y cambios externos al desinstalar;
-no hay combinación por prioridades. Pendiente de A: consultar actualizaciones. Pendiente de B:
-pantalla de mods, diálogo y arrastrar/soltar. C–E no empezados. La verificación en el juego sigue pendiente.
+no hay combinación por prioridades. Después: CLI con salida JSON (`TS3 Modding CLI.exe`, `docs/CLI.md`),
+pantalla «Mods instalados» con revisión antes de instalar y arrastrar/soltar (`kit/dropfiles.py`), y
+**consulta de actualizaciones** (`kit/modupdate.py`: botón en la pantalla, columna, `mods updates`).
+A y B hechos. C–E no empezados. La verificación en el juego sigue pendiente.
 
 Orden recomendado, porque cada paso usa el anterior: **A** formato común → **B** arrastrar y soltar → **C** explorador
 → **D** volcado de texturas → **E** exportar / reimportar glTF. Reglas de siempre (ver `CLAUDE.md`): código propio,
 nada de archivos del juego en el repo, `tools/` sin cambiar lo que ya produce, textos de la ventana en `es` y `en`,
-pruebas con `TS3TOOL_SETTINGS` temporal, commits sin `Co-Authored-By`, y al terminar cada cosa
-`python -I kit/build_kit.py --desktop`.
+pruebas con `TS3TOOL_SETTINGS` temporal, commits sin `Co-Authored-By`, **toda función nueva también desde la CLI**
+(para quien la use con un agente de IA), y al terminar cada cosa `python -I kit/build_kit.py --desktop`.
 
 **A. Formato de mod común** (`kit/modfile.py`)
 - Un `mod.json` dentro de cada mod: `id` (único, p. ej. `keyloor.ts5-characters`), `name`, `version` (x.y.z),
