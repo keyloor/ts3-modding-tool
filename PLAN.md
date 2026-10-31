@@ -288,3 +288,67 @@ Fuentes: [Hedge Mod Manager](https://github.com/thesupersonic16/HedgeModManager)
 [Reloaded-II](https://github.com/Reloaded-Project/Reloaded-II/releases/tag/0.11.0);
 [FModel](https://github.com/4sval/FModel/releases/tag/aug-2026);
 [Dolphin, texturas](https://forums.dolphin-emu.org/Thread-texture-dumping-details).
+
+#### Cómo hacerlo (plan del 31/10/2026, para quien lo implemente)
+
+Orden recomendado, porque cada paso usa el anterior: **A** formato común → **B** arrastrar y soltar → **C** explorador
+→ **D** volcado de texturas → **E** exportar / reimportar glTF. Reglas de siempre (ver `CLAUDE.md`): código propio,
+nada de archivos del juego en el repo, `tools/` sin cambiar lo que ya produce, textos de la ventana en `es` y `en`,
+pruebas con `TS3TOOL_SETTINGS` temporal, commits sin `Co-Authored-By`, y al terminar cada cosa
+`python -I kit/build_kit.py --desktop`.
+
+**A. Formato de mod común** (`kit/modfile.py`)
+- Un `mod.json` dentro de cada mod: `id` (único, p. ej. `keyloor.ts5-characters`), `name`, `version` (x.y.z),
+  `author`, `description`, `game: "ts3-pc"`, `requires` / `conflicts` (`[{id, version}]`), `update`
+  (`{"github": "usuario/repo"}`), `credits`, y qué cambia: `patches` (los `.bin/.txt` + `manifest.txt` de
+  `build_release.py`, que ya guardan MD5 antes/después) o `files` (archivos sueltos que se copian, como el banco de
+  sonido de `restored`).
+- `kit.export_pack` escribe el `mod.json` en el pack; los packs ya publicados (TS5, KH3, CJ, Restored) se pueden
+  describir con un `mod.json` añadido a mano.
+- Actualizaciones: con `update.github`, `GET https://api.github.com/repos/<repo>/releases/latest` (sin clave, al
+  abrir la herramienta y como mucho una vez al día); si la versión es mayor, un aviso con enlace. Descargar solo si el
+  usuario lo pide.
+
+**B. Arrastrar y soltar** (`kit/modstore.py` + la ventana)
+- Soltar archivos en tkinter: sin dependencia nueva, con `ctypes` (`DragAcceptFiles` + subclase de la ventana para
+  `WM_DROPFILES`), unas 40 líneas; además un botón «Instalar mod…» con diálogo de archivo para quien no arrastre.
+- Reconocer qué es: (1) un pack con `patches/manifest.txt` (los nuestros y los que exporta la herramienta): aplicar las
+  partes con `install.read_zip` / `write_zip` como hace el instalador de PowerShell; (2) un `.zip`/carpeta que imita
+  las carpetas del juego (`data_dx/...`, `assets/...`): copiar; (3) con `mod.json`, usar lo que dice.
+- Registro en `<juego>/TS3 Modding Tool/installed.json`: por mod, qué archivos tocó, MD5 antes y después, dónde está la
+  copia. Quitar = devolver la copia si el archivo sigue como lo dejó el mod; si otro mod lo cambió después, sacar solo
+  las partes de este mod (la misma lógica que el desinstalador de PowerShell).
+- Pantalla «Mods instalados» en el inicio: lista, versión, quitar, y aviso de conflicto si dos tocan el mismo archivo.
+
+**C. Explorador del juego** (`kit/explorer.py` + una sección nueva en el inicio)
+- Índice: recorrer `<juego>/assets/**/*.zip` y `data_dx/` leyendo solo el directorio de cada zip (`install.read_zip`),
+  guardado en caché (`index.json` con fecha de cada archivo); árbol archivo → contenido con buscador.
+- Vistas por tipo: `.oct` con malla → la vista 3D (`viewer.Character`; hay que aceptar modelos sin huesos: todos los
+  vértices al hueso 0 y pose identidad); texturas (`TexturePool`, DDS → PIL) en cuadrícula; bancos de sonido
+  (`tools/fmodbank.py list`); el resto como texto (`tools/dump.py`). Botón «Extraer» a una carpeta.
+- Los `.oct` de niveles pueden guardar la geometría de otra forma (`Vdata`/`Idata`, ver `FORMATS.md` §4.3 de
+  DisneyInfinityTools): primero personajes y objetos, niveles después.
+
+**D. Volcado de texturas y packs como carpeta** (`kit/texpack.py`)
+- Volcar: por cada `.oct` de cada archivo, cada entrada de `TexturePool` → PNG en
+  `volcado/<archivo>/<oct>/<nombre de la textura>.png`, más un `index.json` con su formato (DXT1/DXT5/BGRX), tamaño,
+  mipmaps y `DataCRC`.
+- Un pack = una carpeta con algunos de esos PNG con la misma ruta (o nombrados por `DataCRC`, que sirve si la misma
+  textura está en varios archivos, como en Dolphin). Aplicar: codificar cada PNG al formato original (`convert.py` ya
+  tiene `dxt1` y `bgrx`; añadir DXT5 si hace falta), cambiar `Data` y `DataCRC` en el `.oct` (comprobar con `rt.py`) y
+  reescribir el archivo con copia de seguridad, registrado como en B. Varios packs: orden de prioridad, gana el último.
+- Probar primero sin cambiar el tamaño; luego comprobar en el juego si acepta texturas más grandes (cabecera DDS y
+  mipmaps actualizados).
+
+**E. Exportar a glTF y volver a meterlo** (`kit/gltf.py`)
+- Exportar: de `viewer.Character` (vértices, normales, uv, huesos e influencias, pivotes, texturas) escribir un `.glb`
+  propio (JSON + binario, unas 200 líneas, sin dependencias): un nodo por hueso con su jerarquía (traslación = pivote
+  menos el del padre), una `skin` con `inverseBindMatrices` (traslación −pivote), primitivas por material con
+  `JOINTS_0` / `WEIGHTS_0` y las texturas en PNG. El marco ya coincide (Y arriba, metros, mirando a +Z). Comprobar
+  abriéndolo en Blender y con el validador de Khronos.
+- Leer glTF: `kit/gltflib.py` con la misma interfaz que `objlib.ObjScene` (`meshes()`, `bones()`, `to_yup()`) y
+  `open_scene` aceptando `.glb`/`.gltf`; de paso, los modelos de Sketchfab en glTF entran directos.
+- Volver a meterlo: si el esqueleto se llama y está como el del juego (porque salió de E), usar un mapa «identidad»
+  (cada hueso a sí mismo, sin `DRIVE` que gire ni estire) para que el resultado sea exactamente lo retocado.
+- Objetos que no son personajes: mismo camino, pero sustituyendo la geometría del `.oct` de ese objeto; investigar
+  antes qué cambia respecto a los personajes (piezas sin piel, `SceneTreeNodePool`).

@@ -150,3 +150,8 @@ maps, and testing in the game. Never claim something works in game before someon
 ## Git
 
 Commits carry no `Co-Authored-By` or other AI attribution line: the maintainer is the author.
+
+## Next work
+
+`PLAN.md` §10, "Cómo hacerlo": the plan (in order A–E) for a common mod format, drag-and-drop install and
+removal, a game explorer, texture dumps / folder texture packs, and glTF export / re-import. Read it before starting.
