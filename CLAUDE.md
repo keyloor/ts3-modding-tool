@@ -20,7 +20,7 @@ Users talk to the tool in Spanish or English; the maintainer works in Spanish.
 | `kit/app.py` | The window (tkinter; texts in `TEXT`, `es` and `en`) |
 | `kit/viewer.py` | Live 3D preview: reads a converted character, skins it on the CPU (poses, live adjustments), draws it with moderngl offscreen into a tkinter label |
 | `kit/build_kit.py` | PyInstaller build: `release/<TOOL> v<VERSION>/` + zip, or `--desktop` (a copy on the Desktop + shortcut) |
-| `kit/pack/` | Templates of the exported Nexus pack: `installer.ps1`, `action.bat`, `README.txt` |
+| `kit/pack/` | Templates of the exported Nexus pack: `README_tool.txt` (installed with the tool), or with `--installer` `installer.ps1`, `action.bat`, `README.txt` |
 | `tools/` | Game formats and the converter (below) |
 | `docs/` | `GUIA_MANUAL.md` (manual workflow, Spanish), `AGENTS.md` (for users' AI agents), `ejemplos/`, `CREDITS.md` |
 | `skill/ts3-modding-tool/` | Skill for users' AI agents; keep its commands in step with the real ones |
@@ -127,8 +127,9 @@ character extracted from the game's original archive), `map.py`, `out/<c>/`, `pr
   `.oct` reads back byte for byte, previews (+ `compare.png` when there is a previous conversion).
 - `adjust` (command): the Adjustments from the CLI (`ADJUST_KEYS`, `check_adjust`, versions in
   `adjust_versions`, `adjust_info` = what the window's tab shows, `strain()` = stretch per game bone).
-- `export_pack()` builds the pack with `tools/build_release.py` and fills `kit/pack/` (UTF-8 BOM + CRLF for
-  PowerShell 5.1; `@@WHAT@@` escaped for single quotes).
+- `export_pack()` builds the pack with `tools/build_release.py`: `patches/`, `mod.json`, `README_tool.txt` (no
+  scripts: players install it with the manager, and Nexus doesn't quarantine it). `installer=True` (`--installer`)
+  adds `kit/pack/`'s installer instead (UTF-8 BOM + CRLF for PowerShell 5.1; `@@WHAT@@` escaped for single quotes).
 - The `.exe` takes the same commands (`app.main` forwards them; output in `report.txt` and `%TEMP%`).
 
 ## 3D preview (`kit/viewer.py`)

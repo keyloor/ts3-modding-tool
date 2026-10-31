@@ -4,7 +4,7 @@
 
 Right now: **put your own 3D model in place of Woody, Buzz Lightyear or Jessie.** A rigged FBX, or an OBJ (the tool
 gives it a skeleton). The tool fits it to the game's skeleton, matches its textures, shows you a preview, installs it
-into your game (and takes it out again), and exports a pack with an installer for other players. Music, sounds and
+into your game (and takes it out again), and exports a pack for other players. Music, sounds and
 textures are next.
 
 > Work in progress (version 0.1). Fan-made, not affiliated with Disney, Pixar or Avalanche Software. No game files are
@@ -29,7 +29,8 @@ textures are next.
 - **Everything from the command line too** (`kit.py adjust`, `kit.py mods`), for scripts and AI agents.
 - **Install / restore** with a backup of the game's archive; refuses to build on an archive another mod changed, and
   finds the original in other installers' backups.
-- **Export a Nexus pack**: an installer that puts only your changes into each player's own game.
+- **Export a Nexus pack**: only your changes, which players drop on the tool to install (no scripts, so Nexus doesn't
+  hold it for review); optionally with its own installer for players without the tool.
 - **Advanced**: everything is driven by a plain Python "map" file you can edit by hand, with every option of the
   converter (eyelids, face, split weights, colour palettes...).
 - A window in Spanish and English, a command line, a `.exe` that needs no Python, a manual guide, and instructions plus

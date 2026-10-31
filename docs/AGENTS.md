@@ -99,9 +99,11 @@ window's Adjustments tab). The report's line `neck length: model X cm, game Y cm
 its own length` says when to use it: a stretch beyond 1.25 means a long, distorted neck; set `head_cm` to N.
 
 To publish: `kit.py export work/<name> --name "<Mod name>" --version 1.0 --author "<user>" --what "<one line>"
---model-credits "<model author>"` writes `work/<name>/pack/<Mod name> for TS3/` and its zip: an installer that puts
-only the mod's files into each player's own archive, README with the credits. Ask the user for every field; never
-invent the model's author or permission.
+--model-credits "<model author>"` writes `work/<name>/pack/<Mod name> for TS3/` and its zip: only the mod's changes to
+the game archive (`patches/`), `mod.json` and a README with the credits. Players install it with the tool (drop it
+on the window, or `mods install`); it holds no scripts, so Nexus doesn't quarantine it. `--installer` adds its
+own installer (.bat + .ps1) for players without the tool; Nexus then reviews each upload by hand. Ask the user for
+every field; never invent the model's author or permission.
 
 Without Python, `Toy Story 3 Modding Tool.exe` takes the same commands (`"Toy Story 3 Modding Tool.exe" make work/<name>`); it has
 no console, so read `<project>/report.txt` (and `%TEMP%\Toy Story 3 Modding Tool.log`).

@@ -232,9 +232,41 @@ class Package:
                 if rel.startswith(('patches/', 'assets/', 'data_dx/')):
                     h.update(rel.encode('utf-8') + b'\0')
                     h.update(hashlib.sha256(self.read(rel)).digest())
+        name, ver = self._legacy_label()
         return validate({'schema_version': 1, 'id': 'legacy.' + h.hexdigest()[:24],
-                         'name': self.source.stem, 'version': '0.0.0', 'author': '', 'description': '',
+                         'name': name, 'version': ver, 'author': '', 'description': '',
                          'game': 'ts3-pc', 'patches': patches, 'files': files})
+
+    def _legacy_label(self):
+        """an old pack's name and version, read as text (never run): its installer's $Name / $Version, else the
+        README's first line ('Restored Songs for Toy Story 3      version 1.1'), else the file name ('... v1.1')"""
+        name, ver = None, None
+        for key, (fname, _) in sorted(self.entries.items()):
+            rel = key[len(self.prefix):] if key.startswith(self.prefix) else None
+            if rel is None or '/' in rel or not rel.endswith(('.ps1', '.txt')):
+                continue
+            try:
+                text = self.read(rel)[:65536].decode('utf-8-sig', 'replace')
+            except ModError:
+                continue
+            if rel.endswith('.ps1'):
+                m = re.search(r"^\$Name\s*=\s*'([^']+)'", text, re.M)
+                v = re.search(r"^\$Version\s*=\s*'([^']+)'", text, re.M)
+                name, ver = (m.group(1) if m else name), (v.group(1) if v else ver)
+            elif rel.startswith('readme'):
+                first = next((ln.strip() for ln in text.splitlines() if ln.strip()), '')
+                m = re.match(r'(.+?)\s{2,}v(?:ersion)?\s*(\d+(?:\.\d+){0,2})\b', first, re.I)
+                if m:
+                    name, ver = name or m.group(1), ver or m.group(2)
+        stem = self.source.name if self.source.is_dir() else self.source.stem   # a folder "x v1.2" has no suffix
+        m = re.match(r'(.+?)[\s_-]+v?(\d+(?:\.\d+){1,2})$', stem)
+        if m:
+            stem, ver = m.group(1), ver or m.group(2)
+        try:
+            ver = version(ver) if ver else '0.0.0'
+        except ModError:
+            ver = '0.0.0'
+        return (name or stem).strip()[:120] or stem, ver
 
     def close(self):
         if self.zip:

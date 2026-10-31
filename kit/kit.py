@@ -17,9 +17,10 @@
   python kit.py restore <project dir>
       put the converted character into the game / put the game's own archive back (the game must be closed)
   python kit.py export <project dir> --name "<pack name>" [--version 1.0] [--author <you>] [--what <one line>]
-                       [--model-credits <who made the model>]
-      a pack for Nexus in <project dir>/pack/: an installer that puts only this mod's files into each player's own
-      game archive (the same installer as keyloor's mods), README, and a zip of it all
+                       [--model-credits <who made the model>] [--installer]
+      a pack for Nexus in <project dir>/pack/: only this mod's changes to the game archive, mod.json and README,
+      zipped; players install it with the Modding Tool (no scripts: no manual review on Nexus). --installer adds
+      its own installer (.bat, the same as keyloor's mods) for players without the tool
 
 What it writes in the project dir: game/<character>/ (the game's files), map.py, out/<character>/ (the converted
 files), previews/body.png and face.png, report.txt (everything it printed). The first install keeps the game's
@@ -544,9 +545,12 @@ def restore_project(work):
     return c
 
 
-def export_pack(work, name, version='1.0', author='', what='', model_credits=''):
-    """a Nexus pack in <project>/pack/: '<name> for TS3/' (installer, .bat files, README, patches/) and its zip.
-    The patches are made by tools/build_release.py from the converted files and the game's own archive."""
+def export_pack(work, name, version='1.0', author='', what='', model_credits='', installer=False):
+    """a Nexus pack in <project>/pack/: '<name> for TS3/' (mod.json, README, patches/) and its zip, installed with
+    the Modding Tool (drag and drop, or 'mods install'): no scripts, so Nexus doesn't hold it for a manual review.
+    installer=True adds the pack's own installer (.ps1 + .bat files) for players without the tool; Nexus reviews
+    every upload with scripts by hand. The patches are made by tools/build_release.py from the converted files and
+    the game's own archive."""
     import re, zipfile, build_release
     name = re.sub(r'[^A-Za-z0-9 ._()-]', '', name).strip()
     version = modfile.version(version)
@@ -606,10 +610,11 @@ def export_pack(work, name, version='1.0', author='', what='', model_credits='')
         enc = 'utf-8-sig' if ps else 'utf-8'                       # Windows PowerShell 5.1 needs the BOM for accents
         with open(os.path.join(dst, dst_name), 'w', encoding=enc, newline='\r\n') as f:
             f.write(t)
-    write('installer.ps1', script, ps=True)
-    write('action.bat', 'Install %s.bat' % name, {'@@ACTION@@': 'install', '@@ACTION_TITLE@@': 'Installs'})
-    write('action.bat', 'Uninstall %s.bat' % name, {'@@ACTION@@': 'uninstall', '@@ACTION_TITLE@@': 'Uninstalls'})
-    write('README.txt', 'README.txt')
+    if installer:
+        write('installer.ps1', script, ps=True)
+        write('action.bat', 'Install %s.bat' % name, {'@@ACTION@@': 'install', '@@ACTION_TITLE@@': 'Installs'})
+        write('action.bat', 'Uninstall %s.bat' % name, {'@@ACTION@@': 'uninstall', '@@ACTION_TITLE@@': 'Uninstalls'})
+    write('README.txt' if installer else 'README_tool.txt', 'README.txt')
     metadata = modfile.validate({
         'schema_version': 1, 'id': proj['mod_id'], 'name': name, 'version': version,
         'author': author.strip(), 'description': what, 'game': 'ts3-pc',
@@ -704,8 +709,10 @@ def main(argv=None):
     s.add_argument('project'); s.add_argument('--name', required=True); s.add_argument('--version', default='1.0')
     s.add_argument('--author', default=''); s.add_argument('--what', default='')
     s.add_argument('--model-credits', default='')
+    s.add_argument('--installer', action='store_true',
+                   help='also its own installer (.bat), for players without the tool; Nexus reviews it by hand')
     s.set_defaults(fn=lambda a: print('pack: %s\nzip:  %s' % export_pack(
-        os.path.abspath(a.project), a.name, a.version, a.author, a.what, a.model_credits)))
+        os.path.abspath(a.project), a.name, a.version, a.author, a.what, a.model_credits, a.installer)))
     a = p.parse_args(argv)
     try:
         a.fn(a)

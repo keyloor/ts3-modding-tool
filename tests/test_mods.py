@@ -98,6 +98,25 @@ class Mods(unittest.TestCase):
         self.store.remove(meta['id'])
         self.assertEqual(self.live.read_bytes(), b'original music')
 
+    def test_legacy_name_and_version(self):
+        def old_pack(folder, extra):
+            root = self.root / folder
+            (root / 'data_dx').mkdir(parents=True)
+            (root / 'data_dx/music.bank').write_bytes(b'old pack music')
+            for name, text in extra.items():
+                (root / name).write_text(text, encoding='utf-8')
+            return root
+        readme = old_pack('Restored', {'README.txt': '\nRestored Songs for Toy Story 3          version 1.1 (October 2026)\n'})
+        script = old_pack('TS5', {'ts5.ps1': "$Name = 'TS5 Characters'\n$Version = '1.0'\n", 'README.txt': 'x'})
+        named = old_pack('Songs pack v2.3', {})
+        plain = old_pack('Just files', {})
+        got = []
+        for src in (readme, script, named, plain):
+            with MF.Package(src) as p:
+                got.append((p.metadata['name'], p.metadata['version']))
+        self.assertEqual(got, [('Restored Songs for Toy Story 3', '1.1.0'), ('TS5 Characters', '1.0.0'),
+                               ('Songs pack', '2.3.0'), ('Just files', '0.0.0')])
+
     def test_target_conflict_and_external_edit(self):
         self.store.install(self.package())
         with self.assertRaisesRegex(MF.ModError, 'conflict'):

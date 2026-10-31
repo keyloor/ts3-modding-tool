@@ -312,8 +312,10 @@ instalar.) Solo puede haber **un mod por personaje**: instalar otro sobre el mis
 ## 10. Publicarlo
 
 Si el modelo no es tuyo, publica solo si su autor lo permite. Nunca subas archivos del juego. Un pack para Nexus lleva
-solo tus cambios y un instalador que los aplica sobre la copia del juego de cada persona; el kit lo genera (fase 5 del
-plan). Pon en la página: "Hecho con TS3 Modding Tool de keyloor".
+solo tus cambios (`patches/`) y un `mod.json`; quien lo descarga lo arrastra a TS3 Modding Tool, que lo aplica sobre
+su copia del juego. Como no lleva scripts, Nexus no lo retiene para revisarlo. Si quieres que funcione también sin la
+herramienta, marca «Incluir también un instalador propio (.bat)» al exportar (`--installer`): entonces Nexus revisa
+cada subida a mano. Pon en la página: "Hecho con TS3 Modding Tool de keyloor" y la herramienta como requisito.
 
 ---
 

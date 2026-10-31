@@ -40,6 +40,7 @@ python -I <KIT>/kit/kit.py make work/<name> --remap
 python -I <KIT>/kit/kit.py install work/<name>
 python -I <KIT>/kit/kit.py restore work/<name>
 python -I <KIT>/kit/kit.py export work/<name> --name "<Mod name>" --author "<user>" --what "<one line>" --model-credits "<model author>"
+#   the pack has no scripts (players install it with the tool); add --installer only if the user wants a .bat too
 ```
 
 No Python? `"<KIT>/Toy Story 3 Modding Tool.exe" make work/<name>` takes the same commands (no console: read

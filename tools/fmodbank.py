@@ -10,9 +10,20 @@ bit 0 more chunks, bits 1-4 rate code, 5-6 channels, 7-33 data offset / 32, 34-6
 'more | size << 1 | type << 25' + bytes), the name table (u32 offsets + NUL strings), then each sound's data, 32-aligned.
 Mode 15 = Vorbis; chunk type 11 = its CRC and seek table, so a sound is its header chunks + its data, nothing else.
 
+  python fmodbank.py loop <events bank> <sounds bank> <sound> <out events bank> [loop start, seconds]
+
 merge takes every sound from the base bank and the named ones (by name or index) from donors, rebuilds the FSB5 and
 fixes the three sizes that depend on it (RIFF, SNDH, SND). The FSB5 header's 16-byte hash is kept from the base:
 the game doesn't check it (community mods change it freely).
+
+loop fits a music event to a replaced sound's length. The events bank (<name>.bank, same RIFF layout, no audio)
+plays each sound through a waveform instrument: WAIS/WAIT/WAIB = instrument GUID + waveform GUID (the sounds bank's
+WAVS/'WAV ' records: GUID, u32, u16, u32 sound index, u32). The event's timeline TLNS/TMLN/TLNB = timeline GUID,
+u16 1, then u16 3, u16 24, instrument GUID, u32 start, u32 length; u16 0, u16 2, u16 26, loop region GUID, u32 start,
+u16 0, u32 length; u16 1. Its TRNB (transition) = GUID, region GUID, u32 from, u32 to (both the region's end). The
+timeline counts 48000 per second whatever the sound's rate (the game's sounds are all 48000 Hz, so their lengths are
+their sample counts). A replaced sound keeps the old length, so a longer one is cut and looped back early: this sets
+the instrument and the loop region to the new sound's length, the region starting at [loop start] (default 0).
 """
 import struct, sys
 
@@ -101,6 +112,43 @@ def same(x, y):
     return x['head'][8:] == y['head'][8:] and x['data'] == y['data'] and x['v'] & ~OFF_MASK == y['v'] & ~OFF_MASK
 
 
+TIMELINE_RATE = 48000
+
+
+def fit_loop(events, sounds, i, loop_start=0.0):
+    """The events bank's bytes with sound i's instrument and loop region set to its length."""
+    m = bytearray(events)
+    leaves = [(cid, off, size) for cid, off, size in chunks(m, 0, len(m)) if cid not in (b'RIFF', b'LIST')]
+    wav = {}
+    for cid, off, size in chunks(sounds['bytes'], 0, sounds['base']):
+        if cid == b'WAV ':
+            wav[struct.unpack_from('<I', sounds['bytes'], off + 8 + 22)[0]] = sounds['bytes'][off + 8:off + 24]
+    s = sounds['sounds'][i]
+    length = s['samples'] * TIMELINE_RATE // s['rate']
+    start = round(loop_start * TIMELINE_RATE)
+    inst = [m[off + 8:off + 24] for cid, off, size in leaves if cid == b'WAIB' and m[off + 24:off + 40] == wav[i]]
+    assert len(inst) == 1, 'sound %d: %d waveform instruments' % (i, len(inst))
+    tl = [off + 8 for cid, off, size in leaves if cid == b'TLNB' and m[off + 30:off + 46] == inst[0]]
+    assert len(tl) == 1, 'sound %d: %d timelines' % (i, len(tl))
+    t = tl[0]
+    assert struct.unpack_from('<3H', m, t + 16) == (1, 3, 24), 'unexpected timeline layout'
+    assert struct.unpack_from('<3H', m, t + 46) == (0, 2, 26), 'timeline has no single loop region'
+    old_len = struct.unpack_from('<I', m, t + 42)[0]
+    region = bytes(m[t + 52:t + 68])
+    r_start, r_len = struct.unpack_from('<I', m, t + 68)[0], struct.unpack_from('<I', m, t + 74)[0]
+    assert r_start + r_len == old_len, 'loop region does not end at the instrument end'
+    tr = [off + 8 for cid, off, size in leaves if cid == b'TRNB' and m[off + 24:off + 40] == region]
+    assert all(struct.unpack_from('<2I', m, p + 32) == (old_len, old_len) for p in tr), 'unexpected transition'
+    print('sound %d: length %d -> %d, loop %d-%d -> %d-%d (%d transitions)' % (
+        i, old_len, length, r_start, old_len, start, length, len(tr)))
+    struct.pack_into('<I', m, t + 42, length)
+    struct.pack_into('<I', m, t + 68, start)
+    struct.pack_into('<I', m, t + 74, length - start)
+    for p in tr:
+        struct.pack_into('<2I', m, p + 32, length, length)
+    return bytes(m)
+
+
 def main(args):
     cmd = args[0]
     if cmd == 'list':
@@ -129,6 +177,11 @@ def main(args):
         check = read(args[2])
         assert all(same(x, y) for x, y in zip(check['sounds'], sounds)), 'merged bank reads back wrong'
         print('wrote', args[2], len(check['bytes']), 'bytes')
+    elif cmd == 'loop':
+        sounds = read(args[2])
+        out = fit_loop(open(args[1], 'rb').read(), sounds, find(sounds, args[3]), float(args[5]) if len(args) > 5 else 0)
+        open(args[4], 'wb').write(out)
+        print('wrote', args[4])
     else:
         sys.exit(__doc__)
 

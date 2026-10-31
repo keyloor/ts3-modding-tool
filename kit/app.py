@@ -163,6 +163,9 @@ TEXT = {
         advanced_note='Modo avanzado: las tablas no cambian tu map.py. Edítalo a mano (guía manual) y pulsa «Convertir».',
         pack_name='Nombre del mod', version='Versión', author='Tu nombre', what='Qué hace (una línea)',
         model_credits='Autor del modelo / permiso',
+        exp_installer='Incluir también un instalador propio (.bat) para quien no tenga la herramienta',
+        exp_installer_note='Sin él, el pack no lleva scripts: se instala arrastrándolo a TS3 Modding Tool y Nexus '
+                           'no lo retiene para revisarlo. Con él, Nexus revisa cada subida a mano.',
         rights='Publica el modelo solo si su autor lo permite. El pack no lleva archivos del juego: solo tus cambios.',
         exported='Pack listo:\n%s\n\nSúbelo a Nexus con el crédito «Hecho con TS3 Modding Tool de keyloor».',
         no_game_first='Primero hace falta la carpeta del juego (Inicio → Buscar el juego).',
@@ -314,6 +317,9 @@ TEXT = {
         advanced_note='Advanced mode: the tables do not change your map.py. Edit it by hand (manual guide) and press "Convert".',
         pack_name='Mod name', version='Version', author='Your name', what='What it does (one line)',
         model_credits='Model author / permission',
+        exp_installer="Also include its own installer (.bat) for players without the tool",
+        exp_installer_note='Without it the pack holds no scripts: it is installed by dropping it on TS3 Modding Tool '
+                           'and Nexus does not hold it for review. With it, Nexus reviews every upload by hand.',
         rights='Publish the model only if its author allows it. The pack has no game files: only your changes.',
         exported='Pack ready:\n%s\n\nUpload it to Nexus with the credit "Made with TS3 Modding Tool by keyloor".',
         no_game_first='The game folder is needed first (Start → Find the game).',
@@ -1850,15 +1856,19 @@ class App:
             v = tk.StringVar(value=last.get(k, default))
             ttk.Entry(f, textvariable=v, width=60).pack(fill='x', pady=(0, 6))
             fields[k] = v
+        inst = tk.BooleanVar(value=bool(last.get('installer')))
+        ttk.Checkbutton(f, text=self.t('exp_installer'), variable=inst).pack(anchor='w', pady=(4, 0))
+        ttk.Label(f, text=self.t('exp_installer_note'), wraplength=420, style='Muted.TLabel').pack(anchor='w', padx=(20, 0))
         ttk.Label(f, text=self.t('rights'), wraplength=420, foreground='#a04000').pack(anchor='w', pady=(4, 0))
 
         def go():
             vals = {k: v.get() for k, v in fields.items()}
+            vals['installer'] = bool(inst.get())
             self.proj['pack'] = vals
             self.save_project()
             d.destroy()
             self.run(lambda: K.export_pack(self.work, vals['pack_name'], vals['version'], vals['author'],
-                                           vals['what'], vals['model_credits']),
+                                           vals['what'], vals['model_credits'], vals['installer']),
                      lambda res: (messagebox.showinfo(TOOL, self.t('exported') % res[1]), self.open_path(os.path.dirname(res[1]))))
         bf = ttk.Frame(f); bf.pack(fill='x', pady=(8, 0))
         ttk.Button(bf, text=self.t('ok'), command=go).pack(side='right')

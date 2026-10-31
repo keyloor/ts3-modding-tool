@@ -83,7 +83,11 @@ primera vez, guarda un `mod_id` generado en `kit_project.json`; las siguientes e
 del mismo proyecto lo reutilizan, aunque cambie el nombre. Para derivar un mod independiente,
 asigna otro `mod_id` al proyecto copiado. El resto del formato de parches no cambia.
 
-Los paquetes antiguos reciben un ID `legacy.<huella del contenido>` y versión `0.0.0`.
+Los paquetes antiguos reciben un ID `legacy.<huella del contenido>`. Su nombre y versión se
+leen como texto (nunca se ejecuta nada): `$Name` / `$Version` de su instalador `.ps1`, si no la
+primera línea del `README.txt` («Restored Songs for Toy Story 3      version 1.1»), si no el nombre
+del ZIP o carpeta («… v1.1»); sin ninguno, `0.0.0`. Los ya instalados conservan lo que se
+registró al instalarlos: para ver su versión, quítalos y vuelve a instalarlos.
 No se inventan el autor, créditos o dependencias. Un cambio de contenido cambia ese ID;
 añade `mod.json` para darles identidad estable entre versiones.
 
