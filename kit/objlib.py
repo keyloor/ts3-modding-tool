@@ -118,46 +118,85 @@ def seg_dist(P, a, b):
     return np.linalg.norm(P - (a + t[:, None] * ab), axis=1)
 
 
+def section(P, edges, axis, value):
+    """where the mesh crosses the plane P[:, axis] = value: one point per edge that crosses it. Unlike the vertices
+    near the plane, this works however big the triangles are (low-poly models have long, empty stretches)."""
+    a, b = P[edges[:, 0]], P[edges[:, 1]]
+    da, db = a[:, axis] - value, b[:, axis] - value
+    m = da * db < 0
+    t = da[m] / (da[m] - db[m])
+    return a[m] + t[:, None] * (b[m] - a[m])
+
+
+def arm_landmarks(P, edges, H, sd):
+    """fingertip, shoulder and arm thickness of one side. The arm is followed inwards in vertical cuts through the
+    mesh (from 70% of the fingertip's reach, where only the arm is), its centre tracked from cut to cut; the torso
+    starts at the first cut whose points around that centre spread over more than 2.2 arm thicknesses. The shoulder
+    joint sits half an arm thickness inside that. Works for T and lowered (A) arms; a drooping hand doesn't tilt it."""
+    side = P[P[:, 0] * sd > 0]
+    tip = side[np.argmax(side[:, 0] * sd)]
+    tx = float(tip[0] * sd)
+    step = 0.01 * H
+    x = 0.7 * tx
+    cut = section(P, edges, 0, sd * x)
+    cut = cut[np.abs(cut[:, 1] - np.median(cut[:, 1])) < 0.15 * H] if len(cut) else cut
+    if len(cut) < 2:
+        return tip, np.array([sd * 0.25 * tx, tip[1], tip[2]]), 0.06 * H
+    th = max(float(np.ptp(cut[:, 1])), 0.01 * H)        # the arm's thickness (taller if the arm is lowered)
+    centres = [(x, float(cut[:, 1].min() + cut[:, 1].max()) / 2, float(cut[:, 2].mean()))]
+    edge = None
+    while x > 0.05 * H:
+        x -= step
+        cut = section(P, edges, 0, sd * x)
+        if len(centres) >= 2:                            # where the arm's centre line is heading
+            (x1, y1, _), (x2, y2, _) = centres[-2], centres[-1]
+            pred = y2 + (y2 - y1) / (x2 - x1) * (x - x2)
+        else:
+            pred = centres[-1][1]
+        near = cut[np.abs(cut[:, 1] - pred) < 3 * th] if len(cut) else cut
+        arm = cut[np.abs(cut[:, 1] - pred) < max(0.8 * th, 0.02 * H)] if len(cut) else cut
+        if len(near) >= 2 and np.ptp(near[:, 1]) > 2.2 * th and len(centres) >= 3:
+            edge = x
+            break
+        if len(arm) >= 2:
+            centres.append((x, float(arm[:, 1].min() + arm[:, 1].max()) / 2, float(arm[:, 2].mean())))
+    xe, ye, ze = centres[-1] if edge is None else (edge, centres[-1][1], centres[-1][2])
+    shoulder = np.array([sd * max(xe - 0.5 * th, 0.03 * H), ye, ze])
+    return tip, shoulder, th
+
+
+def narrowest(P, y0, H):
+    """the height of the narrowest horizontal slice of points P (near the middle: no arms) between y0 and the top"""
+    best = None
+    for y in np.arange(y0 + 0.01 * H, 0.97 * H, 0.005 * H):
+        sl = P[(np.abs(P[:, 1] - y) < 0.006 * H) & (np.abs(P[:, 0]) < 0.25 * H)]
+        if len(sl) > 2 and (best is None or np.ptp(sl[:, 0]) < best[0]):
+            best = (float(np.ptp(sl[:, 0])), float(y))
+    return best[1] if best else y0 + 0.1 * H
+
+
 def landmarks(P, tris, H):
     """what the model's own shape says: crotch height, neck (narrowest slice above the arms) height, and per side the
-    fingertip, the arm's line and where the arm meets the torso"""
+    fingertip, where the arm meets the torso and the arm's thickness"""
     out = {}
     # crotch: the lowest triangle crossing the middle plane (x = 0) above the shins
     tx = P[tris][:, :, 0]
     ty = P[tris][:, :, 1].mean(1)
     cross = (tx.min(1) < 0) & (tx.max(1) > 0) & (ty > 0.2 * H) & (np.ptp(tx, 1) < 0.15 * H)
     out['crotch'] = float(ty[cross].min()) if cross.any() else None
+    edges = np.unique(np.sort(np.concatenate([tris[:, [0, 1]], tris[:, [1, 2]], tris[:, [2, 0]]]), 1), axis=0)
     for sd, s in ((1, 'Left'), (-1, 'Right')):
-        side = P[P[:, 0] * sd > 0]
-        tip = side[np.argmax(side[:, 0] * sd)]
-        tx_ = float(tip[0] * sd)
-        mid = side[(side[:, 0] * sd > 0.5 * tx_) & (side[:, 0] * sd < 0.8 * tx_)]
-        c = mid.mean(0) if len(mid) else tip
-        d = tip - c
-        d /= max(np.linalg.norm(d), 1e-9)
-        # walk in from the tip along the arm: the torso starts where the slice gets much thicker than the arm
-        rel = side - tip
-        along = -(rel @ d)                                   # distance in from the tip
-        perp = np.linalg.norm(rel + along[:, None] * d, axis=1)
-        near = perp < 0.12 * H
-        thick, step = [], 0.01 * H
-        for k in range(int(tx_ / step)):                    # slices 2 steps wide: low-poly arms have few points
-            sl = near & (along >= (k - 0.5) * step) & (along < (k + 1.5) * step)
-            thick.append(float(np.ptp(side[sl][:, 1])) if sl.sum() > 1 else np.nan)
-        thick = np.array(thick)
-        arm = thick[int(0.3 * len(thick)):int(0.55 * len(thick))]
-        ref = float(np.nanmedian(arm)) if np.isfinite(arm).any() else 0.08 * H
-        edge = next((k for k in range(int(0.3 * len(thick)), len(thick))
-                     if thick[k] > 2.2 * ref and thick[k] > ref + 0.04 * H), None)
-        shoulder = tip - d * ((edge * step if edge else 0.75 * tx_) + 0.5 * ref)
-        out['tip' + s], out['dir' + s], out['shoulder' + s], out['arm' + s] = tip, d, shoulder, ref
-    # neck: the narrowest slice between the shoulders and the top (only points near the middle: no arms)
+        tip, shoulder, th = arm_landmarks(P, edges, H, sd)
+        d = tip - shoulder
+        out['tip' + s], out['dir' + s], out['shoulder' + s], out['arm' + s] = tip, d / np.linalg.norm(d), shoulder, th
+    # neck: the narrowest horizontal cut between the shoulders and the top (only near the middle: no arms)
     sy = min(out['shoulderLeft'][1], out['shoulderRight'][1])
     best = None
-    for y in np.arange(sy, 0.97 * H, 0.01 * H):
-        sl = P[(np.abs(P[:, 1] - y) < 0.006 * H) & (np.abs(P[:, 0]) < 0.25 * H)]
-        if len(sl) > 2:
-            w = float(np.ptp(sl[:, 0]))
+    for y in np.arange(sy + 0.01 * H, 0.97 * H, 0.005 * H):
+        cut = section(P, edges, 1, y)
+        cut = cut[np.abs(cut[:, 0]) < 0.25 * H] if len(cut) else cut
+        if len(cut) > 2:
+            w = float(np.ptp(cut[:, 0]))
             if best is None or w < best[0]:
                 best = (w, y)
     out['neck'] = best[1] if best else None
@@ -212,7 +251,13 @@ def rig(P, game_dir, base, tris=None):
         hipY + (gb_[1] - hip_g[1]) * s0
     hips_y = hipY + (gh_[1] - hip_g[1]) * s0
     neck_y = lm['neck'] if lm.get('neck') and lm['neck'] > sy else sy + 0.4 * (H - sy)
-    ys = {'Hips': hips_y, 'Neck': sy + 0.45 * (neck_y - sy), 'Head': neck_y + 0.02 * H}
+    # the neck and head joints where the game character has them, measured the same way: as fractions of the span
+    # from its shoulders to the narrowest cut of its neck (Woody: the neck joint at 0.76 of it, the head 0.40 above)
+    g_narrow = narrowest(GP, gb_[1], Hg)
+    span_g, span = max(g_narrow - gb_[1], 1e-6), neck_y - sy
+    f_neck = float(np.clip((G('Neck')[1] - gb_[1]) / span_g, 0.2, 1.0))
+    f_head = float(np.clip((G('Head')[1] - g_narrow) / span_g, 0.0, 1.0))
+    ys = {'Hips': hips_y, 'Neck': sy + f_neck * span, 'Head': neck_y + f_head * span}
     for n in ('Spine1', 'Spine2', 'Spine3'):
         ys[n] = hips_y + (G(n)[1] - gh_[1]) / (gb_[1] - gh_[1]) * (sy - hips_y)
     for n, par in (('Hips', None), ('Spine1', 'Hips'), ('Spine2', 'Spine1'), ('Spine3', 'Spine2'), ('Neck', 'Spine3'),

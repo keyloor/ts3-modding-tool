@@ -95,8 +95,11 @@ left out. `overrides` {material: image | [r, g, b] | 'skip'} come from the windo
 ## OBJ (`kit/objlib.py`)
 
 No skeleton in the file: it is turned Y-up / facing +Z (thinnest axis, feet forward), put on the floor and centred;
-`landmarks()` measures the crotch (lowest triangle crossing x = 0), the neck (narrowest slice above the shoulders) and
-each shoulder (walking in from the fingertip until the slice is 2.2x the arm's thickness); `rig()` stretches the game
+`landmarks()` measures, with cuts through the mesh (edges crossing a plane, so long low-poly triangles count), the
+crotch (lowest triangle crossing x = 0), each shoulder (`arm_landmarks`: vertical cuts from 70% of the fingertip's
+reach inwards, tracking the arm's centre, until the cut spreads over 2.2 arm thicknesses; a drooping hand doesn't
+tilt it) and the neck (narrowest horizontal cut above the shoulders); the neck and head joints take the game
+character's own fractions of the shoulder-to-narrowest span (`narrowest()` on its mesh); `rig()` stretches the game
 character's skeleton onto that (game proportions along each limb) and weights each vertex 1/d⁴ to the 3 nearest bone
 segments of its side and region. `use_game(dir, base)` must be called before opening an OBJ (automap and kit.build do).
 Checked against real rigs exported as OBJ: joints within 1–6% of the height.
