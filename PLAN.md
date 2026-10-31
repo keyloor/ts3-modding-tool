@@ -180,3 +180,73 @@ Resultado de la ronda del 30/10/2026 (tras la fase 5, a pedido del usuario):
 - **Nombre**: Toy Story 3 Modding Tool. La copia del juego va a `TS3 Modding Tool backup` (la herramienta sigue
   reconociendo la de las pruebas, `TS3 Character Kit backup`). Ajustes en `~/.ts3_modding_tool.json` (lee los viejos).
 - El release **no** se rehízo: el usuario lo está probando.
+
+## Roadmap (pedido el 31/10/2026; nada de esto está hecho todavía)
+
+Idea general: que la herramienta sea más técnica y manipulable sin obligar a editar `map.py` a mano. Todo lo que se
+ajuste en la ventana se sigue escribiendo en `map.py`, que continúa siendo editable en modo avanzado.
+
+### 1. Ajustes finos del personaje (pestaña «Ajustes» con controles y vista previa al momento)
+
+Caso que lo motivó: el Woody de Wii (OBJ, sin esqueleto) sobre Woody sale con el **cuello alargado**. El esqueleto
+estimado del OBJ pone el cuello corto respecto al del juego, y el convertidor lo estira hasta su límite
+(`Neck -> Neck stretch 1.25`) para llevar la cabeza a la articulación de la cabeza del juego; el torso además sale un
+24 % más ancho (`torso block scale 1.239`). Hoy solo se arregla a mano en `map.py` (`offset` en la cabeza y
+`tip_offset` en el cuello, como en `docs/ejemplos/cj_varios_materiales.py`).
+- **Cabeza y cuello**: subir o bajar la cabeza, largo del cuello (sin estirar / estirar hasta X), colocar la cabeza
+  por la cara (`FACE_ALIGN`) en vez de por la articulación.
+- **Proporciones**: escala general, ancho y alto del torso, largo de brazos y piernas (límites de estiramiento por
+  parte), separación de piernas y hombros.
+- **Mover una articulación a mano** (sobre todo en OBJ): arrastrar en la vista previa hombro, codo, rodilla, cuello…
+  del esqueleto estimado.
+- **Ropa y accesorios**: estrechar o ensanchar una prenda (`MATERIAL_SCALE`), decidir si un objeto suelto (bastón,
+  sombrero, arma) va con la mano, con la cabeza o fuera (`SKIP_BONES`).
+- **Ojos y cara**: abrir párpados cerrados (detectar los huesos de párpado y proponer `EYES` solo), cara animada sí/no
+  (`FACE`), alinear boca y cejas.
+- **Pesos**: ver los pesos en color sobre el modelo, repartir un hueso de ayuda entre dos (`{hueso: parte}`), suavizar.
+- **Deshacer / rehacer** y **comparar** dos versiones del ajuste.
+
+### 2. Mejor vista previa
+- Vista 3D que se gira con el ratón (no solo frente/perfil).
+- **Pose con los brazos bajados** (como anima el juego): ahí se ven los problemas de hombros y axilas.
+- Si se consigue leer las animaciones del juego: reproducir una (andar, saltar) sobre el modelo.
+- Esqueleto del juego y del modelo superpuestos; resaltar en rojo las partes muy estiradas o giradas.
+
+### 3. Diagnóstico en lenguaje normal
+Convertir los números del registro en avisos con su arreglo propuesto, con un botón para aplicarlo: «El cuello se
+estira al máximo: ¿bajar la cabeza 4 cm?», «El torso sale un 24 % más ancho: ¿limitar a 10 %?», «Este material no
+encontró imagen», «Los ojos parecen cerrados: ¿abrirlos?».
+
+### 4. Sección Texturas
+- **Explorador de todas las texturas del juego**: personajes, escenarios, objetos, menús (las de los `.oct` de cada
+  archivo; base: `tools/texpeek.py`, `tools/add_decals.py`, el mod `buzz_original_decals`).
+- **Cambiar cualquier textura**: exportarla a PNG, editarla, volver a importarla (la herramienta hace el DDS con el
+  formato y los mipmaps correctos) y verla en la vista previa.
+- **Packs de texturas de la comunidad**: un formato de pack (carpeta o zip con un `manifest.json`: archivo del juego,
+  textura, imagen, autor), instalar varios a la vez con orden de prioridad, avisar de conflictos, quitar uno sin tocar
+  los demás, y exportar un pack para Nexus como ya se hace con los personajes.
+
+### 5. Sección Música y sonidos
+Con `tools/fmodbank.py` y el mod `restored` como base: lista de canciones y sonidos del juego con reproductor,
+cambiar uno por un archivo propio (WAV/MP3/OGG, conversión automática), packs de sonido de la comunidad, exportar pack.
+
+### 6. Gestor de mods
+Ver qué hay instalado en cada archivo del juego (de la herramienta y de otros instaladores), activar/desactivar,
+combinar varios a la vez (personaje + texturas + música), perfiles, «volver todo al original» y avisar cuando Steam
+actualiza o verifica los archivos.
+
+### 7. Más personajes y más formatos
+- Probar y fijar las variantes (Buzz alterno, holográficos, 2 jugadores) y aplicar un modelo a todas las variantes
+  de un personaje a la vez; personajes secundarios (Rex, Hamm, Slinky…).
+- Más formatos de modelo: glTF/GLB (el habitual en Sketchfab), DAE, PMX (MMD); los que traen esqueleto pasan por el
+  mapeo automático, los demás por el esqueleto automático.
+
+### 8. Comunidad
+- **Presets** por tipo de esqueleto (Mixamo, Fortnite/Unreal, Biped, MMD) y por modelo, compartibles: un proyecto se
+  exporta sin el modelo (solo `map.py` y ajustes) para que otros con el mismo modelo lo reutilicen.
+- Secciones nuevas como módulos que la comunidad pueda añadir.
+- Traducciones a más idiomas desde archivos de texto.
+
+### 9. Calidad y publicación
+Pruebas automáticas con modelos libres (CC0) y GitHub Actions: `rt.py` byte a byte, los mapas de referencia, el
+`.exe` compilado en cada versión y publicado en *Releases*.
