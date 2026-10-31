@@ -15,6 +15,7 @@ from about import CREDIT, TOOL, VERSION, AUTHOR
 import automap as AM
 import viewer as V
 import kit as K
+from dropfiles import DropTarget
 from PIL import Image, ImageTk
 
 SETTINGS = os.environ.get('TS3TOOL_SETTINGS') or os.path.join(os.path.expanduser('~'), '.ts3_modding_tool.json')
@@ -31,6 +32,32 @@ TEXT = {
         mod_chars='Personajes', mod_chars_desc='Pon tu propio modelo (FBX u OBJ) en lugar de Woody, Buzz o Jessie.',
         mod_music='Música y sonidos', mod_music_desc='Cambia canciones y sonidos del juego.',
         mod_tex='Texturas', mod_tex_desc='Cambia texturas de personajes y niveles.', soon='Próximamente',
+        mods_title='Mods instalados', mods_desc='Instala paquetes, revisa lo que cambian y quítalos con su copia de seguridad.',
+        mods_open='Gestionar mods', mods_zip='Instalar mod…', mods_folder='Instalar desde carpeta…',
+        mods_refresh='Actualizar lista', mods_remove='Quitar mod', mods_recover='Recuperar operación',
+        mods_drop='Arrastra aquí un ZIP o una carpeta de mod, o usa los botones para elegirlo.',
+        mods_no_drop='Usa los botones para elegir un ZIP o una carpeta de mod.',
+        mods_empty='No hay mods instalados con este gestor.', mods_count='%d mods instalados',
+        mods_scope='Esta lista muestra los mods instalados con el gestor. Los de otros instaladores no aparecen.',
+        mods_select='Selecciona un mod para ver su descripción y los archivos que cambia.',
+        mods_files='Archivos del juego', mods_author='Autor', mods_unknown='Sin indicar',
+        mods_review='Revisar instalación', mods_confirm='Instalar este mod',
+        mods_review_note='Cierra Toy Story 3 antes de instalar. Se guardará una copia de los archivos que se reemplacen.',
+        mods_destination='Juego de destino: %s', mods_size='%d archivos · %.1f MiB',
+        mods_remove_confirm='¿Quitar «%s»?\n\nSe restaurarán los archivos anteriores a su instalación. Cierra el juego primero.',
+        mods_installed='«%s» está instalado.', mods_removed='«%s» se ha quitado.',
+        mods_pending='Hay una operación interrumpida. Pulsa «Recuperar operación» antes de continuar.',
+        mods_recovered='Recuperación terminada. Ya puedes gestionar tus mods.',
+        mods_recover_confirm='¿Restaurar el estado anterior a la operación interrumpida? Cierra el juego primero.',
+        mods_busy='Espera a que termine la operación actual.', mods_one='Suelta un solo ZIP o una sola carpeta cada vez.',
+        mods_failed='No se pudo completar la operación. Revisa estos detalles:',
+        mods_conflict='Otro mod ya cambia este archivo: %s',
+        mods_dependency='Falta una dependencia: %s', mods_declared='Este paquete es incompatible con: %s',
+        mods_existing='Este mod ya está instalado. Quítalo antes de instalar otra versión.',
+        mods_dependent='Primero quita el mod que depende de él: %s',
+        mods_external='El archivo cambió fuera del gestor. Se ha conservado: %s',
+        mods_changed='El paquete o el juego cambió después de la revisión. Vuelve a elegir el paquete.',
+        mods_closed='Cierra Toy Story 3 antes de cambiar los mods.',
         new_project='Nuevo proyecto', open_other='Abrir otro…', recent='Proyectos recientes',
         no_recent='Todavía no hay proyectos.', project_name='Nombre del proyecto (por ejemplo, el del modelo):',
         bad_name='Usa letras, números, espacios o guiones.', back='← Inicio', open_folder='Abrir carpeta',
@@ -119,6 +146,32 @@ TEXT = {
         mod_chars='Characters', mod_chars_desc='Put your own model (FBX or OBJ) in place of Woody, Buzz or Jessie.',
         mod_music='Music and sounds', mod_music_desc="Change the game's songs and sounds.",
         mod_tex='Textures', mod_tex_desc='Change textures of characters and levels.', soon='Coming soon',
+        mods_title='Installed mods', mods_desc='Install packages, review their changes and remove them using backups.',
+        mods_open='Manage mods', mods_zip='Install mod…', mods_folder='Install from folder…',
+        mods_refresh='Refresh list', mods_remove='Remove mod', mods_recover='Recover operation',
+        mods_drop='Drop a mod ZIP or folder here, or use the buttons to choose one.',
+        mods_no_drop='Use the buttons to choose a mod ZIP or folder.',
+        mods_empty='No mods have been installed with this manager.', mods_count='%d installed mods',
+        mods_scope='This list shows mods installed with the manager. Mods from other installers do not appear.',
+        mods_select='Select a mod to see its description and the files it changes.',
+        mods_files='Game files', mods_author='Author', mods_unknown='Not provided',
+        mods_review='Review installation', mods_confirm='Install this mod',
+        mods_review_note='Close Toy Story 3 before installing. A backup of replaced files will be kept.',
+        mods_destination='Target game: %s', mods_size='%d files · %.1f MiB',
+        mods_remove_confirm='Remove "%s"?\n\nFiles will return to their state before installation. Close the game first.',
+        mods_installed='"%s" is installed.', mods_removed='"%s" has been removed.',
+        mods_pending='An operation was interrupted. Press "Recover operation" before continuing.',
+        mods_recovered='Recovery complete. You can manage your mods again.',
+        mods_recover_confirm='Restore the state before the interrupted operation? Close the game first.',
+        mods_busy='Wait for the current operation to finish.', mods_one='Drop one ZIP or folder at a time.',
+        mods_failed='The operation could not be completed. Review these details:',
+        mods_conflict='Another mod already changes this file: %s',
+        mods_dependency='Missing dependency: %s', mods_declared='This package conflicts with: %s',
+        mods_existing='This mod is already installed. Remove it before installing another version.',
+        mods_dependent='Remove the dependent mod first: %s',
+        mods_external='The file changed outside the manager and has been preserved: %s',
+        mods_changed='The package or game changed after review. Choose the package again.',
+        mods_closed='Close Toy Story 3 before changing mods.',
         new_project='New project', open_other='Open another…', recent='Recent projects',
         no_recent='No projects yet.', project_name='Project name (for example, the model\'s):',
         bad_name='Use letters, digits, spaces or dashes.', back='← Start', open_folder='Open folder',
@@ -240,11 +293,16 @@ class App:
         self.info = self.tables = None
         self.force = False
         self.busy = False
+        self.drop_target = None
+        self.mods_rows = {}
+        self.mods_ready = self.mods_pending = False
         self.chars = []
         self.photos = []
         self.game_state = 'looking'
         root.title('%s %s — %s' % (TOOL, VERSION, AUTHOR))
         root.geometry('1180x860')
+        root.minsize(960, 700)
+        root.protocol('WM_DELETE_WINDOW', self.close)
         self.styles()
         self.screen = 'home'
         self.build()
@@ -253,7 +311,7 @@ class App:
 
     # ------------------------------------------------------------------ settings, texts, styles
     def load_settings(self):
-        for p in (SETTINGS, OLD_SETTINGS):
+        for p in ((SETTINGS,) if os.environ.get('TS3TOOL_SETTINGS') else (SETTINGS, OLD_SETTINGS)):
             try:
                 s = json.load(open(p, encoding='utf-8'))
                 if p == OLD_SETTINGS:
@@ -306,7 +364,8 @@ class App:
         fm.add_command(label=self.t('home_menu'), command=self.show_home)
         fm.add_command(label=self.t('new_project'), command=self.new_project)
         fm.add_command(label=self.t('open_other'), command=self.open_other)
-        fm.add_separator(); fm.add_command(label=self.t('quit'), command=self.root.destroy)
+        fm.add_command(label=self.t('mods_title'), command=self.show_mods)
+        fm.add_separator(); fm.add_command(label=self.t('quit'), command=self.close)
         m.add_cascade(label=self.t('file'), menu=fm)
         lm = tk.Menu(m, tearoff=0)
         lm.add_command(label='Español', command=lambda: self.set_lang('es'))
@@ -326,7 +385,11 @@ class App:
         self.body = ttk.Frame(self.root)
         self.body.pack(fill='both', expand=True)
         self.buttons = []
-        (self.build_project if self.screen == 'project' and self.work else self.build_home)()
+        if self.screen == 'mods':
+            self.build_mods()
+        else:
+            (self.build_project if self.screen == 'project' and self.work else self.build_home)()
+        self.root.after_idle(self.setup_drop)
 
     def clear_body(self):
         self.release_views()
@@ -337,12 +400,16 @@ class App:
             self.__dict__.pop(k, None)
 
     def set_lang(self, lang):
+        if self.busy:
+            return
         self.lang = lang
         self.save_settings()
         self.build()
 
     # ------------------------------------------------------------------ start screen
     def show_home(self):
+        if self.busy:
+            return
         self.screen = 'home'
         self.clear_body()
         self.build_home()
@@ -368,7 +435,7 @@ class App:
         cards = ttk.Frame(f); cards.pack(fill='both', expand=True, pady=(18, 0))
         cards.columnconfigure(0, weight=3); cards.columnconfigure(1, weight=2)
         c = ttk.Frame(cards, style='Card.TFrame', padding=16)
-        c.grid(row=0, column=0, rowspan=2, sticky='nsew', padx=(0, 12))
+        c.grid(row=0, column=0, rowspan=3, sticky='nsew', padx=(0, 12))
         ttk.Label(c, text=self.t('mod_chars'), style='Head.TLabel').pack(anchor='w')
         ttk.Label(c, text=self.t('mod_chars_desc')).pack(anchor='w', pady=(2, 10))
         b = ttk.Frame(c); b.pack(fill='x')
@@ -387,12 +454,257 @@ class App:
         lb.pack(fill='both', expand=True)
         lb.bind('<Double-1>', lambda e: self.recent and lb.curselection() and self.open_project(self.recent[lb.curselection()[0]]))
         lb.bind('<Return>', lambda e: self.recent and lb.curselection() and self.open_project(self.recent[lb.curselection()[0]]))
-        for r, (k, d) in enumerate((('mod_music', 'mod_music_desc'), ('mod_tex', 'mod_tex_desc'))):
+        s = ttk.Frame(cards, style='Card.TFrame', padding=16)
+        s.grid(row=0, column=1, sticky='nsew', pady=(0, 12))
+        ttk.Label(s, text=self.t('mods_title'), style='Head.TLabel').pack(anchor='w')
+        ttk.Label(s, text=self.t('mods_desc'), wraplength=350).pack(anchor='w', pady=(2, 10))
+        ttk.Button(s, text=self.t('mods_open'), style='Big.TButton', command=self.show_mods).pack(anchor='w')
+        for r, (k, d) in enumerate((('mod_music', 'mod_music_desc'), ('mod_tex', 'mod_tex_desc')), start=1):
             s = ttk.Frame(cards, style='Card.TFrame', padding=16)
-            s.grid(row=r, column=1, sticky='nsew', pady=(0, 12) if r == 0 else 0)
+            s.grid(row=r, column=1, sticky='nsew', pady=(0, 12) if r == 1 else 0)
             ttk.Label(s, text=self.t(k), style='Head.TLabel', foreground='#888888').pack(anchor='w')
             ttk.Label(s, text=self.t(d), style='Muted.TLabel').pack(anchor='w', pady=(2, 6))
             ttk.Label(s, text=self.t('soon'), style='Muted.TLabel').pack(anchor='w')
+
+    # ------------------------------------------------------------------ installed mods
+    def setup_drop(self):
+        if os.name != 'nt' or not self.root.winfo_exists():
+            return
+        hwnd = self.root.winfo_id()
+        if self.drop_target and self.drop_target.hwnd == hwnd:
+            return
+        try:
+            if self.drop_target:
+                self.drop_target.close()
+            self.drop_target = DropTarget(hwnd, lambda files: self.q.put(('drop', files)))
+        except OSError:
+            self.drop_target = None
+        if self.screen == 'mods':
+            self.mods_drop_lbl.config(text=self.t('mods_drop' if self.drop_target else 'mods_no_drop'))
+
+    def close(self):
+        if self.busy:
+            self.status.set(self.t('mods_busy'))
+            return
+        if self.drop_target:
+            self.drop_target.close()
+        self.release_views()
+        self.root.destroy()
+
+    def dropped(self, files):
+        if self.busy or self.root.grab_current():
+            self.status.set(self.t('mods_busy'))
+            return
+        if len(files) != 1:
+            messagebox.showinfo(self.t('mods_title'), self.t('mods_one'), parent=self.root)
+            return
+        if self.screen not in ('home', 'mods'):
+            return
+        if self.screen == 'home':
+            self.show_mods(load=False)
+        self.choose_package(files[0])
+
+    def show_mods(self, load=True):
+        if self.busy:
+            return
+        self.screen = 'mods'
+        self.clear_body()
+        self.build_mods(load)
+
+    def build_mods(self, load=True):
+        f = ttk.Frame(self.body, padding=(28, 20)); f.pack(fill='both', expand=True)
+        top = ttk.Frame(f); top.pack(fill='x')
+        self.mods_back = ttk.Button(top, text=self.t('back'), command=self.show_home)
+        self.mods_back.pack(side='left', padx=(0, 16))
+        ttk.Label(top, text=self.t('mods_title'), style='Title.TLabel').pack(side='left')
+        ttk.Label(f, text=self.t('mods_scope'), style='Sub.TLabel').pack(anchor='w', pady=(8, 12))
+        g = ttk.Frame(f); g.pack(fill='x')
+        self.game_lbl = ttk.Label(g); self.game_lbl.pack(side='left')
+        self.game_btn = ttk.Button(g, command=self.browse_game); self.game_btn.pack(side='left', padx=10)
+        self.show_game()
+        self.mods_drop_lbl = ttk.Label(f, text=self.t('mods_drop' if self.drop_target else 'mods_no_drop'),
+                                       style='Hint.TLabel', padding=(12, 14), relief='groove')
+        self.mods_drop_lbl.pack(fill='x', pady=16)
+        bar = ttk.Frame(f); bar.pack(fill='x', pady=(0, 12))
+        self.mods_zip_btn = ttk.Button(bar, text=self.t('mods_zip'), command=self.choose_package)
+        self.mods_folder_btn = ttk.Button(bar, text=self.t('mods_folder'), command=lambda: self.choose_package(folder=True))
+        self.mods_reload_btn = ttk.Button(bar, text=self.t('mods_refresh'), command=self.reload_mods)
+        self.mods_remove_btn = ttk.Button(bar, text=self.t('mods_remove'), command=self.remove_mod)
+        self.mods_recover_btn = ttk.Button(bar, text=self.t('mods_recover'), command=self.recover_mods)
+        for b in (self.mods_zip_btn, self.mods_folder_btn, self.mods_reload_btn, self.mods_remove_btn):
+            b.pack(side='left', padx=(0, 8))
+        self.mods_recover_btn.pack(side='right')
+        self.buttons = [self.mods_back, self.game_btn, self.mods_zip_btn, self.mods_folder_btn,
+                        self.mods_reload_btn, self.mods_remove_btn, self.mods_recover_btn]
+        pane = ttk.Frame(f); pane.pack(fill='both', expand=True)
+        pane.rowconfigure(0, weight=1); pane.columnconfigure(0, weight=1)
+        self.mods_tree = ttk.Treeview(pane, columns=('name', 'version', 'author', 'files'), show='headings',
+                                     selectmode='browse', height=8)
+        for key, label, width in (('name', 'pack_name', 320), ('version', 'version', 100),
+                                  ('author', 'mods_author', 200), ('files', 'mods_files', 120)):
+            self.mods_tree.heading(key, text=self.t(label))
+            self.mods_tree.column(key, width=width, minwidth=80, stretch=key in ('name', 'author'))
+        self.mods_tree.grid(row=0, column=0, sticky='nsew')
+        scroll = ttk.Scrollbar(pane, orient='vertical', command=self.mods_tree.yview)
+        scroll.grid(row=0, column=1, sticky='ns'); self.mods_tree.config(yscrollcommand=scroll.set)
+        self.mods_tree.bind('<<TreeviewSelect>>', lambda e: self.mod_selected())
+        self.mods_note = ttk.Label(f, text=self.t('working'), style='Muted.TLabel', wraplength=1000)
+        self.mods_note.pack(anchor='w', pady=(8, 12))
+        self.mods_details = tk.Text(f, height=7, wrap='word', font=('Segoe UI', 10), relief='flat',
+                                    background='#f4f4f4', padx=12, pady=8)
+        self.mods_details.pack(fill='x')
+        self.set_mod_details(self.t('mods_select'))
+        self.mods_rows = {}
+        self.mods_ready = self.mods_pending = False
+        self.refresh_mod_controls()
+        if load:
+            self.reload_mods()
+
+    def refresh_mod_controls(self):
+        if self.screen != 'mods':
+            return
+        enabled = not self.busy and bool(self.settings.get('game'))
+        for button in (self.mods_zip_btn, self.mods_folder_btn):
+            button.state(['!disabled'] if enabled and not self.mods_pending else ['disabled'])
+        self.mods_reload_btn.state(['!disabled'] if enabled else ['disabled'])
+        selected = bool(self.mods_tree.selection())
+        self.mods_remove_btn.state(['!disabled'] if enabled and self.mods_ready and selected else ['disabled'])
+        self.mods_recover_btn.state(['!disabled'] if enabled and self.mods_pending else ['disabled'])
+
+    def set_mod_details(self, text):
+        self.mods_details.config(state='normal')
+        self.mods_details.delete('1.0', 'end'); self.mods_details.insert('1.0', text)
+        self.mods_details.config(state='disabled')
+
+    def mod_selected(self):
+        if self.screen != 'mods':
+            return
+        sel = self.mods_tree.selection()
+        mod = self.mods_rows.get(sel[0]) if sel else None
+        text = self.t('mods_select')
+        if mod:
+            m = mod['metadata']
+            text = '%s  %s\n%s\n\n%s:\n%s' % (m['name'], m['version'], m['description'],
+                self.t('mods_files'), '\n'.join(r['path'] for r in mod['files']))
+        self.set_mod_details(text)
+        self.refresh_mod_controls()
+
+    def reload_mods(self, notice=None):
+        if self.busy or self.screen != 'mods':
+            return
+        game = self.settings.get('game')
+        if not game:
+            self.mods_note.config(text=self.t('no_game_first'))
+            return
+        selected = self.mods_tree.selection()
+        def read():
+            store = K.modstore.Store(game)
+            pending = store.path(K.modstore.JOURNAL).exists()
+            return pending, [] if pending else store.list()
+        def done(result):
+            self.mods_pending, records = result
+            self.mods_ready = not self.mods_pending
+            self.mods_rows = {r['metadata']['id']: r for r in records}
+            self.mods_tree.delete(*self.mods_tree.get_children())
+            for mid, r in self.mods_rows.items():
+                m = r['metadata']
+                self.mods_tree.insert('', 'end', iid=mid, values=(m['name'], m['version'],
+                    m['author'] or self.t('mods_unknown'), len(r['files'])))
+            if selected and selected[0] in self.mods_rows:
+                self.mods_tree.selection_set(selected[0])
+            self.mod_selected()
+            self.mods_note.config(text=self.t('mods_pending') if self.mods_pending else
+                                  self.t('mods_count') % len(records) if records else self.t('mods_empty'))
+            self.status.set(notice or self.t('ready'))
+        self.run(read, done, on_error=self.mods_failed)
+
+    def mods_failed(self, msg):
+        exact = {
+            'mod is already installed; remove it before installing another version': 'mods_existing',
+            'package or game changed since preview; review the package again': 'mods_changed',
+            'close Toy Story 3 before changing mods': 'mods_closed',
+            'interrupted operation: run mods recover first': 'mods_pending'}
+        prefixes = {'file conflict: ': 'mods_conflict', 'missing dependency: ': 'mods_dependency',
+                    'declared conflict with ': 'mods_declared', 'remove dependent mod first: ': 'mods_dependent',
+                    'file changed outside the manager; kept untouched: ': 'mods_external'}
+        translated = self.t(exact[msg]) if msg in exact else msg
+        for prefix, key in prefixes.items():
+            if msg.startswith(prefix):
+                translated = self.t(key) % msg[len(prefix):]
+                break
+        self.status.set(self.t('error'))
+        if self.screen == 'mods':
+            try:
+                self.mods_pending = K.modstore.Store(self.settings['game']).path(K.modstore.JOURNAL).exists()
+            except (ValueError, OSError, KeyError):
+                self.mods_pending = False
+            self.mods_note.config(text=self.t('mods_pending') if self.mods_pending else translated)
+            self.refresh_mod_controls()
+        messagebox.showerror(self.t('error'), self.t('mods_failed') + '\n\n' + translated, parent=self.root)
+
+    def choose_package(self, source=None, folder=False):
+        if self.busy or self.root.grab_current():
+            return
+        game = self.settings.get('game')
+        if not game:
+            messagebox.showinfo(self.t('mods_title'), self.t('no_game_first'), parent=self.root)
+            return
+        if source is None:
+            source = filedialog.askdirectory(title=self.t('mods_folder'), parent=self.root) if folder else \
+                filedialog.askopenfilename(title=self.t('mods_zip'), filetypes=[('ZIP', '*.zip')], parent=self.root)
+        if not source:
+            return
+        source = os.path.abspath(source)
+        self.run(lambda: K.modstore.Store(game).preview(source),
+                 lambda result: self.review_package(source, game, result), on_error=self.mods_failed)
+
+    def review_package(self, source, game, result):
+        meta = result['metadata']
+        d, f = self.dialog(self.t('mods_review'))
+        ttk.Label(f, text=meta['name'], style='Head.TLabel', wraplength=660).pack(anchor='w')
+        ttk.Label(f, text='%s %s · %s: %s' % (self.t('version'), meta['version'], self.t('mods_author'),
+            meta['author'] or self.t('mods_unknown')), wraplength=660).pack(anchor='w', pady=(3, 10))
+        ttk.Label(f, text=meta['description'], wraplength=660).pack(anchor='w')
+        ttk.Label(f, text=self.t('mods_destination') % game, wraplength=660).pack(anchor='w', pady=(12, 4))
+        ttk.Label(f, text=self.t('mods_size') % (len(result['files']), result['bytes'] / 1024**2)).pack(anchor='w')
+        items = tk.Text(f, width=80, height=min(8, len(result['files']) + 1), wrap='word')
+        items.insert('1.0', '\n'.join(r['path'] for r in result['files']))
+        items.config(state='disabled'); items.pack(fill='both', expand=True, pady=8)
+        ttk.Label(f, text=self.t('mods_review_note'), wraplength=660).pack(anchor='w', pady=(0, 10))
+        bar = ttk.Frame(f); bar.pack(fill='x')
+        def dismiss():
+            d.destroy()
+            self.reload_mods()
+        def install():
+            d.destroy()
+            self.run(lambda: K.modstore.Store(game).install(source, expected=result['ticket']),
+                     lambda m: self.reload_mods(self.t('mods_installed') % m['name']), on_error=self.mods_failed)
+        ttk.Button(bar, text=self.t('mods_confirm'), command=install).pack(side='right')
+        cancel = ttk.Button(bar, text=self.t('cancel'), command=dismiss)
+        cancel.pack(side='right', padx=8)
+        d.bind('<Escape>', lambda e: dismiss())
+        d.protocol('WM_DELETE_WINDOW', dismiss)
+        self.status.set(self.t('mods_review'))
+
+    def remove_mod(self):
+        if self.busy:
+            return
+        sel = self.mods_tree.selection()
+        if not sel or sel[0] not in self.mods_rows:
+            return
+        m = self.mods_rows[sel[0]]['metadata']
+        game = self.settings['game']
+        if messagebox.askyesno(self.t('mods_remove'), self.t('mods_remove_confirm') % m['name'], parent=self.root):
+            self.run(lambda: K.modstore.Store(game).remove(m['id']),
+                     lambda meta: self.reload_mods(self.t('mods_removed') % meta['name']), on_error=self.mods_failed)
+
+    def recover_mods(self):
+        if self.busy or not self.mods_pending:
+            return
+        game = self.settings['game']
+        if messagebox.askyesno(self.t('mods_recover'), self.t('mods_recover_confirm'), parent=self.root):
+            self.run(lambda: K.modstore.Store(game).recover(),
+                     lambda _: self.reload_mods(self.t('mods_recovered')), on_error=self.mods_failed)
 
     def recent_projects(self):
         seen, out = set(), []
@@ -430,6 +742,8 @@ class App:
             self.show_game()
             if self.screen == 'project':
                 self.fill_others()
+            elif self.screen == 'mods':
+                self.reload_mods()
 
         def failed(msg):
             self.game_state = 'missing'
@@ -438,11 +752,15 @@ class App:
         self.run(job, done, quiet=True, on_error=failed)
 
     def browse_game(self):
+        if self.busy:
+            return
         d = filedialog.askdirectory(title=self.t('find_game'))
         if d:
             self.look_for_game(d)
 
     def browse_workspace(self):
+        if self.busy:
+            return
         d = filedialog.askdirectory(title=self.t('workspace') % '')
         if d:
             self.settings['workspace'] = d
@@ -450,6 +768,8 @@ class App:
             self.show_home()
 
     def new_project(self):
+        if self.busy:
+            return
         d, f = self.dialog(self.t('new_project'))
         ttk.Label(f, text=self.t('project_name')).pack(anchor='w')
         v = tk.StringVar()
@@ -472,12 +792,16 @@ class App:
         ttk.Button(bf, text=self.t('cancel'), command=d.destroy).pack(side='right', padx=6)
 
     def open_other(self):
+        if self.busy:
+            return
         d = filedialog.askdirectory(title=self.t('open_other'), initialdir=self.settings['workspace'])
         if d:
             self.open_project(d)
 
     # ------------------------------------------------------------------ project screen
     def open_project(self, d):
+        if self.busy:
+            return
         self.work = os.path.abspath(d)
         self.proj = K.load_project(self.work)
         if not self.proj.get('game') and self.settings.get('game'):
@@ -863,6 +1187,7 @@ class App:
 
     def refresh(self):
         """labels, buttons and the next-step hint from the project's state"""
+        self.refresh_mod_controls()
         if not hasattr(self, 'hint') or not self.hint.winfo_exists():
             return
         p = self.proj
@@ -1193,6 +1518,9 @@ class App:
         try:
             while True:
                 kind, val = self.q.get_nowait()
+                if kind == 'drop':
+                    self.dropped(val)
+                    continue
                 if kind == 'log':
                     if hasattr(self, 'log') and self.log.winfo_exists():
                         self.log.insert('end', val); self.log.see('end')
@@ -1240,13 +1568,12 @@ class App:
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] in ('characters', 'doctor', 'make', 'install', 'restore', 'export'):
+    if len(sys.argv) > 1 and sys.argv[1] in ('characters', 'doctor', 'make', 'install', 'restore', 'export', 'mods'):
         # '<tool>.exe make <project> ...': kit.py's commands without Python. The .exe has no console, so what they print
         # goes to %TEMP%\<tool>.log (make also writes <project>\report.txt)
         if sys.stdout is None:
             sys.stdout = sys.stderr = open(os.path.join(os.environ.get('TEMP', '.'), TOOL + '.log'), 'w', encoding='utf-8')
-        K.main(sys.argv[1:])
-        return
+        raise SystemExit(K.main(sys.argv[1:]))
     root = tk.Tk()
     App(root)
     root.mainloop()

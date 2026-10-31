@@ -17,7 +17,9 @@ from about import TOOL, VERSION
 KIT = paths.KIT
 TOOLS_USED = ['octlib', 'fbxlib', 'ts3model', 'convert', 'render', 'install', 'build_release', 'zx', 'zls', 'rt',
               'fbxinfo', 'bones5', 'dump', 'texpeek', 'angles', 'skelcmp']
-KIT_FILES = ['about', 'paths', 'automap', 'autotex', 'objlib', 'viewer', 'kit', 'app', 'build_kit']
+KIT_FILES = ['about', 'paths', 'automap', 'autotex', 'objlib', 'viewer', 'modfile', 'modstore', 'dropfiles',
+             'modcli', 'cli', 'kit', 'app', 'build_kit']
+CLI = 'TS3 Modding CLI'
 SHORTCUT = 'Abrir ' + TOOL + '.lnk'
 
 
@@ -30,11 +32,11 @@ def desktop():
 
 def exe_running(folder):
     """is the .exe of that folder open? (its files can't be replaced then)"""
-    exe = os.path.join(folder, TOOL + '.exe').lower()
+    exes = {os.path.join(folder, name + '.exe').lower() for name in (TOOL, CLI)}
     out = subprocess.run(['powershell', '-NoProfile', '-Command',
                           "Get-Process | Where-Object { $_.Path } | ForEach-Object { $_.Path }"],
                          capture_output=True, text=True).stdout.lower()
-    return exe in out.splitlines()
+    return bool(exes.intersection(out.splitlines()))
 
 
 def to_desktop(rel):
@@ -64,6 +66,15 @@ def main(to_desk=False):
                     '--hidden-import', 'glcontext.wgl', '--hidden-import', 'glcontext.empty',   # moderngl's GL backend
                     '--specpath', work, os.path.join(KIT, 'kit', 'app.py')], check=True)
     shutil.copytree(os.path.join(work, 'dist', TOOL), rel)
+
+    # A separate console executable gives agents real stdout/stderr and reliable exit codes.
+    # One-file keeps its bundled runtime separate from the GUI's dependency directory.
+    subprocess.run([sys.executable, '-m', 'PyInstaller', '--noconfirm', '--console', '--onefile', '--name', CLI,
+                    '--paths', os.path.join(KIT, 'kit'), '--paths', paths.TOOLS,
+                    '--distpath', os.path.join(work, 'dist'), '--workpath', os.path.join(work, 'work'),
+                    '--hidden-import', 'glcontext.wgl', '--hidden-import', 'glcontext.empty',
+                    '--specpath', work, os.path.join(KIT, 'kit', 'cli.py')], check=True)
+    shutil.copy2(os.path.join(work, 'dist', CLI + '.exe'), rel)
 
     os.makedirs(os.path.join(rel, 'kit', 'pack'))
     for n in KIT_FILES:

@@ -1,6 +1,6 @@
 ---
 name: ts3-modding-tool
-description: Put a custom 3D model (rigged FBX, or OBJ without skeleton) into Toy Story 3 Complete Edition (PC) in place of Woody, Buzz or Jessie with the TS3 Modding Tool by keyloor. Use when the user wants to mod Toy Story 3 with the TS3 Modding Tool, replace a Toy Story 3 character with their own model, fix how a converted model looks, tune its bone or texture map, install or uninstall it, or prepare it for Nexus.
+description: Create character replacements and manage mod packages for Toy Story 3 Complete Edition with TS3 Modding Tool by keyloor. Use for FBX/OBJ conversion, bone or texture adjustments, Nexus pack export, or inspecting, installing, verifying and removing existing TS3 mod packages through the CLI.
 ---
 
 # TS3 Modding Tool (by keyloor)
@@ -15,6 +15,15 @@ rules. For any map table or manual fix, read `<KIT>/docs/GUIA_MANUAL.md` (Spanis
 §7 common fixes, §8 closed eyes) and the real maps in `<KIT>/docs/ejemplos/`.
 
 ## Quick path (Python 3.12 with numpy and Pillow; always `python -I`)
+
+For existing mod packages, use the CLI instead of the model-conversion steps below.
+Read `<KIT>/docs/CLI.md` for the JSON contract, errors and command arguments. Discover with
+`python -I <KIT>/kit/cli.py mods capabilities --json`, or `<KIT>/TS3 Modding CLI.exe mods capabilities --json`
+without Python. Pass the game folder explicitly. Prepare with `mods plan`, review the
+changes, then use `mods install --expect TICKET` within the user's authorized scope.
+Use `mods verify` to check files and backups and `mods remove --dry-run` before removal.
+Do not bypass conflicts or external changes by deleting the registry or backups.
+The console executable provides stdout and exit codes; the GUI executable logs to a file.
 
 ```
 python -I <KIT>/kit/kit.py doctor

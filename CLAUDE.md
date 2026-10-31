@@ -153,5 +153,12 @@ Commits carry no `Co-Authored-By` or other AI attribution line: the maintainer i
 
 ## Next work
 
+Implemented first slice: `kit/modfile.py` (schema 1 + folder/ZIP packages), `kit/modstore.py`
+(transactional install/remove, exclusive target ownership, recoverable journal), `kit.py mods`
+commands, and `mod.json` in exports with a stable project ID. See `docs/MOD_FORMAT.md`.
+Run `python -I tests/test_mods.py`: synthetic integration tests, no game files or user settings.
+Backups in `<game>/TS3 Modding Tool/objects/` are SHA-256 addressed; never delete them manually.
+Update polling and the manager UI/drop support remain pending, as do C–E. Do not claim B is complete.
+
 `PLAN.md` §10, "Cómo hacerlo": the plan (in order A–E) for a common mod format, drag-and-drop install and
 removal, a game explorer, texture dumps / folder texture packs, and glTF export / re-import. Read it before starting.

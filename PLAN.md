@@ -291,6 +291,15 @@ Fuentes: [Hedge Mod Manager](https://github.com/thesupersonic16/HedgeModManager)
 
 #### Cómo hacerlo (plan del 31/10/2026, para quien lo implemente)
 
+**Avance (31/10/2026): A y núcleo de B implementados.** `kit/modfile.py` valida el esquema 1
+de `mod.json`, versiones y dependencias; `export_pack` lo incluye y conserva un ID por proyecto.
+`kit/modstore.py` instala y quita paquetes modernos y antiguos, con registro, copias SHA-256,
+transacciones recuperables y bloqueo concurrente. Comandos `kit.py mods inspect/install/list/remove/recover`.
+Pruebas sintéticas en `tests/test_mods.py`; contrato y uso en `docs/MOD_FORMAT.md`.
+En esta primera versión se rechazan destinos compartidos entre mods y cambios externos al desinstalar;
+no hay combinación por prioridades. Pendiente de A: consultar actualizaciones. Pendiente de B:
+pantalla de mods, diálogo y arrastrar/soltar. C–E no empezados. La verificación en el juego sigue pendiente.
+
 Orden recomendado, porque cada paso usa el anterior: **A** formato común → **B** arrastrar y soltar → **C** explorador
 → **D** volcado de texturas → **E** exportar / reimportar glTF. Reglas de siempre (ver `CLAUDE.md`): código propio,
 nada de archivos del juego en el repo, `tools/` sin cambiar lo que ya produce, textos de la ventana en `es` y `en`,

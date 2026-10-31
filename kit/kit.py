@@ -20,12 +20,14 @@ What it writes in the project dir: game/<character>/ (the game's files), map.py,
 files), previews/body.png and face.png, report.txt (everything it printed). The first install keeps the game's
 archive in '<game>/TS3 Modding Tool backup/'.
 """
-import argparse, contextlib, hashlib, json, os, shutil, sys
+import argparse, contextlib, hashlib, json, os, shutil, sys, uuid
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.dont_write_bytecode = True                         # loading map.py would leave a __pycache__ in the project
 import paths  # noqa: F401  (puts the shared tools on sys.path)
+import modfile
+import modstore
 from about import CREDIT
 import automap as AM
 import objlib
@@ -338,8 +340,9 @@ def install_project(work):
     if not os.path.isfile(os.path.join(out, c + '.oct')):
         raise KitError('nothing converted yet: run make first')
     check_closed()
-    INS.BACKUP = backup_root(game, c)                   # the game's own archive is kept next to the game
-    INS.install(game, archive(c), out)
+    with modstore.unmanaged(game, archive(c)):
+        INS.BACKUP = backup_root(game, c)               # the game's own archive is kept next to the game
+        INS.install(game, archive(c), out)
     return c
 
 
@@ -352,7 +355,8 @@ def restore_project(work):
     if not os.path.isfile(bak):
         raise KitError('the kit has not changed %s (no backup at %s)' % (c, bak))
     check_closed()
-    shutil.copy2(bak, os.path.join(game, *archive(c).split('/')))
+    with modstore.unmanaged(game, archive(c)):
+        shutil.copy2(bak, os.path.join(game, *archive(c).split('/')))
     return c
 
 
@@ -361,7 +365,7 @@ def export_pack(work, name, version='1.0', author='', what='', model_credits='')
     The patches are made by tools/build_release.py from the converted files and the game's own archive."""
     import re, zipfile, build_release
     name = re.sub(r'[^A-Za-z0-9 ._()-]', '', name).strip()
-    version = re.sub(r'[^A-Za-z0-9.]', '', version) or '1.0'
+    version = modfile.version(version)
     if not name:
         raise KitError('the pack needs a name (letters, digits, spaces)')
     proj = load_project(work)
@@ -375,6 +379,11 @@ def export_pack(work, name, version='1.0', author='', what='', model_credits='')
     if orig is None:
         raise KitError('%s is changed by another mod and no backup of the original was found: uninstall that mod '
                        'first, the pack is made against the game\'s own archive' % rel)
+    # The project owns its mod identity, which survives renames and new exports.
+    if 'mod_id' not in proj:
+        proj['mod_id'] = 'mod.' + uuid.uuid4().hex
+        save_project(work, proj)
+    modfile.identifier(proj['mod_id'])
     root = os.path.join(work, 'pack')
     stage = os.path.join(root, 'build')
     if os.path.isdir(stage):
@@ -417,6 +426,13 @@ def export_pack(work, name, version='1.0', author='', what='', model_credits='')
     write('action.bat', 'Install %s.bat' % name, {'@@ACTION@@': 'install', '@@ACTION_TITLE@@': 'Installs'})
     write('action.bat', 'Uninstall %s.bat' % name, {'@@ACTION@@': 'uninstall', '@@ACTION_TITLE@@': 'Uninstalls'})
     write('README.txt', 'README.txt')
+    metadata = modfile.validate({
+        'schema_version': 1, 'id': proj['mod_id'], 'name': name, 'version': version,
+        'author': author.strip(), 'description': what, 'game': 'ts3-pc',
+        'credits': [CREDIT] + ([model_credits.strip()] if model_credits.strip() else []),
+        'patches': [{'manifest': 'patches/manifest.txt'}], 'files': [], 'requires': [], 'conflicts': []})
+    with open(os.path.join(dst, 'mod.json'), 'wb') as f:
+        f.write(modfile.json_bytes(metadata))
     zpath = os.path.join(root, '%s v%s.zip' % (folder, version))
     with zipfile.ZipFile(zpath, 'w', zipfile.ZIP_DEFLATED) as z:
         for base, _, files in os.walk(dst):
@@ -473,10 +489,15 @@ def doctor(a):
 
 
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == 'mods':
+        import modcli
+        return modcli.main(argv[1:], game_resolver=find_game)
     p = argparse.ArgumentParser(prog='kit.py', description=CREDIT)
     sub = p.add_subparsers(dest='cmd', required=True)
     s = sub.add_parser('characters'); s.add_argument('--game'); s.set_defaults(fn=list_characters)
     s = sub.add_parser('doctor'); s.add_argument('--game'); s.set_defaults(fn=doctor)
+    sub.add_parser('mods', help='non-interactive mod manager; mods --help for commands')
     s = sub.add_parser('make')
     s.add_argument('project'); s.add_argument('--character'); s.add_argument('--fbx'); s.add_argument('--textures')
     s.add_argument('--game'); s.add_argument('--remap', action='store_true'); s.add_argument('--install', action='store_true')
@@ -492,9 +513,9 @@ def main(argv=None):
     a = p.parse_args(argv)
     try:
         a.fn(a)
-    except (KitError, ValueError, FileNotFoundError) as e:
+    except (KitError, ValueError, OSError) as e:
         sys.exit('error: %s' % e)
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

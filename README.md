@@ -43,6 +43,10 @@ Start screen → Characters → New project → pick the character, your model �
 Command line: `python -I kit/kit.py make work/my_model --character woody --fbx model.fbx --textures textures/`
 (`python -I kit/kit.py --help` for the rest).
 
+The first mod-manager commands are also available: `kit.py mods inspect/install/list/remove/recover`.
+They support exported packs and folders/ZIPs with game files, with backups and interrupted-operation recovery.
+The manager UI is still pending. See [format and usage (Spanish)](docs/MOD_FORMAT.md).
+
 **Without Python**: `python -I kit/build_kit.py` builds `Toy Story 3 Modding Tool.exe` (needs PyInstaller); ready-made
 builds will be on the releases page and on Nexus Mods.
 

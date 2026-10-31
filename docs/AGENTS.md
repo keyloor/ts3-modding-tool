@@ -6,6 +6,24 @@ are `docs/GUIA_MANUAL.md` (manual, every map table explained) and the skill in `
 
 ## What you are doing
 
+For installing, inspecting, verifying or removing an existing mod package, prefer the
+non-interactive CLI over driving the window. Read `docs/CLI.md` for the protocol and
+`docs/MOD_FORMAT.md` for package constraints. Start with:
+
+```text
+python -I <KIT>/kit/cli.py mods capabilities --json
+```
+
+Without Python, use `<KIT>/TS3 Modding CLI.exe` with the same arguments after `cli.py`.
+It returns UTF-8 JSON on stdout and meaningful exit codes. Use an explicit `--game` path,
+inspect the package, prepare `mods plan`, and apply it with `mods install --expect TICKET`
+within the user's authorized scope. `mods verify ID` checks installed files and backups;
+`mods remove ID --dry-run` prepares removal. Tickets are bound to the operation and game
+folder. A failed verification returns exit code 4 and includes its report in `data`.
+Do not treat successful checks as proof of appearance or behavior in the game. The
+character-conversion workflow below applies when creating or fixing a model, not merely
+installing a package.
+
 Replacing a Toy Story 3 Complete Edition (PC) character's mesh with the user's rigged FBX. The game keeps its own
 skeleton, animations and animation network; the FBX mesh is fitted onto the game's bind pose, weighted to the game's
 bones, split into pieces of at most 40 bones, and written into `<base>.oct` + `<base>_0.vbuf` + `<base>_0.ibuf`, which
