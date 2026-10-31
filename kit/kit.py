@@ -8,7 +8,12 @@
       --install also puts it into the game. The settings are kept in <project dir>/kit_project.json, so the next
       'make' needs only the project dir. An existing <project dir>/map.py is used as it is (your edits stay):
       --remap writes it again from scratch.
-  python kit.py install <project dir>
+  python kit.py adjust <project dir> [--set KEY=VALUE] [--put KEY NAME=VALUE] [--unset KEY] [--drop KEY NAME]
+                       [--joint BONE=X,Y,Z] [--reset-joints] [--save-version NAME] [--load-version NAME]
+                       [--delete-version NAME] [--info] [--json]
+      the fine-tuning the window's Adjustments tab makes (kit_project.json 'adjust'; keys in ADJUST_KEYS):
+      shows it, with --info also what the tool measured and what can be chosen (bones, materials, eyes, face);
+      changes it; keeps named versions of it. Then 'make --remap' converts with it.
   python kit.py restore <project dir>
       put the converted character into the game / put the game's own archive back (the game must be closed)
   python kit.py export <project dir> --name "<pack name>" [--version 1.0] [--author <you>] [--what <one line>]
@@ -20,7 +25,7 @@ What it writes in the project dir: game/<character>/ (the game's files), map.py,
 files), previews/body.png and face.png, report.txt (everything it printed). The first install keeps the game's
 archive in '<game>/TS3 Modding Tool backup/'.
 """
-import argparse, contextlib, hashlib, json, os, shutil, sys, uuid
+import argparse, contextlib, hashlib, json, os, re, shutil, sys, uuid
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -175,12 +180,174 @@ def check_closed():
 # ------------------------------------------------------------------------------------------- project
 def load_project(work):
     p = os.path.join(work, 'kit_project.json')
-    return json.load(open(p, encoding='utf-8')) if os.path.isfile(p) else {}
+    if not os.path.isfile(p):
+        return {}
+    with open(p, encoding='utf-8') as f:
+        return json.load(f)
 
 
 def save_project(work, proj):
     with open(os.path.join(work, 'kit_project.json'), 'w', encoding='utf-8') as f:
         json.dump(proj, f, indent=2)
+
+
+# kit_project.json 'adjust': what each key holds (the window's Adjustments tab writes them; 'adjust' sets them)
+ADJUST_KEYS = {
+    'head_cm': 'number: the head (and the end of the neck) up (+) or down (-), in cm',
+    'torso': '[x, y, z]: the torso block wider / taller / deeper, in percent',
+    'head_pct': 'number: head size, percent', 'neck_pct': 'number: neck thickness, percent',
+    'arms_pct': 'number: arm thickness, percent', 'legs_pct': 'number: leg thickness, percent',
+    'props': '{model bone: hand_left | hand_right | head | chest | hips | out}: where a loose object goes',
+    'garments': '{model material: percent}: that material narrower / wider (x and z, about the hips)',
+    'weights': '{model bone: game bone | {game bone: share}}: which game bones move that bone\'s vertices',
+    'smooth': 'whole number: passes smoothing the weights (0 = none)',
+    'eyes_open': '{"top": degrees, "bottom": degrees}: open shut lids (needs eye and lid bones)',
+    'face': 'true / false: the face moves with the game\'s face bones (jaw, lips, brows)',
+    'head_by_face': 'true / false: place the head by the face bones instead of the head joint'}
+
+
+def check_adjust(adj):
+    """KitError if a key or value is not one the tool reads"""
+    for k, v in adj.items():
+        if k not in ADJUST_KEYS:
+            raise KitError('unknown adjust key %r (known: %s)' % (k, ', '.join(ADJUST_KEYS)))
+        if k in ('props', 'garments', 'weights', 'eyes_open') and not isinstance(v, dict):
+            raise KitError('%s must be a JSON object: %s' % (k, ADJUST_KEYS[k]))
+        if k == 'torso' and not (isinstance(v, list) and len(v) == 3):
+            raise KitError('torso must be [x, y, z]')
+        if k == 'props':
+            bad = [p for p in v.values() if p not in tuple(AM.PROP_PLACES) + ('out',)]
+            if bad:
+                raise KitError('props: unknown place %r (hand_left, hand_right, head, chest, hips, out)' % bad[0])
+
+
+def strain(work):
+    """how far the last conversion stretched or squeezed each part, from report.txt: {game bone: factor} (1 = the
+    model's own length; the converter keeps limbs within 0.8..1.25 and the torso block's width / height too)"""
+    out = {}
+    try:
+        lines = open(os.path.join(work, 'report.txt'), encoding='utf-8').read().splitlines()
+    except OSError:
+        return out
+    torso = None
+    for line in lines:
+        m = re.match(r'^\s+(.+?)\s+->\s+(\S+)\s+turn\s+-?[\d.]+ deg\s+stretch ([\d.]+)', line)
+        if m:
+            out[m.group(2)] = float(m.group(3))
+        m = re.search(r'torso block.*scale \[([^\]]+)\]', line)
+        if m:
+            torso = [float(x) for x in m.group(1).split()]
+    if torso:
+        k = max(torso[:2], key=lambda x: abs(np.log(x)))
+        for n in ('Hips', 'Spine1', 'Spine2', 'Spine3'):
+            out.setdefault(n, k)
+    return out
+
+
+def adjust_info(work, proj):
+    """what the tool measured on the model and what the adjust keys can name (needs the model and the game)"""
+    tables, info = detect(work, proj, log=lambda *a: None)
+    _, bones3, *_ = T.load(os.path.join(work, 'game', proj['character'], proj['character'] + '.oct'))
+    sk = info['skeleton']
+    return dict(neck=info['neck'], torso=info['torso'],
+                props=[dict(bone=b, now=tables['WEIGHTS'].get(b)) for b in info['extras']],
+                places=list(AM.PROP_PLACES) + ['out'],
+                materials=sorted(tables.get('_tex_tris', {})),
+                eyes={s: dict(eye=e, top=t, bottom=b) for s, (e, t, b) in info['eyes'].items()},
+                face=info['face'], weights=tables['WEIGHTS'], model_bones=sorted(sk.skinned),
+                game_bones=[b['name'] for b in bones3], joints=dict(info['body'], moved=list(info['moved'])),
+                stretch=strain(work))
+
+
+def adjust(a):
+    work = os.path.abspath(a.project)
+    proj = load_project(work)
+    if not proj:
+        raise KitError('no project at %s (make it first)' % work)
+    adj = dict(proj.get('adjust', {}))
+
+    def value(s):
+        try:
+            return json.loads(s)
+        except ValueError:
+            return s
+    for kv in a.set or []:
+        k, _, v = kv.partition('=')
+        adj[k.strip()] = value(v)
+    for k, kv in a.put or []:
+        name, _, v = kv.partition('=')
+        d = dict(adj.get(k) or {})
+        d[name] = value(v)
+        adj[k] = d
+    for k in a.unset or []:
+        adj.pop(k, None)
+    for k, name in a.drop or []:
+        if isinstance(adj.get(k), dict):
+            adj[k].pop(name, None)
+            if not adj[k]:
+                adj.pop(k)
+    check_adjust(adj)
+    joints = dict(proj.get('joints', {}))
+    if a.reset_joints:
+        joints = {}
+    for kv in a.joint or []:
+        name, _, v = kv.partition('=')
+        xyz = [float(x) for x in v.split(',')]
+        if len(xyz) != 3:
+            raise KitError('--joint wants BONE=X,Y,Z')
+        joints[name] = xyz
+    versions = proj.get('adjust_versions', {})
+    if a.load_version:
+        if a.load_version not in versions:
+            raise KitError('no version %r (saved: %s)' % (a.load_version, ', '.join(versions) or 'none'))
+        adj = dict(versions[a.load_version].get('adjust', {}))
+        joints = dict(versions[a.load_version].get('joints', {}))
+    for key, val in (('adjust', adj), ('joints', joints)):
+        if val:
+            proj[key] = val
+        else:
+            proj.pop(key, None)
+    if a.save_version:
+        versions[a.save_version] = {k: proj[k] for k in ('adjust', 'joints') if k in proj}
+    if a.delete_version:
+        versions.pop(a.delete_version, None)
+    if versions:
+        proj['adjust_versions'] = versions
+    else:
+        proj.pop('adjust_versions', None)
+    changed = any([a.set, a.put, a.unset, a.drop, a.joint, a.reset_joints, a.save_version, a.load_version,
+                   a.delete_version])
+    if changed:
+        save_project(work, proj)
+    out = dict(project=work, adjust=proj.get('adjust', {}), joints=proj.get('joints', {}),
+               versions=sorted(versions), keys=ADJUST_KEYS,
+               next='make --remap converts with it' if changed else None)
+    if a.info:
+        out['info'] = adjust_info(work, proj)
+    if a.json:
+        print(json.dumps(out, ensure_ascii=False, default=lambda o: list(o) if isinstance(o, (set, tuple)) else
+                         [float(x) for x in o] if isinstance(o, np.ndarray) else str(o)))
+        return
+    print('project: %s' % work)
+    print('adjust: %s' % json.dumps(out['adjust'], ensure_ascii=False))
+    if out['joints']:
+        print('joints moved by hand: %s' % ', '.join(out['joints']))
+    print('versions: %s' % (', '.join(out['versions']) or 'none'))
+    if 'info' in out:
+        i = out['info']
+        if i['neck']:
+            print('neck: model %(model_cm)s cm, game %(game_cm)s cm, stretched x%(stretch)s; head_cm %(natural_cm)s '
+                  'keeps its own length' % i['neck'])
+        if i['torso']:
+            print('torso: the tool already makes it %s%% wide, %s%% tall' % (i['torso'].get('width_pct', 100),
+                                                                          i['torso'].get('height_pct', 100)))
+        print('eyes found: %s' % (', '.join('%s %s (%d top / %d bottom lid bones)' % (s, e['eye'], len(e['top']),
+              len(e['bottom'])) for s, e in i['eyes'].items()) or 'none'))
+        print('face bones found: %s' % (', '.join('%s=%s' % kv for kv in i['face'].items()) or 'none'))
+        print('loose bones (props): %s' % (', '.join(p['bone'] for p in i['props']) or 'none'))
+        print('materials (garments): %s' % ', '.join(i['materials']))
+    if changed:
+        print('saved. Convert with it: kit.py make "%s" --remap' % a.project)
 
 
 def guess_textures(fbx):
@@ -208,6 +375,16 @@ class Tee:
 
 
 # ------------------------------------------------------------------------------------------- previews
+def compare_preview(work, character, before, now):
+    """previews/compare.png: the conversion before this one next to this one, front and side"""
+    bounds = (np.array([-1.3, 0.0]), np.array([1.3, 2.0]))
+    row = RD.draw(before, character, 'oct', bounds) + RD.draw(now, character, 'oct', bounds)
+    im = Image.new('RGB', (RD.W * len(row), RD.W), 'white')
+    for k, r in enumerate(row):
+        im.paste(r, (k * RD.W, 0))
+    im.save(os.path.join(work, 'previews', 'compare.png'))
+
+
 def previews(work, character, out_dir, game_dir):
     os.makedirs(os.path.join(work, 'previews'), exist_ok=True)
     bounds = (np.array([-1.3, 0.0]), np.array([1.3, 2.0]))
@@ -299,8 +476,12 @@ def build(work, proj, remap=False, force=False):
 
         print('\n== convert')
         out = os.path.join(work, 'out', c)
+        prev = os.path.join(work, 'out_prev', c)         # the conversion before this one, for comparing
         if os.path.isdir(out):
-            shutil.rmtree(out)
+            if os.path.isdir(prev):
+                shutil.rmtree(prev)
+            os.makedirs(os.path.dirname(prev), exist_ok=True)
+            shutil.move(out, prev)
         CV.run(game_dir, c, fbx, tex or work, mpath, out)
         b = open(os.path.join(out, c + '.oct'), 'rb').read()
         if Oct.parse(b).to_bytes() != b:
@@ -310,6 +491,9 @@ def build(work, proj, remap=False, force=False):
         print('\n== previews')
         previews(work, c, out, game_dir)
         print('previews/body.png (left: the game\'s %s, right: yours), previews/face.png' % c)
+        if os.path.isfile(os.path.join(prev, c + '.oct')):
+            compare_preview(work, c, prev, out)
+            print('previews/compare.png (left: the conversion before, right: this one)')
 
         print('\n== done')
         if check:
@@ -502,6 +686,18 @@ def main(argv=None):
     s.add_argument('project'); s.add_argument('--character'); s.add_argument('--fbx'); s.add_argument('--textures')
     s.add_argument('--game'); s.add_argument('--remap', action='store_true'); s.add_argument('--install', action='store_true')
     s.add_argument('--force', action='store_true'); s.set_defaults(fn=make)
+    s = sub.add_parser('adjust', help='show / change the fine-tuning (kit_project.json adjust), then make --remap')
+    s.add_argument('project')
+    s.add_argument('--set', action='append', metavar='KEY=VALUE', help='VALUE is JSON (2.5, [100,110,100], true) or a word')
+    s.add_argument('--put', nargs=2, action='append', metavar=('KEY', 'NAME=VALUE'), help='one entry of props / garments / weights')
+    s.add_argument('--unset', action='append', metavar='KEY')
+    s.add_argument('--drop', nargs=2, action='append', metavar=('KEY', 'NAME'))
+    s.add_argument('--joint', action='append', metavar='BONE=X,Y,Z', help='move a joint (model bone, or an OBJ\'s automatic one)')
+    s.add_argument('--reset-joints', action='store_true')
+    s.add_argument('--save-version', metavar='NAME'); s.add_argument('--load-version', metavar='NAME')
+    s.add_argument('--delete-version', metavar='NAME')
+    s.add_argument('--info', action='store_true', help='also what was measured and what can be chosen')
+    s.add_argument('--json', action='store_true'); s.set_defaults(fn=adjust)
     for name, fn in (('install', install), ('restore', restore)):
         s = sub.add_parser(name); s.add_argument('project'); s.set_defaults(fn=fn)
     s = sub.add_parser('export')

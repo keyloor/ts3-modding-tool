@@ -316,6 +316,48 @@ def face_roles(sk, head):
     return out
 
 
+LID_TOP = {'upper', 'top', 'up', 'upr', 'upp'}
+LID_BOTTOM = {'lower', 'bottom', 'bot', 'btm', 'down', 'lwr', 'low'}
+PROP_WORDS = {'prop', 'weapon', 'item', 'attach', 'grip', 'gun', 'sword', 'staff'}
+# where a loose object (a held prop, a hat, a bag...) can go: the window's Accessories choices -> game bone names
+PROP_PLACES = {'hand_left': ('HandLeft',), 'hand_right': ('HandRight',), 'head': ('Head',),
+               'chest': ('Spine3', 'Spine2'), 'hips': ('Hips',)}
+
+
+def eye_bones(sk, head):
+    """the model's eyes and lids by name, per side: {'Left': (eye bone, [top lid bones], [bottom lid bones])}"""
+    P = sk.pos
+    hx = P[head][0] if head in P else 0
+    found = {}
+    for n in sk.subtree(head)[1:]:
+        if n not in P:
+            continue
+        w = set(words(n))
+        side = 'Left' if P[n][0] - hx > 0.003 * sk.height else 'Right' if P[n][0] - hx < -0.003 * sk.height else None
+        if side is None:
+            continue
+        e, tops, bots = found.setdefault(side, [None, [], []])
+        if w & {'lid', 'eyelid'}:
+            if w & LID_TOP:
+                tops.append(n)
+            elif w & LID_BOTTOM:
+                bots.append(n)
+        elif w & {'eye', 'eyeball'} and not w & {'brow', 'eyebrow', 'lash', 'eyelash', 'socket', 'target', 'look'}:
+            if e is None or len(sk.ancestors(n)) < len(sk.ancestors(e)):
+                found[side][0] = n
+    return {s: tuple(v) for s, v in found.items() if v[0] and (v[1] or v[2])}
+
+
+def extra_bones(sk, body, follows):
+    """skinned bones that are no body joint (hair, clothes, props...): what the Accessories choices list"""
+    joints = {b for b in body.values() if isinstance(b, str)}
+    face_or_helper = {'eye', 'eyeball', 'lid', 'eyelid', 'brow', 'eyebrow', 'lash', 'eyelash', 'lip', 'mouth', 'jaw',
+                      'cheek', 'nose', 'tongue', 'teeth', 'tooth', 'twist', 'adj', 'roll', 'helper'}
+    out = [n for n in follows if n in sk.skinned and n not in joints and not set(words(n)) & face_or_helper]
+    out += [n for n in sk.skinned if set(words(n)) & PROP_WORDS and n not in out and n not in joints]
+    return sorted(out, key=lambda n: (len(sk.ancestors(n)), n))
+
+
 def material_effect(f, subs):
     """the game material the new ones are cloned from: the converter's usual skin shader if this character has it
     (Woody, Buzz), else its 'qcf2' cousin (Jessie), else the shader most of the character's own pieces use"""
@@ -335,6 +377,11 @@ def automap(fbx, ts3dir, base, log=print, overrides=None, adjust=None):
     dy = float(adjust.get('head_cm') or 0) / 100      # game units are metres
     objlib.use_game(ts3dir, base)                      # an OBJ gets this character's skeleton
     sk = Skeleton(fbx)
+    moved = {}                                         # an FBX's joints the user moved (an OBJ's: objlib.py)
+    if not fbx.lower().endswith('.obj'):
+        for n, v in objlib.JOINTS.items():
+            if n in sk.pos:
+                sk.pos[n] = moved[n] = np.asarray(v, float)
     f3, bones3, subs3, *_ = T.load(os.path.join(ts3dir, base + '.oct'))
     g = game_names(bones3)
     body = find_body(sk, log, overrides)
@@ -474,11 +521,75 @@ def automap(fbx, ts3dir, base, log=print, overrides=None, adjust=None):
             girth.update({b: round(pct / 100, 3) for b in bones})
     if girth:
         tables['GIRTH'] = girth
+    if moved:
+        tables['JOINT_POS'] = {n: tuple(round(float(x), 5) for x in v) for n, v in moved.items()}
+
+    # loose objects (Accessories): {model bone: hand_left | hand_right | head | chest | hips | out}; the bone and
+    # everything below it that is no body joint goes there, or is left out of the model (SKIP_BONES)
+    extras = extra_bones(sk, body, follows)
+    joint_bones = {b for b in body.values() if isinstance(b, str)}
+    skip = []
+    for n, place in (adjust.get('props') or {}).items():
+        if n not in sk.parent:
+            log('  accessories: the model has no bone %s' % n)
+            continue
+        part = [b for b in sk.subtree(n) if b not in joint_bones]
+        if place == 'out':
+            skip += [b for b in part if b in sk.skinned]
+            notes.update({b: 'left out (Accessories)' for b in part})
+        elif place in PROP_PLACES:
+            t = g(*PROP_PLACES[place])
+            for b in part:
+                W[b] = t
+                notes[b] = 'goes with %s (Accessories)' % t
+        else:
+            log('  accessories: unknown place %r for %s' % (place, n))
+    if skip:
+        tables['SKIP_BONES'] = skip
+    # clothes narrower / wider (percent, across: x and z about the hips; the height stays)
+    garments = {m: round(float(p) / 100, 3) for m, p in (adjust.get('garments') or {}).items()
+                if abs(float(p) - 100) > 1e-6}
+    if garments:
+        tables['MATERIAL_SCALE'] = {m: (k, 1.0, k) for m, k in garments.items()}
+
+    # weights by hand: {model bone: game bone | {game bone: share}}
+    gnames = {b['name'] for b in bones3}
+    for n, t in (adjust.get('weights') or {}).items():
+        targets = t if isinstance(t, dict) else {t: 1.0}
+        if n not in sk.parent or not targets or not all(x in gnames for x in targets):
+            log('  weights: %s -> %s skipped (unknown bone)' % (n, t))
+            continue
+        tot = sum(float(v) for v in targets.values()) or 1.0
+        W[n] = {x: round(float(v) / tot, 3) for x, v in targets.items()} if len(targets) > 1 else next(iter(targets))
+        notes[n] = 'set by hand'
+    if adjust.get('smooth'):
+        tables['WEIGHT_SMOOTH'] = int(adjust['smooth'])
+
+    # eyes: open shut lids by turning the lid bones' vertices about the eye (EYE_MODE 'rotate')
+    eyes = eye_bones(sk, head)
+    eo = adjust.get('eyes_open')
+    if eo and eyes:
+        tables['EYES'] = [eyes[s] for s in ('Left', 'Right') if s in eyes]
+        tables['EYE_MODE'] = 'rotate'
+        tables['EYE_OPEN_TOP'] = float(eo.get('top', 0))
+        tables['EYE_OPEN_BOTTOM'] = float(eo.get('bottom', 0))
+    elif eo:
+        log('  eyes: no eye and lid bones found by name: they cannot be opened here')
+
+    # the head placed by the face (its jaw, lips and brows on the game's) instead of by the head joint
     tables['FACE_ALIGN'] = []
+    if adjust.get('head_by_face'):
+        if len(face_game) >= 2:
+            tables['FACE_ALIGN'] = sorted(face_game.items())
+            if neck:
+                drive[neck][3]['aim_face'] = True
+            drive[head][3]['face'] = True
+        else:
+            log('  head by the face: fewer than 2 face bones found (jaw, lips, brows): the head joint is used')
     tables['DRIVE'] = drive
     tables['WEIGHTS'] = {n: W[n] for n in sorted(W, key=lambda n: (n not in sk.skinned, n)) if n in sk.skinned or n in drive}
     tables['FACE_BONES'] = set(face_game.values())
-    tables['FACE'] = False
+    tables['FACE'] = bool(adjust.get('face')) and bool(face_game)
 
     # checks the user should hear about
     for _, s in SIDES:
@@ -488,7 +599,7 @@ def automap(fbx, ts3dir, base, log=print, overrides=None, adjust=None):
     if P[body['handLeft']][0] < 0:
         log('  warning: the left hand is at -x: the model may be facing backwards')
     return tables, dict(body=body, roles=roles, follows=follows, notes=notes, skeleton=sk, neck=neck_fit,
-                        torso=torso_fit)
+                        torso=torso_fit, extras=extras, eyes=eyes, face=face, moved=moved)
 
 
 def model_scale(P, scale_joints, piv):
@@ -557,6 +668,22 @@ def write_map(tables, info, path, fbx, base):
     if 'GIRTH' in tables:
         L += ['# thicker / thinner parts across their length (model bone: factor; the head\'s is its size)',
               'GIRTH = %r' % tables['GIRTH'], '']
+    if 'JOINT_POS' in tables:
+        L += ["# joints moved by hand (the file's units, Y up, facing +Z)", 'JOINT_POS = {']
+        L += ['    %r: %r,' % kv for kv in tables['JOINT_POS'].items()] + ['}', '']
+    if 'SKIP_BONES' in tables:
+        L += ['# left out of the model: triangles hanging mostly on these bones',
+              'SKIP_BONES = %r' % tables['SKIP_BONES'], '']
+    if 'MATERIAL_SCALE' in tables:
+        L += ['# clothes narrower / wider (material: (x, y, z) about the hips)',
+              'MATERIAL_SCALE = %r' % tables['MATERIAL_SCALE'], '']
+    if 'WEIGHT_SMOOTH' in tables:
+        L += ["# passes averaging each point's weights with its neighbours'",
+              'WEIGHT_SMOOTH = %r' % tables['WEIGHT_SMOOTH'], '']
+    if 'EYES' in tables:
+        L += ['# shut lids opened: (eye, top lid bones, bottom lid bones), turned by these angles (degrees)',
+              'EYES = %r' % tables['EYES'], 'EYE_MODE = %r' % tables['EYE_MODE'],
+              'EYE_OPEN_TOP = %r' % tables['EYE_OPEN_TOP'], 'EYE_OPEN_BOTTOM = %r' % tables['EYE_OPEN_BOTTOM'], '']
     L += ['# model bone -> game bone its vertices go to', 'WEIGHTS = {']
     for n, t in tables['WEIGHTS'].items():
         note = '  # ' + info['notes'][n] if n in info['notes'] else ''

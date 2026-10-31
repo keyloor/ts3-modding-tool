@@ -72,9 +72,25 @@ The user may also use the window (`kit/app.py`); it works on the same project fo
 choices are stored in `kit_project.json` (`bones`: {role: model bone, '' = none}, roles as in `automap.ROLES`;
 `materials`: {FBX material: image file | [r, g, b] | 'skip'}) and apply whenever the map is written again
 (`make --remap`). To change a body part's bone you can set them there instead of editing `map.py`.
-`joints` (OBJ only): {bone of the automatic skeleton, e.g. 'ForearmLeft': [x, y, z]} replaces that estimated joint
-(coordinates in the OBJ scene's frame: Y up, facing +Z, on the floor, centred, the model's own units); the window
-writes it from the Preview tab's "Your model's skeleton" mode.
+`joints`: for an OBJ, {bone of the automatic skeleton, e.g. 'ForearmLeft': [x, y, z]} replaces that estimated joint
+(coordinates in the OBJ scene's frame: Y up, facing +Z, on the floor, centred, the model's own units); for an FBX,
+{model bone: [x, y, z]} moves that bone's joint for the fit (the file's units, Y up, facing +Z; `JOINT_POS` in the
+map), the mesh and its weights stay. The window writes it from the Preview tab's "Your model's skeleton" mode.
+
+**`kit.py adjust work/<name>`** reads and changes all of this without editing JSON by hand, then
+`kit.py make work/<name> --remap` converts with it:
+`--info --json` adds what the tool measured (neck, torso, how far each part was stretched in the last conversion:
+`stretch` {game bone: factor}, 0.8 and 1.25 are the converter's limits) and what can be named (loose bones for
+`props`, materials for `garments`, eyes and lids, face bones, every model and game bone, the body joints);
+`--set KEY=JSON`, `--put KEY NAME=JSON` (one entry of `props` / `garments` / `weights`), `--unset KEY`,
+`--drop KEY NAME`, `--joint BONE=X,Y,Z`, `--reset-joints`, `--save-version` / `--load-version` / `--delete-version`
+NAME. Unknown keys and places are refused. The `adjust` keys (also in `kit.ADJUST_KEYS` and the JSON's `keys`):
+`props` {model bone: hand_left | hand_right | head | chest | hips | out} (a loose object and what hangs below it
+moves with that part, or is left out), `garments` {material: percent} (narrower / wider across, about the hips),
+`weights` {model bone: game bone | {game bone: share}}, `smooth` (passes), `eyes_open` {top, bottom} degrees
+(opens shut lids; needs eye and lid bones found by name), `face` true (jaw, lips and brows move with the game's),
+`head_by_face` true (the head placed by the face bones). Each conversion keeps the one before in `out_prev/` and
+draws `previews/compare.png` (before, after).
 `adjust` also takes proportions, in percent: `torso` [x, y, z] (written as `TORSO_SCALE`), `head_pct` (head size),
 `neck_pct`, `arms_pct`, `legs_pct` (thickness; written as `GIRTH`). Lengths can't change: joints stay on the game's.
 The report's `torso fit: W% wide, H% tall` says how much the tool already reshapes the torso.

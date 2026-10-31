@@ -213,6 +213,11 @@ SKIP_MATERIALS = []
 - **`GIRTH`** `{hueso del modelo: factor}` (opcional): engorda o adelgaza esa parte a lo ancho, sin cambiar su
   largo (que es el del juego). En un hueso sin dirección, como la cabeza, cambia su tamaño entero:
   `{'Head': 1.15, 'BicepLeft': 0.8}`.
+- **`JOINT_POS`** `{hueso del modelo: (x, y, z)}` (opcional): mueve la articulación de ese hueso para el ajuste
+  (en las unidades del archivo, Y arriba, mirando a +Z); la malla y sus pesos no cambian. Es lo que escribe la
+  ventana al arrastrar una articulación de un FBX.
+- **`WEIGHT_SMOOTH`** `n` (opcional): `n` pasadas que promedian los pesos de cada punto con los de sus vecinos;
+  dobleces más suaves en codos y rodillas (2 o 3 suele bastar).
 - **`MATERIALS`**: cada material del FBX (los nombres salen en `fbxinfo.py`) va a un juego de `TEXTURES`, a un color
   `(r, g, b)` o a `SKIP_MATERIALS` para dejarlo fuera. Si a un material del FBX no le das ninguna de las tres, el
   convertidor se para y te dice cuál.

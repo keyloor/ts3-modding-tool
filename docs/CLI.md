@@ -26,9 +26,12 @@ compatibilidad, pero guarda sus mensajes en un archivo temporal; para automatiza
 `kit/kit.py mods ...` también admite este protocolo. Los comandos anteriores de personajes
 (`doctor`, `characters`, `make`, `install`, `restore`, `export`) funcionan desde la CLI con
 sus argumentos habituales; **`--json` se aplica únicamente a los subcomandos `mods`**.
-Lo que se elige en la ventana (huesos, materiales, ajustes, articulaciones de un OBJ) se guarda
-en `kit_project.json` del proyecto; un agente lo edita ahí (claves en `docs/AGENTS.md`) y
-vuelve a ejecutar `make`. La vista 3D no tiene equivalente: `make` deja imágenes en `previews/`.
+Lo que se elige en la ventana (huesos, materiales, ajustes, articulaciones) se guarda en
+`kit_project.json` del proyecto. Los ajustes y articulaciones se cambian con `kit.py adjust
+PROYECTO` (`--info --json` dice qué se midió y qué se puede elegir; claves en `docs/AGENTS.md`),
+y luego `kit.py make PROYECTO --remap` convierte. La vista 3D no tiene equivalente: `make` deja
+imágenes en `previews/` (y `compare.png`, la conversión anterior al lado), y `adjust --info`
+da en números cuánto se estiró cada parte.
 
 ## Flujo de un agente
 
@@ -148,6 +151,7 @@ Desde el código fuente:
 
 ```text
 python -I tests/test_mods.py
+python -I tests/test_adjust.py
 python -I tests/test_cli.py
 python -I tests/test_cli.py --exe "C:/ruta/TS3 Modding CLI.exe"
 ```

@@ -4,6 +4,8 @@
                          weights, the diffuse map of each material, the game skeleton (pivots, parents)
   Character.pose(...)    skins it on the CPU: turns bones about their pivots down the skeleton (arms down...), and
                          per-bone shape changes that don't pass to the children (the live Adjustments)
+  Character.K            one number per vertex the view can colour by (View.colour_mode): bone_weight() for the
+                         weights of some game bones, strain() for how far the conversion stretched each part
   View(label)            moderngl offscreen: draws into a framebuffer, reads it back, shows it as the label's image.
                          Left drag turns, right drag moves, the wheel zooms, a double click frames everything.
 
@@ -87,6 +89,7 @@ class Character:
         self.textures = {m: np.clip(a, 0, 255).astype(np.uint8) for m, a in RD.oct_textures(f).items()}
         self.P, self.N = self.P0, self.N0
         self.posed = self.pivots.copy()
+        self.K = None
 
     def child_of(self, name):
         """the first child bone of name (its segment's end), or None"""
@@ -126,6 +129,22 @@ class Character:
     def bounds(self):
         return self.P.min(0), self.P.max(0)
 
+    def bone_weight(self, names):
+        """per vertex, how much these game bones move it (0..1)"""
+        ids = [self.index[n] for n in names if n in self.index]
+        W = self.BW / np.maximum(self.BW.sum(1, keepdims=True), 1e-6)
+        return (W * np.isin(self.BI, ids)).sum(1).astype(np.float32)
+
+    def strain(self, stretch):
+        """per vertex, 0..1: how far the conversion stretched or squeezed the parts that move it; stretch is
+        {game bone: factor} (1 = its own length; the converter's limits, 0.8 and 1.25, give 1)"""
+        sev = np.zeros(len(self.names) + 1, np.float32)
+        for n, k in stretch.items():
+            if n in self.index and k > 0:
+                sev[self.index[n]] = min(abs(math.log(k)) / math.log(1.25), 1.0)
+        W = self.BW / np.maximum(self.BW.sum(1, keepdims=True), 1e-6)
+        return (W * sev[self.BI]).sum(1).astype(np.float32)
+
 
 class SourceModel:
     """an OBJ as the tool sees it before converting (turned up, on the floor) with its automatic skeleton, for the
@@ -152,10 +171,88 @@ class SourceModel:
                         self.textures[k] = np.asarray(im)
                     break
         self.P, self.N = self.P0, self.N0
+        self.K = None
+        self.unit = 1.0
         self.names = list(sc.skel)
         self.index = {n: i for i, n in enumerate(self.names)}
         self.posed = np.array([sc.skel[n][1] for n in self.names], float)
         self.parent = np.array([self.index.get(sc.skel[n][0], -1) for n in self.names])
+
+    def bounds(self):
+        return self.P.min(0), self.P.max(0)
+
+
+class SourceFBX:
+    """an FBX as the converter sees it before converting (Y up, facing +Z, the file's units) with its body joints (the
+    Bones tab's roles), for the joints mode. The joints are named by role ('elbowLeft'...) so the view can mirror
+    them; keys turns a role back into the model bone that kit_project.json 'joints' names."""
+
+    PARENT = {'chest': 'pelvis', 'neck': 'chest', 'head': 'neck', 'clavicle': 'chest', 'shoulder': 'clavicle',
+              'elbow': 'shoulder', 'hand': 'elbow', 'hip': 'pelvis', 'knee': 'hip', 'foot': 'knee', 'toe': 'foot'}
+
+    def __init__(self, path, body, joints, texdir=None, materials=None):
+        import fbxlib
+        import convert as CV
+        scene = fbxlib.Scene(path)
+        A = scene.to_yup()
+
+        class Keep:                                           # every skinned mesh, nothing left out
+            SKIP_MATERIALS = []
+        m = CV.merge_meshes(scene, Keep, lambda *a: None)
+        P = (m['pos'] @ A)
+        h = float(np.ptp(P[:, 1])) or 1.0
+        self.unit = 1.8 / h if not 0.5 < h < 5 else 1.0      # shown at about a person's size (files in cm...)
+        P = P * self.unit
+        nd, ns = m['normals']; ud, us = m['uv']
+        self.P0 = P[m['cp']].astype(np.float32)                 # one vertex per corner
+        n = nd.reshape(-1, 3)[ns] @ A
+        self.N0 = (n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-9)).astype(np.float32)
+        self.UV = ud.reshape(-1, 2)[us].astype(np.float32)
+        self.UV[:, 1] = 1 - self.UV[:, 1]
+        names = sorted(set(m['mat']))
+        self.groups = {k: m['tri'][m['mat'] == mat].astype(np.uint32).ravel() for k, mat in enumerate(names)}
+        self.textures = {}
+        if texdir and os.path.isdir(texdir):
+            try:
+                from autotex import autotex
+                sets, mats, *_ = autotex(path, texdir, lambda *a: None, materials)
+                for k, mat in enumerate(names):
+                    d = sets.get(mats.get(mat), {}).get('d') if isinstance(mats.get(mat), str) else None
+                    if d and os.path.isfile(os.path.join(texdir, d)):
+                        with Image.open(os.path.join(texdir, d)) as im:
+                            im = im.convert('RGB'); im.thumbnail((1024, 1024))
+                            self.textures[k] = np.asarray(im)
+            except Exception:
+                pass                                          # grey is fine for moving joints
+        self.P, self.N, self.K = self.P0, self.N0, None
+        pos = {}
+        for mesh in scene.meshes():
+            for c in mesh['skin'] or []:
+                if len(c['idx']) or c['bone'] not in pos:
+                    pos[c['bone']] = c['xlink'][3, :3] @ A
+        roles = []
+        for role, bone in body.items():
+            bone = bone[0] if isinstance(bone, list) and bone else bone
+            base = role[:-4] if role.endswith('Left') else role[:-5] if role.endswith('Right') else role
+            if isinstance(bone, str) and bone in pos and (base in self.PARENT or base == 'pelvis'):
+                roles.append((role, bone))
+        self.keys = dict(roles)
+        self.names = [r for r, _ in roles]
+        self.index = {n: i for i, n in enumerate(self.names)}
+        self.posed = np.array([np.asarray((joints or {}).get(b, pos[b]), float) for _, b in roles]) * self.unit
+
+        def parent(role):
+            side = 'Left' if role.endswith('Left') else 'Right' if role.endswith('Right') else ''
+            base = role[:-len(side)] if side else role
+            up = self.PARENT.get(base)
+            while up:
+                cand = up + side if up in ('clavicle', 'shoulder', 'elbow', 'hand', 'hip', 'knee', 'foot') else up
+                if cand in self.index:
+                    return self.index[cand]
+                up = self.PARENT.get(up)
+            return -1
+        self.parent = np.array([parent(r) for r in self.names])
+        self.mirror_x = float(self.posed[self.index['pelvis'], 0]) if 'pelvis' in self.index else 0.0
 
     def bounds(self):
         return self.P.min(0), self.P.max(0)
@@ -224,22 +321,29 @@ VERT = """
 #version 330
 uniform mat4 mvp;
 uniform vec3 shift;
-in vec3 in_pos; in vec3 in_nrm; in vec2 in_uv;
-out vec3 v_nrm; out vec2 v_uv;
-void main() { gl_Position = mvp * vec4(in_pos + shift, 1.0); v_nrm = in_nrm; v_uv = in_uv; }
+in vec3 in_pos; in vec3 in_nrm; in vec2 in_uv; in float in_k;
+out vec3 v_nrm; out vec2 v_uv; out float v_k;
+void main() { gl_Position = mvp * vec4(in_pos + shift, 1.0); v_nrm = in_nrm; v_uv = in_uv; v_k = in_k; }
 """
 FRAG = """
 #version 330
 uniform sampler2D tex;
 uniform bool use_tex;
 uniform vec3 colour;
-in vec3 v_nrm; in vec2 v_uv;
+uniform int mode;
+in vec3 v_nrm; in vec2 v_uv; in float v_k;
 out vec4 f_colour;
 void main() {
     vec3 n = normalize(v_nrm);
     float light = 0.35 + 0.55 * max(dot(n, normalize(vec3(0.4, 0.6, 0.8))), 0.0)
                        + 0.15 * max(dot(n, normalize(vec3(-0.6, 0.2, -0.5))), 0.0);
     vec3 c = use_tex ? texture(tex, v_uv).rgb : colour;
+    if (mode == 1) c = mix(c, vec3(0.95, 0.08, 0.05), clamp(v_k, 0.0, 1.0) * 0.85);
+    if (mode == 2) {                               // weights: dark blue (none) .. green .. yellow .. red (all)
+        float k = clamp(v_k, 0.0, 1.0);
+        c = k < 0.004 ? vec3(0.16, 0.2, 0.42) : k < 0.5 ? mix(vec3(0.1, 0.45, 0.9), vec3(0.2, 0.85, 0.3), k * 2.0)
+                                              : mix(vec3(0.95, 0.85, 0.1), vec3(0.95, 0.12, 0.05), k * 2.0 - 1.0);
+    }
     f_colour = vec4(c * light, 1.0);
 }
 """
@@ -278,12 +382,12 @@ class _Mesh:
 
     def __init__(self, ctx, prog, ch):
         self.ctx, self.prog, self.ch = ctx, prog, ch
-        self.vbo = ctx.buffer(reserve=len(ch.P0) * 32)
+        self.vbo = ctx.buffer(reserve=len(ch.P0) * 36)
         self.update()
         self.draws = []
         for m, idx in ch.groups.items():
             ibo = ctx.buffer(idx.tobytes())
-            vao = ctx.vertex_array(prog, [(self.vbo, '3f 3f 2f', 'in_pos', 'in_nrm', 'in_uv')], ibo)
+            vao = ctx.vertex_array(prog, [(self.vbo, '3f 3f 2f 1f', 'in_pos', 'in_nrm', 'in_uv', 'in_k')], ibo)
             tex = None
             if m in ch.textures:
                 img = ch.textures[m]
@@ -292,12 +396,14 @@ class _Mesh:
             self.draws.append((vao, tex, ibo))
 
     def update(self):
-        self.vbo.write(np.ascontiguousarray(np.c_[self.ch.P, self.ch.N, self.ch.UV].astype('f4')).tobytes())
+        k = self.ch.K if getattr(self.ch, 'K', None) is not None else np.zeros(len(self.ch.P), np.float32)
+        self.vbo.write(np.ascontiguousarray(np.c_[self.ch.P, self.ch.N, self.ch.UV, k].astype('f4')).tobytes())
 
-    def draw(self, shift=(0, 0, 0), colour=None):
+    def draw(self, shift=(0, 0, 0), colour=None, mode=0):
         self.prog['shift'].value = tuple(shift)
+        self.prog['mode'].value = mode
         for vao, tex, _ in self.draws:
-            plain = colour is not None or tex is None
+            plain = colour is not None or tex is None or mode == 2
             self.prog['use_tex'].value = not plain
             self.prog['colour'].value = colour or (0.78, 0.78, 0.78)
             if tex is not None and not plain:
@@ -324,6 +430,7 @@ class View:
         self.lprog = self.ctx.program(vertex_shader=LINE_VERT, fragment_shader=LINE_FRAG)
         self.mesh = self.ghost = None
         self.show_ghost, self.show_bones = False, True
+        self.colour_mode = 0           # 1: the character's K as red over it (stretch); 2: K as heat (weights)
         self.yaw, self.pitch, self.dist, self.target = 20.0, 8.0, 3.0, np.array([0, 0.9, 0], 'f4')
         self.fbo, self.size, self.photo, self._pending = None, (0, 0), None, False
         self.on_joints = None          # joints mode: called with {bone: position} when a dragged joint is let go
@@ -389,11 +496,12 @@ class View:
         self._moved[ch.names[k]] = ch.posed[k].copy()
         name = ch.names[k]
         twin = name[:-4] + 'Right' if name.endswith('Left') else name[:-5] + 'Left' if name.endswith('Right') else None
+        mx = getattr(ch, 'mirror_x', 0.0)                         # the body's middle (an FBX may be off x = 0)
         if self.mirror and twin in ch.index:
-            ch.posed[ch.index[twin]] = ch.posed[k] * (-1, 1, 1)
+            ch.posed[ch.index[twin]] = ch.posed[k] * (-1, 1, 1) + (2 * mx, 0, 0)
             self._moved[twin] = ch.posed[ch.index[twin]].copy()
         elif self.mirror and twin is None:                         # a middle joint stays in the middle
-            ch.posed[k][0] = 0.0
+            ch.posed[k][0] = mx
             self._moved[name] = ch.posed[k].copy()
         self.redraw()
 
@@ -452,7 +560,7 @@ class View:
         mvp = self._M.T.copy()
         self.prog['mvp'].write(mvp.tobytes())
         if self.mesh is not None:
-            self.mesh.draw()
+            self.mesh.draw(mode=self.colour_mode)
             if self.ghost is not None and self.show_ghost:
                 lo, hi = self.mesh.ch.bounds()
                 self.ghost.draw(shift=(-(hi[0] - lo[0]) * 0.75 - 0.3, 0, 0), colour=(0.72, 0.72, 0.74))

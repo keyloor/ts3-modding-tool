@@ -6,7 +6,7 @@ It only calls kit.py's functions; the work runs in a thread and what it prints g
 """
 import hashlib, json, os, queue, re, sys, threading, traceback, webbrowser
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, colorchooser
+from tkinter import ttk, filedialog, messagebox, colorchooser, simpledialog
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.dont_write_bytecode = True
@@ -101,6 +101,38 @@ TEXT = {
         adj_head_size='Cabeza: tamaño', adj_neck_thick='Cuello: grosor', adj_arms_thick='Brazos: grosor',
         adj_legs_thick='Piernas: grosor', adj_prop_reset='Todo a 100 %',
         adj_live='En vivo, mientras mueves los controles (aproximado: «Aplicar y convertir» da el resultado exacto)',
+        adj_undo='↶ Deshacer', adj_redo='↷ Rehacer', adj_undone='Deshecho.', adj_redone='Rehecho.',
+        adj_versions='Versiones:', adj_save_version='Guardar versión…', adj_load_version='Cargar',
+        adj_version_name='Nombre de esta versión de los ajustes:',
+        adj_version_saved='Versión «%s» guardada.',
+        adj_version_loaded='Versión «%s» cargada. Pulsa «Aplicar y convertir» para verla.',
+        adj_page_body='Cabeza y proporciones', adj_page_acc='Accesorios y ropa', adj_page_face='Ojos y cara',
+        adj_page_weights='Pesos',
+        adj_acc_help='Objetos sueltos de tu modelo (sombrero, bolsa, un arma, el pelo…): con qué parte del cuerpo se '
+                     'mueven en el juego, o quitarlos del modelo. Doble clic para cambiar.',
+        adj_garm_help='Estrecha o ensancha una prenda (un material de tu modelo) sin tocar lo demás. Doble clic.',
+        adj_bone='Hueso de tu modelo', adj_place='Se mueve con', adj_auto_place='automático (%s)',
+        adj_material='Material', adj_width='Ancho',
+        places=dict(auto='Automático', hand_left='La mano izquierda', hand_right='La mano derecha', head='La cabeza',
+                    chest='El pecho', hips='La cadera', out='Quitarlo del modelo'),
+        adj_need_info='Pulsa «Revisar huesos y materiales» (paso 3) para ver aquí lo que tiene tu modelo.',
+        adj_eyes_title='Ojos', adj_eyes_open='Abrir los párpados (si tu modelo los tiene cerrados)',
+        adj_eye_top='Párpado de arriba', adj_eye_bottom='Párpado de abajo',
+        adj_eyes_found='Ojos encontrados (huesos de párpado arriba + abajo): %s',
+        adj_eyes_none='No se encontraron huesos de ojo y párpado por su nombre: con este modelo no hace nada.',
+        adj_face_title='Cara', adj_face='Cara animada: mandíbula, labios y cejas se mueven con las del juego',
+        adj_by_face='Colocar la cabeza por la cara (no por la articulación de la cabeza)',
+        adj_face_found='Huesos de la cara encontrados: %s',
+        adj_face_none='No se encontraron huesos de la cara (mandíbula, labios, cejas) por su nombre.',
+        adj_weights_help='Qué hueso del juego mueve cada hueso de tu modelo. Doble clic para elegir otro o repartirlo '
+                         'entre dos (un hueso de ayuda entre dos articulaciones). Los pesos en color: Vista previa → Pesos.',
+        adj_game_bone='Hueso del juego', adj_how='Cómo', adj_by_hand='a mano',
+        adj_smooth='Suavizar los pesos', adj_smooth_help='0 = como vienen; más = dobleces más suaves',
+        adj_weight_first='Hueso del juego', adj_weight_second='Repartir con (opcional)',
+        adj_weight_share='Parte del primero',
+        pv_weights='Pesos', pv_weights_bone='Hueso del juego:', pv_strain='Marcar lo estirado en rojo',
+        pv_side='Al lado:', pv_side_game='el original del juego', pv_side_prev='la conversión anterior',
+        pv_weights_help='Azul oscuro: no lo mueve · verde: un poco · rojo: del todo',
         pv_3d='3D', pv_images='Imágenes', pv_tpose='Pose T', pv_armsdown='Brazos abajo (como en el juego)',
         pv_ghost='Original del juego al lado', pv_bones='Esqueleto del juego',
         pv_help='Arrastra: girar · clic derecho: mover · rueda: acercar · doble clic: encuadrar',
@@ -221,6 +253,38 @@ TEXT = {
         adj_head_size='Head: size', adj_neck_thick='Neck: thickness', adj_arms_thick='Arms: thickness',
         adj_legs_thick='Legs: thickness', adj_prop_reset='All to 100 %',
         adj_live='Live, while you move the controls (approximate: "Apply and convert" gives the exact result)',
+        adj_undo='↶ Undo', adj_redo='↷ Redo', adj_undone='Undone.', adj_redone='Redone.',
+        adj_versions='Versions:', adj_save_version='Save version…', adj_load_version='Load',
+        adj_version_name='Name of this version of the adjustments:',
+        adj_version_saved='Version "%s" saved.',
+        adj_version_loaded='Version "%s" loaded. Press "Apply and convert" to see it.',
+        adj_page_body='Head and proportions', adj_page_acc='Accessories and clothes', adj_page_face='Eyes and face',
+        adj_page_weights='Weights',
+        adj_acc_help="Your model's loose objects (hat, bag, a weapon, the hair...): which part of the body they move "
+                     'with in the game, or left out of the model. Double click to change.',
+        adj_garm_help="Makes one piece of clothing (one of your model's materials) narrower or wider. Double click.",
+        adj_bone="Your model's bone", adj_place='Moves with', adj_auto_place='automatic (%s)',
+        adj_material='Material', adj_width='Width',
+        places=dict(auto='Automatic', hand_left='The left hand', hand_right='The right hand', head='The head',
+                    chest='The chest', hips='The hips', out='Leave it out of the model'),
+        adj_need_info='Press "Check bones and materials" (step 3) to see here what your model has.',
+        adj_eyes_title='Eyes', adj_eyes_open='Open the eyelids (if your model has them shut)',
+        adj_eye_top='Upper lid', adj_eye_bottom='Lower lid',
+        adj_eyes_found='Eyes found (upper + lower lid bones): %s',
+        adj_eyes_none='No eye and lid bones were found by name: with this model it does nothing.',
+        adj_face_title='Face', adj_face="Animated face: jaw, lips and brows move with the game's",
+        adj_by_face='Place the head by the face (not by the head joint)',
+        adj_face_found='Face bones found: %s',
+        adj_face_none='No face bones (jaw, lips, brows) were found by name.',
+        adj_weights_help="Which game bone moves each of your model's bones. Double click to pick another or share it "
+                         'between two (a helper bone between two joints). Weights in colour: Preview → Weights.',
+        adj_game_bone='Game bone', adj_how='How', adj_by_hand='by hand',
+        adj_smooth='Smooth the weights', adj_smooth_help='0 = as they are; more = softer bends',
+        adj_weight_first='Game bone', adj_weight_second='Share with (optional)',
+        adj_weight_share='Share of the first',
+        pv_weights='Weights', pv_weights_bone='Game bone:', pv_strain='Mark stretched parts in red',
+        pv_side='Beside it:', pv_side_game="the game's original", pv_side_prev='the conversion before',
+        pv_weights_help="Dark blue: doesn't move it · green: a little · red: fully",
         pv_3d='3D', pv_images='Images', pv_tpose='T pose', pv_armsdown='Arms down (as in the game)',
         pv_ghost="The game's original beside it", pv_bones="The game's skeleton",
         pv_help='Drag: turn · right drag: move · wheel: zoom · double click: frame',
@@ -318,6 +382,8 @@ class App:
         root.geometry('1180x860')
         root.minsize(960, 700)
         root.protocol('WM_DELETE_WINDOW', self.close)
+        root.bind('<Control-z>', lambda e: self.undo_key(-1))   # undo / redo in the Adjustments tab
+        root.bind('<Control-y>', lambda e: self.undo_key(+1))
         self.styles()
         self.screen = 'home'
         self.build()
@@ -975,7 +1041,7 @@ class App:
         gl = V.available()
         bar = ttk.Frame(pv, padding=(4, 4)); bar.pack(fill='x')
         self.pv_mode = tk.StringVar(value='3d' if gl else 'images')
-        for val, key in (('3d', 'pv_3d'), ('images', 'pv_images'), ('joints', 'pv_joints')):
+        for val, key in (('3d', 'pv_3d'), ('images', 'pv_images'), ('weights', 'pv_weights'), ('joints', 'pv_joints')):
             rb = ttk.Radiobutton(bar, text=self.t(key), value=val, variable=self.pv_mode, style='Toolbutton',
                                  command=self.switch_preview)
             rb.pack(side='left')
@@ -989,9 +1055,28 @@ class App:
             ttk.Radiobutton(bar, text=self.t(key), value=val, variable=self.pose_var, style='Toolbutton',
                             command=self.live_pose).pack(side='left')
         self.ghost_on, self.bones_on = tk.BooleanVar(value=False), tk.BooleanVar(value=True)
-        ttk.Checkbutton(bar, text=self.t('pv_ghost'), variable=self.ghost_on, command=self.view_flags).pack(side='left', padx=(12, 0))
+        self.strain_on = tk.BooleanVar(value=False)
+        ttk.Checkbutton(bar, text=self.t('pv_side'), variable=self.ghost_on, command=self.view_flags).pack(side='left', padx=(12, 0))
+        self.side_box = ttk.Combobox(bar, state='readonly', width=22,
+                                     values=[self.t('pv_side_game'), self.t('pv_side_prev')])
+        self.side_box.current(0)
+        self.side_box.bind('<<ComboboxSelected>>', lambda e: (self.ghost_on.set(True), self.load_view(),
+                                                              self.show_previews()))
+        self.side_box.pack(side='left', padx=(2, 0))
         ttk.Checkbutton(bar, text=self.t('pv_bones'), variable=self.bones_on, command=self.view_flags).pack(side='left', padx=8)
-        ttk.Label(bar, text=self.t('pv_help') if gl else self.t('pv_no_gl'), style='Muted.TLabel').pack(side='right')
+        self.strain_cb = ttk.Checkbutton(bar, text=self.t('pv_strain'), variable=self.strain_on,
+                                         command=lambda: self.live_pose())
+        self.strain_cb.pack(side='left')
+        if not gl:
+            self.strain_cb.state(['disabled'])
+        ttk.Label(pv, text=self.t('pv_help') if gl else self.t('pv_no_gl'), style='Muted.TLabel').pack(anchor='e', padx=6)
+        self.wbar = ttk.Frame(pv, padding=(4, 0, 4, 4))           # shown in the weights mode
+        ttk.Label(self.wbar, text=self.t('pv_weights_bone')).pack(side='left')
+        self.wbone = tk.StringVar(value='Head')
+        self.wbone_box = ttk.Combobox(self.wbar, textvariable=self.wbone, state='readonly', width=22)
+        self.wbone_box.bind('<<ComboboxSelected>>', lambda e: self.live_pose())
+        self.wbone_box.pack(side='left', padx=6)
+        ttk.Label(self.wbar, text=self.t('pv_weights_help'), style='Muted.TLabel').pack(side='left', padx=8)
         self.jbar = ttk.Frame(pv, padding=(4, 0, 4, 4))           # shown in the joints mode
         self.mirror_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(self.jbar, text=self.t('joints_mirror'), variable=self.mirror_var,
@@ -1010,36 +1095,48 @@ class App:
         self.switch_preview()
 
     def switch_preview(self):
-        for w in (self.pv_3d, self.pv_imgs, self.jbar):
+        for w in (self.pv_3d, self.pv_imgs, self.jbar, self.wbar):
             w.pack_forget()
         mode = self.pv_mode.get()
         if mode == 'joints' and not self.start_joints():
             mode = '3d' if self.view is not None else 'images'
             self.pv_mode.set(mode)
-        if mode in ('3d', 'joints') and self.view is not None:
+        if mode in ('3d', 'joints', 'weights') and self.view is not None:
             if mode == 'joints':
                 self.jbar.pack(fill='x')
+            elif mode == 'weights':
+                self.wbar.pack(fill='x')
             elif self.view.on_joints is not None:                # back from the joints mode: the converted model
                 self.view.on_joints, self.view.selected = None, None
                 self.load_view()
             self.pv_3d.pack(fill='both', expand=True)
+            if mode != 'joints':
+                self.live_pose()                                 # its colours (weights, stretch)
             self.view.redraw()
         else:
             self.pv_imgs.pack(fill='both', expand=True)
             self.show_previews()
 
     def start_joints(self):
-        """the joints mode: the OBJ before converting with its automatic skeleton, the joints draggable"""
+        """the joints mode: the model before converting with its skeleton (an OBJ's automatic one, an FBX's body
+        joints as the Bones tab found them), the joints draggable"""
         c, model = self.proj.get('character'), self.proj.get('fbx') or ''
-        if self.view is None or not model.lower().endswith('.obj'):
+        if self.view is None or not model.lower().endswith(('.obj', '.fbx')):
             return False
         gdir = os.path.join(self.work, 'game', c or '-')
         if not c or not os.path.isfile(os.path.join(gdir, c + '.oct')):
             self.status.set(self.t('joints_need_convert'))
             return False
+        if model.lower().endswith('.fbx') and not self.info:
+            self.status.set(self.t('adj_need_info'))
+            return False
         try:
             self.root.config(cursor='watch'); self.root.update_idletasks()
-            src = V.SourceModel(model, (gdir, c), self.proj.get('joints'), self.proj.get('textures'))
+            if model.lower().endswith('.obj'):
+                src = V.SourceModel(model, (gdir, c), self.proj.get('joints'), self.proj.get('textures'))
+            else:
+                src = V.SourceFBX(model, self.info['body'], self.proj.get('joints'), self.proj.get('textures'),
+                                  self.proj.get('materials'))
         except Exception:
             print(traceback.format_exc())
             self.status.set(self.t('error'))
@@ -1049,11 +1146,16 @@ class App:
         self.view.on_joints, self.view.mirror, self.view.selected = self.joints_moved, bool(self.mirror_var.get()), None
         self.view.show_ghost, self.view.show_bones = False, True
         self.view.set_character(src)
+        self.joint_keys = getattr(src, 'keys', None)        # an FBX's roles -> its bones
+        self.joint_unit = src.unit                           # shown size -> the file's units
         self.status.set(self.t('joints_help'))
         return True
 
     def joints_moved(self, moved):
-        self.proj.setdefault('joints', {}).update(moved)
+        keys = getattr(self, 'joint_keys', None) or {}
+        u = getattr(self, 'joint_unit', 1.0)
+        self.proj.setdefault('joints', {}).update({keys.get(k, k): [round(x / u, 5) for x in v]
+                                                   for k, v in moved.items()})
         self.save_project()
         self.info = None
         self.status.set(self.t('joints_moved'))
@@ -1091,14 +1193,171 @@ class App:
             return
         try:
             self.ch = V.Character(out, c)
-            gdir = os.path.join(self.work, 'game', c)
+            prev = getattr(self, 'side_box', None) is not None and self.side_box.current() == 1
+            gdir = os.path.join(self.work, 'out_prev' if prev else 'game', c)    # beside it: the original or the last
             self.ghost_ch = V.Character(gdir, c) if os.path.isfile(os.path.join(gdir, c + '.oct')) else None
+            self.strain = K.strain(self.work)
+            if hasattr(self, 'wbone_box'):
+                self.wbone_box.config(values=self.ch.names)
         except Exception:
             print('\n' + traceback.format_exc())
             self.ch = None
             return
         self.applied = json.loads(json.dumps(self.proj.get('adjust', {})))      # what out/ was converted with
         self.live_pose(new=True)
+
+    PROPORTIONS = (('torso_x', 'adj_torso_w'), ('torso_y', 'adj_torso_h'), ('torso_z', 'adj_torso_d'),
+                   ('head_pct', 'adj_head_size'), ('neck_pct', 'adj_neck_thick'), ('arms_pct', 'adj_arms_thick'),
+                   ('legs_pct', 'adj_legs_thick'))
+    PLACES = ('auto', 'hand_left', 'hand_right', 'head', 'chest', 'hips', 'out')
+
+    def build_adjust(self):
+        """the Adjustments tab: fine-tuning that is written into map.py (kit_project.json 'adjust', the same keys as
+        'kit.py adjust'): head and proportions, accessories and clothes, eyes and face, weights; undo / redo and named
+        versions; a live view of what can be shown without converting"""
+        f = ttk.Frame(self.nb, padding=(16, 10))
+        self.nb.add(f, text=self.t('tab_adjust'))
+        f.columnconfigure(0, weight=2, uniform='adj'); f.columnconfigure(1, weight=1, uniform='adj')
+        f.rowconfigure(1, weight=1)
+        adj = self.proj.get('adjust', {})
+        self._restoring = False
+        top = ttk.Frame(f); top.grid(row=0, column=0, sticky='ew', pady=(0, 8))
+        self.btn_apply = ttk.Button(top, text=self.t('adj_apply'), style='Big.TButton', command=self.apply_adjust)
+        self.btn_apply.pack(side='left')
+        self.btn_undo = ttk.Button(top, text=self.t('adj_undo'), command=self.undo_adjust)
+        self.btn_undo.pack(side='left', padx=(12, 4))
+        self.btn_redo = ttk.Button(top, text=self.t('adj_redo'), command=self.redo_adjust)
+        self.btn_redo.pack(side='left')
+        ttk.Separator(top, orient='vertical').pack(side='left', fill='y', padx=12)
+        ttk.Label(top, text=self.t('adj_versions')).pack(side='left')
+        self.version_box = ttk.Combobox(top, state='readonly', width=16)
+        self.version_box.pack(side='left', padx=6)
+        ttk.Button(top, text=self.t('adj_load_version'), command=self.load_version).pack(side='left')
+        ttk.Button(top, text=self.t('adj_save_version'), command=self.save_version).pack(side='left', padx=6)
+        self.adj_note = ttk.Label(f, wraplength=700, style='Muted.TLabel')
+        self.adj_nb = ttk.Notebook(f)
+        self.adj_nb.grid(row=1, column=0, sticky='nsew', padx=(0, 14))
+
+        # head and proportions
+        body = ttk.Frame(self.adj_nb, padding=10)
+        self.adj_nb.add(body, text=self.t('adj_page_body'))
+        body.columnconfigure(0, weight=1, uniform='b'); body.columnconfigure(1, weight=1, uniform='b')
+        left = ttk.Frame(body); left.grid(row=0, column=0, sticky='nsew', padx=(0, 14))
+        ttk.Label(left, text=self.t('adj_head_title'), style='Head.TLabel').pack(anchor='w')
+        ttk.Label(left, text=self.t('adj_help'), wraplength=320).pack(anchor='w', pady=(2, 8))
+        self.adj_info = ttk.Label(left, wraplength=320, style='Hint.TLabel')
+        self.adj_info.pack(anchor='w', pady=(0, 8))
+        row = ttk.Frame(left); row.pack(anchor='w')
+        ttk.Label(row, text=self.t('adj_height')).pack(side='left')
+        self.head_cm = tk.DoubleVar(value=float(adj.get('head_cm', 0)))
+        self.head_cm.trace_add('write', self.live_soon)          # the live view follows the slider
+        tk.Scale(row, variable=self.head_cm, from_=-15, to=15, resolution=0.1, orient='horizontal', length=150,
+                 showvalue=False).pack(side='left', padx=8)
+        ttk.Label(row, textvariable=self.head_cm, width=5).pack(side='left')
+        ttk.Label(row, text='cm').pack(side='left')
+        b = ttk.Frame(left); b.pack(anchor='w', pady=(10, 0))
+        self.btn_natural = ttk.Button(b, text=self.t('adj_natural'), command=self.natural_neck)
+        self.btn_natural.pack(side='left')
+        ttk.Button(b, text=self.t('adj_reset'), command=lambda: self.head_cm.set(0)).pack(side='left', padx=8)
+
+        right = ttk.Frame(body); right.grid(row=0, column=1, sticky='nsew')
+        ttk.Label(right, text=self.t('adj_prop_title'), style='Head.TLabel').pack(anchor='w')
+        ttk.Label(right, text=self.t('adj_prop_help'), wraplength=320).pack(anchor='w', pady=(2, 8))
+        self.torso_info = ttk.Label(right, wraplength=320, style='Hint.TLabel')
+        self.torso_info.pack(anchor='w', pady=(0, 6))
+        grid = ttk.Frame(right); grid.pack(anchor='w')
+        torso = adj.get('torso', [100, 100, 100])
+        self.prop = {}
+        for r, (key, label) in enumerate(self.PROPORTIONS):
+            v = torso['xyz'.index(key[-1])] if key.startswith('torso') else adj.get(key, 100)
+            self.prop[key] = tk.IntVar(value=int(round(float(v))))
+            self.prop[key].trace_add('write', self.live_soon)
+            ttk.Label(grid, text=self.t(label)).grid(row=r, column=0, sticky='w')
+            tk.Scale(grid, variable=self.prop[key], from_=50, to=150, resolution=1, orient='horizontal', length=140,
+                     showvalue=False).grid(row=r, column=1, padx=6, pady=1)
+            ttk.Label(grid, textvariable=self.prop[key], width=4, anchor='e').grid(row=r, column=2, sticky='e')
+            ttk.Label(grid, text='%').grid(row=r, column=3, sticky='w')
+        ttk.Button(right, text=self.t('adj_prop_reset'),
+                   command=lambda: [v.set(100) for v in self.prop.values()]).pack(anchor='w', pady=(6, 0))
+
+        # accessories and clothes
+        acc = ttk.Frame(self.adj_nb, padding=10)
+        self.adj_nb.add(acc, text=self.t('adj_page_acc'))
+        acc.columnconfigure(0, weight=3); acc.columnconfigure(1, weight=2); acc.rowconfigure(1, weight=1)
+        self.adj_props = dict(adj.get('props', {}))
+        self.adj_garments = dict(adj.get('garments', {}))
+        ttk.Label(acc, text=self.t('adj_acc_help'), wraplength=360).grid(row=0, column=0, sticky='nw', padx=(0, 10))
+        ttk.Label(acc, text=self.t('adj_garm_help'), wraplength=240).grid(row=0, column=1, sticky='nw')
+        self.props_tv = self.small_table(acc, (('bone', 200), ('place', 170)), ('adj_bone', 'adj_place'), self.edit_prop)
+        self.props_tv.master.grid(row=1, column=0, sticky='nsew', padx=(0, 10), pady=(6, 0))
+        self.garm_tv = self.small_table(acc, (('mat', 170), ('pct', 70)), ('adj_material', 'adj_width'), self.edit_garment)
+        self.garm_tv.master.grid(row=1, column=1, sticky='nsew', pady=(6, 0))
+
+        # eyes and face
+        face = ttk.Frame(self.adj_nb, padding=10)
+        self.adj_nb.add(face, text=self.t('adj_page_face'))
+        eo = adj.get('eyes_open') or {}
+        ttk.Label(face, text=self.t('adj_eyes_title'), style='Head.TLabel').pack(anchor='w')
+        self.eyes_on = tk.BooleanVar(value=bool(adj.get('eyes_open')))
+        ttk.Checkbutton(face, text=self.t('adj_eyes_open'), variable=self.eyes_on).pack(anchor='w', pady=(4, 2))
+        self.eye_top, self.eye_bot = tk.IntVar(value=int(eo.get('top', 15))), tk.IntVar(value=int(eo.get('bottom', 5)))
+        for var, key in ((self.eye_top, 'adj_eye_top'), (self.eye_bot, 'adj_eye_bottom')):
+            r = ttk.Frame(face); r.pack(anchor='w', padx=(22, 0))
+            ttk.Label(r, text=self.t(key), width=18).pack(side='left')
+            tk.Scale(r, variable=var, from_=0, to=45, resolution=1, orient='horizontal', length=160,
+                     showvalue=False).pack(side='left', padx=6)
+            ttk.Label(r, textvariable=var, width=3, anchor='e').pack(side='left')
+            ttk.Label(r, text='°').pack(side='left')
+        self.eyes_info = ttk.Label(face, wraplength=560, style='Hint.TLabel')
+        self.eyes_info.pack(anchor='w', pady=(4, 14))
+        ttk.Label(face, text=self.t('adj_face_title'), style='Head.TLabel').pack(anchor='w')
+        self.face_on = tk.BooleanVar(value=bool(adj.get('face')))
+        self.byface_on = tk.BooleanVar(value=bool(adj.get('head_by_face')))
+        ttk.Checkbutton(face, text=self.t('adj_face'), variable=self.face_on).pack(anchor='w', pady=(4, 2))
+        ttk.Checkbutton(face, text=self.t('adj_by_face'), variable=self.byface_on).pack(anchor='w', pady=2)
+        self.face_info = ttk.Label(face, wraplength=560, style='Hint.TLabel')
+        self.face_info.pack(anchor='w', pady=(4, 0))
+
+        # weights
+        wp = ttk.Frame(self.adj_nb, padding=10)
+        self.adj_nb.add(wp, text=self.t('adj_page_weights'))
+        wp.columnconfigure(0, weight=1); wp.rowconfigure(1, weight=1)
+        self.adj_weights = dict(adj.get('weights', {}))
+        ttk.Label(wp, text=self.t('adj_weights_help'), wraplength=600).grid(row=0, column=0, sticky='w')
+        self.w_tv = self.small_table(wp, (('bone', 220), ('game', 220), ('how', 120)),
+                                     ('adj_bone', 'adj_game_bone', 'adj_how'), self.edit_weight)
+        self.w_tv.master.grid(row=1, column=0, sticky='nsew', pady=6)
+        r = ttk.Frame(wp); r.grid(row=2, column=0, sticky='w')
+        ttk.Label(r, text=self.t('adj_smooth')).pack(side='left')
+        self.smooth_var = tk.IntVar(value=int(adj.get('smooth', 0)))
+        tk.Scale(r, variable=self.smooth_var, from_=0, to=6, resolution=1, orient='horizontal', length=140,
+                 showvalue=False).pack(side='left', padx=6)
+        ttk.Label(r, textvariable=self.smooth_var, width=2).pack(side='left')
+        ttk.Label(r, text=self.t('adj_smooth_help'), style='Muted.TLabel').pack(side='left', padx=6)
+        for v in (self.eyes_on, self.eye_top, self.eye_bot, self.face_on, self.byface_on, self.smooth_var):
+            v.trace_add('write', lambda *_: self.adj_touched())
+
+        live = ttk.Frame(f); live.grid(row=0, column=1, rowspan=2, sticky='nsew')
+        ttk.Label(live, text=self.t('adj_live'), style='Muted.TLabel', wraplength=320).pack(anchor='w', pady=(0, 4))
+        self.adj_3d = tk.Label(live, bg='#ebebeb', text=self.t('preview_empty') if V.available() else self.t('pv_no_gl'),
+                               wraplength=300)
+        self.adj_3d.pack(fill='both', expand=True)
+        self.adj_note.grid(row=2, column=0, sticky='w', pady=(6, 0))
+        self.adj_view = V.View(self.adj_3d) if V.available() else None
+        self.adj_hist, self.adj_pos, self._hist_job = [self.adjust_now()], 0, None
+        self.fill_versions()
+
+    def small_table(self, parent, cols, heads, on_edit):
+        """a list with a scroll bar inside its own frame (tv.master), double click edits a row"""
+        fr = ttk.Frame(parent)
+        tv = ttk.Treeview(fr, columns=[c for c, _ in cols], show='headings', height=8)
+        for (c, w), h in zip(cols, heads):
+            tv.heading(c, text=self.t(h)); tv.column(c, width=w, anchor='w')
+        sb = ttk.Scrollbar(fr, command=tv.yview)
+        tv.config(yscrollcommand=sb.set)
+        sb.pack(side='right', fill='y'); tv.pack(fill='both', expand=True)
+        tv.bind('<Double-1>', lambda e: on_edit(tv.focus()))
+        return tv
 
     def adjust_now(self):
         """the Adjustments tab's values, in kit_project.json's 'adjust' form (neutral values left out)"""
@@ -1114,7 +1373,114 @@ class App:
         for key in ('head_pct', 'neck_pct', 'arms_pct', 'legs_pct'):
             if int(self.prop[key].get()) != 100:
                 adj[key] = int(self.prop[key].get())
+        for key, d in (('props', self.adj_props), ('garments', self.adj_garments), ('weights', self.adj_weights)):
+            if d:
+                adj[key] = json.loads(json.dumps(d))
+        if self.eyes_on.get():
+            adj['eyes_open'] = {'top': int(self.eye_top.get()), 'bottom': int(self.eye_bot.get())}
+        if self.face_on.get():
+            adj['face'] = True
+        if self.byface_on.get():
+            adj['head_by_face'] = True
+        if int(self.smooth_var.get()):
+            adj['smooth'] = int(self.smooth_var.get())
         return adj
+
+    def set_adjust_ui(self, adj):
+        """put an 'adjust' dict back into the tab's controls (undo, redo, a saved version)"""
+        self._restoring = True
+        try:
+            self.head_cm.set(float(adj.get('head_cm', 0)))
+            torso = adj.get('torso', [100, 100, 100])
+            for key, _ in self.PROPORTIONS:
+                self.prop[key].set(int(torso['xyz'.index(key[-1])] if key.startswith('torso') else adj.get(key, 100)))
+            self.adj_props = dict(adj.get('props', {}))
+            self.adj_garments = dict(adj.get('garments', {}))
+            self.adj_weights = json.loads(json.dumps(adj.get('weights', {})))
+            eo = adj.get('eyes_open') or {}
+            self.eyes_on.set(bool(adj.get('eyes_open')))
+            self.eye_top.set(int(eo.get('top', 15))); self.eye_bot.set(int(eo.get('bottom', 5)))
+            self.face_on.set(bool(adj.get('face'))); self.byface_on.set(bool(adj.get('head_by_face')))
+            self.smooth_var.set(int(adj.get('smooth', 0)))
+        finally:
+            self._restoring = False
+        self.fill_adjust_lists()
+        self.live_soon()
+
+    # undo / redo: a snapshot of the tab after each change (a slider drag counts once)
+    def adj_touched(self):
+        if getattr(self, '_restoring', False) or not hasattr(self, 'adj_hist'):
+            return
+        if self._hist_job:
+            self.root.after_cancel(self._hist_job)
+        self._hist_job = self.root.after(500, self.record_adjust)
+
+    def record_adjust(self):
+        self._hist_job = None
+        now = self.adjust_now()
+        if now != self.adj_hist[self.adj_pos]:
+            self.adj_hist = self.adj_hist[:self.adj_pos + 1] + [now]
+            self.adj_pos = len(self.adj_hist) - 1
+        self.undo_buttons()
+
+    def undo_buttons(self):
+        if hasattr(self, 'btn_undo') and self.btn_undo.winfo_exists():
+            self.btn_undo.state(['!disabled'] if self.adj_pos > 0 else ['disabled'])
+            self.btn_redo.state(['!disabled'] if self.adj_pos < len(self.adj_hist) - 1 else ['disabled'])
+
+    def undo_adjust(self, step=-1):
+        if not hasattr(self, 'adj_hist'):
+            return
+        if self._hist_job:
+            self.root.after_cancel(self._hist_job)
+            self.record_adjust()
+        k = self.adj_pos + step
+        if 0 <= k < len(self.adj_hist):
+            self.adj_pos = k
+            self.set_adjust_ui(self.adj_hist[k])
+            self.status.set(self.t('adj_undone') if step < 0 else self.t('adj_redone'))
+        self.undo_buttons()
+
+    def redo_adjust(self):
+        self.undo_adjust(+1)
+
+    def undo_key(self, step):
+        if self.screen == 'project' and hasattr(self, 'nb') and self.nb.winfo_exists() and \
+                self.nb.index('current') == TAB_ADJUST and not isinstance(self.root.focus_get(), (tk.Entry, tk.Text)):
+            self.undo_adjust(step)
+
+    # named versions of the adjustments (kit_project.json 'adjust_versions', as 'kit.py adjust --save-version')
+    def fill_versions(self):
+        names = sorted(self.proj.get('adjust_versions', {}))
+        self.version_box.config(values=names)
+        if self.version_box.get() not in names:
+            self.version_box.set(names[-1] if names else '')
+
+    def save_version(self):
+        name = simpledialog.askstring(TOOL, self.t('adj_version_name'), parent=self.root)
+        if not name or not name.strip():
+            return
+        v = {'adjust': self.adjust_now()}
+        if self.proj.get('joints'):
+            v['joints'] = self.proj['joints']
+        self.proj.setdefault('adjust_versions', {})[name.strip()] = v
+        self.save_project()
+        self.fill_versions(); self.version_box.set(name.strip())
+        self.status.set(self.t('adj_version_saved') % name.strip())
+
+    def load_version(self):
+        name = self.version_box.get()
+        v = self.proj.get('adjust_versions', {}).get(name)
+        if not v:
+            return
+        if v.get('joints'):
+            self.proj['joints'] = v['joints']
+        else:
+            self.proj.pop('joints', None)
+        self.save_project()
+        self.set_adjust_ui(v.get('adjust', {}))
+        self.adj_touched()
+        self.status.set(self.t('adj_version_loaded') % name)
 
     def live_pose(self, new=False):
         """pose the loaded character (T or arms down) with the Adjustments values shown live, and redraw"""
@@ -1128,6 +1494,7 @@ class App:
         self.ch.pose(turns, shapes)
         if self.ghost_ch is not None:
             self.ghost_ch.pose(V.ARMS_DOWN if down else None)
+        self.colour_view()
         for v in self.views():
             if v.on_joints is not None:                          # the joints mode shows the model before converting
                 continue
@@ -1142,6 +1509,21 @@ class App:
         if getattr(self, '_live_job', None):
             self.root.after_cancel(self._live_job)
         self._live_job = self.root.after(30, self.live_pose)
+        self.adj_touched()
+
+    def colour_view(self):
+        """the Preview's colours: one game bone's weights (Weights mode), or the stretched parts in red"""
+        ch = getattr(self, 'ch', None)
+        if ch is None or not hasattr(self, 'pv_mode'):
+            return
+        mode, k = 0, None
+        if self.pv_mode.get() == 'weights':
+            mode, k = 2, ch.bone_weight([self.wbone.get()])
+        elif self.strain_on.get():
+            mode, k = 1, ch.strain(getattr(self, 'strain', {}))
+        ch.K = k
+        if self.view is not None:
+            self.view.colour_mode = mode
 
     def view_flags(self):
         """the Preview tab's choices; the Adjustments tab's live view shows only the character"""
@@ -1152,70 +1534,6 @@ class App:
             v.show_ghost = main and hasattr(self, 'ghost_on') and bool(self.ghost_on.get())
             v.show_bones = main and (not hasattr(self, 'bones_on') or bool(self.bones_on.get()))
             v.redraw()
-
-    PROPORTIONS = (('torso_x', 'adj_torso_w'), ('torso_y', 'adj_torso_h'), ('torso_z', 'adj_torso_d'),
-                   ('head_pct', 'adj_head_size'), ('neck_pct', 'adj_neck_thick'), ('arms_pct', 'adj_arms_thick'),
-                   ('legs_pct', 'adj_legs_thick'))
-
-    def build_adjust(self):
-        """the Adjustments tab: fine-tuning that is written into map.py (head and neck, proportions; PLAN.md's roadmap
-        has the rest)"""
-        f = ttk.Frame(self.nb, padding=16)
-        self.nb.add(f, text=self.t('tab_adjust'))
-        for c in range(3):
-            f.columnconfigure(c, weight=1, uniform='adj')
-        f.rowconfigure(1, weight=1)
-        adj = self.proj.get('adjust', {})
-        top = ttk.Frame(f); top.grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 12))
-        self.btn_apply = ttk.Button(top, text=self.t('adj_apply'), style='Big.TButton', command=self.apply_adjust)
-        self.btn_apply.pack(side='left')
-        self.adj_note = ttk.Label(top, wraplength=480, style='Muted.TLabel')
-        self.adj_note.pack(side='left', padx=14)
-
-        left = ttk.Frame(f); left.grid(row=1, column=0, sticky='nsew', padx=(0, 14))
-        ttk.Label(left, text=self.t('adj_head_title'), style='Head.TLabel').pack(anchor='w')
-        ttk.Label(left, text=self.t('adj_help'), wraplength=340).pack(anchor='w', pady=(2, 8))
-        self.adj_info = ttk.Label(left, wraplength=340, style='Hint.TLabel')
-        self.adj_info.pack(anchor='w', pady=(0, 8))
-        row = ttk.Frame(left); row.pack(anchor='w')
-        ttk.Label(row, text=self.t('adj_height')).pack(side='left')
-        self.head_cm = tk.DoubleVar(value=float(adj.get('head_cm', 0)))
-        self.head_cm.trace_add('write', self.live_soon)          # the live view follows the slider
-        tk.Scale(row, variable=self.head_cm, from_=-15, to=15, resolution=0.1, orient='horizontal', length=170,
-                 showvalue=False).pack(side='left', padx=8)
-        ttk.Label(row, textvariable=self.head_cm, width=5).pack(side='left')
-        ttk.Label(row, text='cm').pack(side='left')
-        b = ttk.Frame(left); b.pack(anchor='w', pady=(10, 0))
-        self.btn_natural = ttk.Button(b, text=self.t('adj_natural'), command=self.natural_neck)
-        self.btn_natural.pack(side='left')
-        ttk.Button(b, text=self.t('adj_reset'), command=lambda: self.head_cm.set(0)).pack(side='left', padx=8)
-
-        right = ttk.Frame(f); right.grid(row=1, column=1, sticky='nsew', padx=(0, 14))
-        ttk.Label(right, text=self.t('adj_prop_title'), style='Head.TLabel').pack(anchor='w')
-        ttk.Label(right, text=self.t('adj_prop_help'), wraplength=340).pack(anchor='w', pady=(2, 8))
-        self.torso_info = ttk.Label(right, wraplength=340, style='Hint.TLabel')
-        self.torso_info.pack(anchor='w', pady=(0, 6))
-        grid = ttk.Frame(right); grid.pack(anchor='w')
-        torso = adj.get('torso', [100, 100, 100])
-        self.prop = {}
-        for r, (key, label) in enumerate(self.PROPORTIONS):
-            v = torso['xyz'.index(key[-1])] if key.startswith('torso') else adj.get(key, 100)
-            self.prop[key] = tk.IntVar(value=int(round(float(v))))
-            self.prop[key].trace_add('write', self.live_soon)
-            ttk.Label(grid, text=self.t(label)).grid(row=r, column=0, sticky='w')
-            tk.Scale(grid, variable=self.prop[key], from_=50, to=150, resolution=1, orient='horizontal', length=150,
-                     showvalue=False).grid(row=r, column=1, padx=6, pady=1)
-            ttk.Label(grid, textvariable=self.prop[key], width=4, anchor='e').grid(row=r, column=2, sticky='e')
-            ttk.Label(grid, text='%').grid(row=r, column=3, sticky='w')
-        ttk.Button(right, text=self.t('adj_prop_reset'),
-                   command=lambda: [v.set(100) for v in self.prop.values()]).pack(anchor='w', pady=(6, 0))
-
-        live = ttk.Frame(f); live.grid(row=0, column=2, rowspan=2, sticky='nsew')
-        ttk.Label(live, text=self.t('adj_live'), style='Muted.TLabel', wraplength=340).pack(anchor='w', pady=(0, 4))
-        self.adj_3d = tk.Label(live, bg='#ebebeb', text=self.t('preview_empty') if V.available() else self.t('pv_no_gl'),
-                               wraplength=300)
-        self.adj_3d.pack(fill='both', expand=True)
-        self.adj_view = V.View(self.adj_3d) if V.available() else None
 
     def fill_adjust(self):
         if not hasattr(self, 'adj_info') or not self.adj_info.winfo_exists():
@@ -1234,6 +1552,141 @@ class App:
         self.adj_note.config(text=self.t('advanced_note') if self.proj.get('advanced') else '')
         for w in (self.btn_natural, self.btn_apply):
             w.state(['disabled'] if self.proj.get('advanced') or self.busy else ['!disabled'])
+        self.fill_adjust_lists()
+        self.undo_buttons()
+
+    def fill_adjust_lists(self):
+        """the accessories, clothes and weights lists, and what was found for the eyes and face"""
+        if not hasattr(self, 'props_tv') or not self.props_tv.winfo_exists():
+            return
+        for tv in (self.props_tv, self.garm_tv, self.w_tv):
+            tv.delete(*tv.get_children())
+        info, tables = self.info, self.tables
+        if not info or not tables:
+            for tv in (self.props_tv, self.garm_tv, self.w_tv):
+                tv.insert('', 'end', iid='-', values=(self.t('adj_need_info'),))
+            self.eyes_info.config(text=self.t('adj_need_info')); self.face_info.config(text='')
+            return
+        W = tables['WEIGHTS']
+        places = self.t('places')
+        for k, bone in enumerate(info.get('extras', [])):
+            p = self.adj_props.get(bone)
+            self.props_tv.insert('', 'end', iid='p%d' % k, values=(bone, places[p] if p else
+                                 self.t('adj_auto_place') % self.weight_text(W.get(bone))))
+        skip = set(tables.get('SKIP_MATERIALS', []))
+        for k, mat in enumerate(m for m in tables.get('_tex_tris', {}) if m not in skip):
+            self.garm_tv.insert('', 'end', iid='g%d' % k, values=(mat, '%d %%' % int(self.adj_garments.get(mat, 100))))
+        notes = info.get('notes', {})
+        for k, bone in enumerate(sorted(W, key=str.lower)):
+            mine = bone in self.adj_weights
+            self.w_tv.insert('', 'end', iid='w%d' % k, values=(bone, self.weight_text(self.adj_weights[bone] if mine
+                             else W[bone]), self.t('adj_by_hand') if mine else notes.get(bone, self.t('auto'))))
+        eyes = info.get('eyes') or {}
+        self.eyes_info.config(text=self.t('adj_eyes_found') % ', '.join('%s (%d + %d)' % (e, len(t), len(b))
+                              for e, t, b in eyes.values()) if eyes else self.t('adj_eyes_none'))
+        face = info.get('face') or {}
+        self.face_info.config(text=self.t('adj_face_found') % ', '.join(sorted(face.values())) if face else
+                              self.t('adj_face_none'))
+
+    @staticmethod
+    def weight_text(w):
+        if isinstance(w, dict):
+            return ' + '.join('%s %d%%' % (b, round(s * 100)) for b, s in w.items())
+        return w or '-'
+
+    def game_bones(self):
+        """the game character's bone names (for the weights dialog)"""
+        c = self.proj.get('character')
+        try:
+            _, bones3, *_ = AM.T.load(os.path.join(self.work, 'game', c, c + '.oct'))
+            return [b['name'] for b in bones3]
+        except Exception:
+            return []
+
+    def edit_prop(self, iid):
+        if not iid or iid == '-':
+            return
+        bone = self.props_tv.set(iid, 'bone')
+        places = self.t('places')
+        d, f = self.dialog(bone)
+        ttk.Label(f, text=self.t('adj_place')).pack(anchor='w')
+        v = tk.StringVar(value=self.adj_props.get(bone, 'auto'))
+        for key in self.PLACES:
+            ttk.Radiobutton(f, text=places[key], value=key, variable=v).pack(anchor='w', pady=1)
+
+        def done():
+            if v.get() == 'auto':
+                self.adj_props.pop(bone, None)
+            else:
+                self.adj_props[bone] = v.get()
+            d.destroy()
+            self.fill_adjust_lists(); self.adj_touched()
+        bf = ttk.Frame(f); bf.pack(fill='x', pady=(8, 0))
+        ttk.Button(bf, text=self.t('ok'), command=done).pack(side='right')
+        ttk.Button(bf, text=self.t('cancel'), command=d.destroy).pack(side='right', padx=6)
+
+    def edit_garment(self, iid):
+        if not iid or iid == '-':
+            return
+        mat = self.garm_tv.set(iid, 'mat')
+        d, f = self.dialog(mat)
+        ttk.Label(f, text=self.t('adj_garm_help'), wraplength=320).pack(anchor='w')
+        v = tk.IntVar(value=int(self.adj_garments.get(mat, 100)))
+        r = ttk.Frame(f); r.pack(anchor='w', pady=8)
+        tk.Scale(r, variable=v, from_=50, to=150, resolution=1, orient='horizontal', length=220,
+                 showvalue=False).pack(side='left')
+        ttk.Label(r, textvariable=v, width=4, anchor='e').pack(side='left')
+        ttk.Label(r, text='%').pack(side='left')
+
+        def done(val):
+            if val == 100:
+                self.adj_garments.pop(mat, None)
+            else:
+                self.adj_garments[mat] = val
+            d.destroy()
+            self.fill_adjust_lists(); self.adj_touched()
+        bf = ttk.Frame(f); bf.pack(fill='x', pady=(8, 0))
+        ttk.Button(bf, text=self.t('ok'), command=lambda: done(int(v.get()))).pack(side='right')
+        ttk.Button(bf, text=self.t('cancel'), command=d.destroy).pack(side='right', padx=6)
+        ttk.Button(bf, text=self.t('back_auto'), command=lambda: done(100)).pack(side='left')
+
+    def edit_weight(self, iid):
+        if not iid or iid == '-':
+            return
+        bone = self.w_tv.set(iid, 'bone')
+        names = self.game_bones()
+        if not names:
+            return
+        cur = self.adj_weights.get(bone) or self.tables['WEIGHTS'].get(bone)
+        items = list(cur.items()) if isinstance(cur, dict) else [(cur, 1.0)]
+        d, f = self.dialog(bone)
+        a = tk.StringVar(value=items[0][0] if items[0][0] in names else names[0])
+        b = tk.StringVar(value=items[1][0] if len(items) > 1 else '')
+        share = tk.IntVar(value=int(round(items[0][1] * 100)) if len(items) > 1 else 100)
+        ttk.Label(f, text=self.t('adj_weight_first')).pack(anchor='w')
+        ttk.Combobox(f, textvariable=a, values=names, width=36, state='readonly').pack(fill='x', pady=(2, 8))
+        ttk.Label(f, text=self.t('adj_weight_second')).pack(anchor='w')
+        ttk.Combobox(f, textvariable=b, values=[''] + names, width=36, state='readonly').pack(fill='x', pady=(2, 8))
+        r = ttk.Frame(f); r.pack(anchor='w')
+        ttk.Label(r, text=self.t('adj_weight_share')).pack(side='left')
+        tk.Scale(r, variable=share, from_=0, to=100, resolution=5, orient='horizontal', length=160,
+                 showvalue=False).pack(side='left', padx=6)
+        ttk.Label(r, textvariable=share, width=4, anchor='e').pack(side='left')
+        ttk.Label(r, text='%').pack(side='left')
+
+        def done(auto=False):
+            if auto:
+                self.adj_weights.pop(bone, None)
+            elif b.get() and b.get() != a.get() and share.get() < 100:
+                self.adj_weights[bone] = {a.get(): share.get() / 100, b.get(): 1 - share.get() / 100}
+            else:
+                self.adj_weights[bone] = a.get()
+            d.destroy()
+            self.fill_adjust_lists(); self.adj_touched()
+        bf = ttk.Frame(f); bf.pack(fill='x', pady=(8, 0))
+        ttk.Button(bf, text=self.t('ok'), command=done).pack(side='right')
+        ttk.Button(bf, text=self.t('cancel'), command=d.destroy).pack(side='right', padx=6)
+        ttk.Button(bf, text=self.t('back_auto'), command=lambda: done(True)).pack(side='left')
 
     def natural_neck(self):
         nf = self.info.get('neck') if self.info else None
@@ -1270,7 +1723,7 @@ class App:
         self.tex_lbl.config(text=self.t('textures') % (p.get('textures') or self.t('no_textures')))
         self.obj_lbl.config(text=self.t('obj_note') if model and model.lower().endswith('.obj') else '')
         if getattr(self, 'rb_joints', None) is not None and self.rb_joints.winfo_exists():
-            self.rb_joints.state(['!disabled'] if model and model.lower().endswith('.obj') and V.available()
+            self.rb_joints.state(['!disabled'] if model and model.lower().endswith(('.obj', '.fbx')) and V.available()
                                  else ['disabled'])
         c = p.get('character')
         converted = bool(c) and os.path.isfile(os.path.join(self.work, 'out', c, c + '.oct'))
@@ -1533,7 +1986,10 @@ class App:
         if not hasattr(self, 'pv_body') or not self.pv_body.winfo_exists():
             return
         self.photos = []
-        paths_ = [os.path.join(self.work, 'previews', n) for n in ('body.png', 'face.png')]
+        side_prev = getattr(self, 'side_box', None) is not None and self.side_box.current() == 1 and \
+            os.path.isfile(os.path.join(self.work, 'previews', 'compare.png'))
+        paths_ = [os.path.join(self.work, 'previews', n) for n in ('compare.png' if side_prev else 'body.png',
+                                                                   'face.png')]
         if not os.path.isfile(paths_[0]):
             self.pv_body.config(image='', text=self.t('preview_empty')); self.pv_face.config(image='')
             return

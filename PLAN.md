@@ -181,7 +181,7 @@ Resultado de la ronda del 30/10/2026 (tras la fase 5, a pedido del usuario):
   reconociendo la de las pruebas, `TS3 Character Kit backup`). Ajustes en `~/.ts3_modding_tool.json` (lee los viejos).
 - El release **no** se rehízo: el usuario lo está probando.
 
-## Roadmap (pedido el 31/10/2026; nada de esto está hecho todavía)
+## Roadmap (pedido el 31/10/2026; lo hecho está marcado «Hecho»)
 
 Idea general: que la herramienta sea más técnica y manipulable sin obligar a editar `map.py` a mano. Todo lo que se
 ajuste en la ventana se sigue escribiendo en `map.py`, que continúa siendo editable en modo avanzado.
@@ -204,7 +204,9 @@ estimado del OBJ pone el cuello corto respecto al del juego, y el convertidor lo
 - **Mover una articulación a mano** (sobre todo en OBJ): arrastrar en la vista previa hombro, codo, rodilla, cuello…
   del esqueleto estimado. **Hecho (31/10/2026) para OBJ**: modo «Esqueleto de tu modelo» en la Vista previa, puntos
   arrastrables, simetría izquierda/derecha, «Volver al automático»; se guarda en el proyecto (`joints`) y el
-  esqueleto automático y sus pesos los usan al convertir. Pendiente: lo mismo para FBX (mover los huesos de su rig).
+  esqueleto automático y sus pesos los usan al convertir. **Hecho (31/10/2026) para FBX**: el mismo modo muestra el
+  FBX con sus articulaciones del cuerpo (las de la pestaña Huesos); se guardan por nombre de hueso en `joints` y el
+  convertidor usa esa posición como pivote (`JOINT_POS`), sin tocar la malla ni sus pesos.
 - **Ropa y accesorios**: estrechar o ensanchar una prenda (`MATERIAL_SCALE`), decidir si un objeto suelto (bastón,
   sombrero, arma) va con la mano, con la cabeza o fuera (`SKIP_BONES`).
 - **Ojos y cara**: abrir párpados cerrados (detectar los huesos de párpado y proponer `EYES` solo), cara animada sí/no
@@ -212,9 +214,27 @@ estimado del OBJ pone el cuello corto respecto al del juego, y el convertidor lo
 - **Pesos**: ver los pesos en color sobre el modelo, repartir un hueso de ayuda entre dos (`{hueso: parte}`), suavizar.
 - **Deshacer / rehacer** y **comparar** dos versiones del ajuste.
 
+**Hecho (31/10/2026): el resto de esta sección.** La pestaña Ajustes tiene cuatro páginas y todo se guarda en
+`adjust` (y se cambia también con `kit.py adjust`):
+- *Accesorios y ropa*: cada hueso suelto (pelo, bolsa, arma…) va con la mano izquierda/derecha, la cabeza, el
+  pecho o la cadera, o se quita (`props` → `WEIGHTS` / `SKIP_BONES`); cada material, más estrecho o ancho
+  (`garments` → `MATERIAL_SCALE`, en x y z alrededor de la cadera).
+- *Ojos y cara*: abrir párpados cerrados (busca por nombre el ojo y los huesos de párpado de arriba y abajo;
+  `eyes_open` → `EYES` en modo `rotate`), cara animada (`face` → `FACE`), cabeza colocada por la cara
+  (`head_by_face` → `FACE_ALIGN` + `face`/`aim_face`).
+- *Pesos*: la lista de todos los huesos del modelo con su hueso del juego; se cambia o se reparte entre dos
+  (`weights`), y se suavizan (`smooth` → `WEIGHT_SMOOTH`, opción nueva del convertidor: pasadas que promedian los
+  pesos de cada punto con sus vecinos).
+- *Deshacer / rehacer* (botones y Ctrl+Z / Ctrl+Y), *versiones con nombre* (`adjust_versions`), y la conversión
+  anterior se guarda en `out_prev/` para verla al lado en la Vista previa (o `previews/compare.png`).
+Comprobado: sin estas opciones los mapas de 7 modelos salen idénticos, y el convertidor da TS5 Woody y CJ byte a byte
+iguales. Pendiente de probar en el juego.
+
 ### 2. Mejor vista previa
 
-**Hecho (31/10/2026): vista 3D en vivo** (`kit/viewer.py`, moderngl, la misma técnica que DisneyInfinityCreator, con código propio). Se gira, mueve y acerca con el ratón; pose T o **brazos abajo**; el original del juego al lado y el esqueleto del juego encima; en la pestaña Ajustes, una vista en vivo que sigue los controles al instante (aproximada). Comando `doctor` para diagnosticar. Pendiente de esta sección: animaciones del juego y resaltar en rojo lo muy estirado.
+**Hecho (31/10/2026): vista 3D en vivo** (`kit/viewer.py`, moderngl, la misma técnica que DisneyInfinityCreator, con código propio). Se gira, mueve y acerca con el ratón; pose T o **brazos abajo**; el original del juego al lado y el esqueleto del juego encima; en la pestaña Ajustes, una vista en vivo que sigue los controles al instante (aproximada). Comando `doctor` para diagnosticar. **Hecho (31/10/2026): resaltar en rojo lo muy estirado** (casilla en la Vista previa; sale de las líneas «stretch»
+del informe: rojo del todo en el límite del convertidor, 0,8 o 1,25) y un modo **Pesos** que pinta los pesos de un
+hueso del juego (azul oscuro nada, verde un poco, rojo todo). Pendiente: animaciones del juego (abajo, lo que se sabe).
 - Vista 3D que se gira con el ratón (no solo frente/perfil).
 - **Pose con los brazos bajados** (como anima el juego): ahí se ven los problemas de hombros y axilas.
 - **Animaciones del juego en la vista previa** (andar, correr, saltar, atacar…), para ver el modelo moviéndose como
@@ -226,6 +246,16 @@ estimado del OBJ pone el cuello corto respecto al del juego, y el convertidor lo
   (`LayerBind` / `ConnectionTemplate`) y cómo están comprimidas las muestras. Es investigación; si sale, la vista 3D
   ya sabe mover el modelo con el esqueleto del juego (`viewer.Character.pose`), así que reproducirlas sería poner
   esas rotaciones fotograma a fotograma, con una lista para elegir la animación.
+  Mirado más a fondo el 31/10/2026 (`woody_motion_walk_normal.oct`): un `SubNetwork` de tipo `Clip` con un
+  `ClipDataBlock` de 6.320 bytes (0 a 0,867 s; 1 descriptor, 24 secciones, tabla de 30 salidas en el formato «1.0»
+  del `FORMATS.md`: `u16 cabecera (nº de componentes & 0xf), u16 id, componentes`) y un `LayerBind` que nombra
+  `characters/woody/woody_fullbody.ct`, que no está en ningún archivo del juego. Las salidas no mueven huesos: mueven
+  los **controles del rig** de la red de animación de `woody.oct` (objetivos de IK de brazos y pies,
+  `ControlHandLock*`, restricciones `avaPTconstraint_*`, curvas de parpadeo), y el juego calcula los huesos con esa
+  red. Para verlas haría falta: (1) decodificar las secciones (cabecera `u8 0, u8 tipo, u16 tamaño, f32 inicio,
+  f32 fin`, luego flotantes o enteros de 16 bits comprimidos según el tipo: 0x02, 0x04, 0x06, 0x08, 0x0a, 0x0c, 0x0e,
+  0x16), (2) saber qué control es cada id y (3) evaluar la red de nodos del personaje (IK, restricciones,
+  conexiones). Es un proyecto de investigación grande; no está empezado más allá de esto.
 - Esqueleto del juego y del modelo superpuestos; resaltar en rojo las partes muy estiradas o giradas.
 
 ### 3. Diagnóstico en lenguaje normal

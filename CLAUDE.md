@@ -55,7 +55,8 @@ Run with Python 3.12 + numpy + Pillow, always `python -I` (each script puts its 
 
 ## The converter (`tools/convert.py`)
 
-Driven by a map (tables: `TORSO`, `LANDMARKS`, `SCALE_JOINTS`, `FACE_ALIGN`, `DRIVE`, `WEIGHTS`, `TORSO_SCALE`, `GIRTH`, `EYES`/`EYE_MODE`,
+Driven by a map (tables: `TORSO`, `LANDMARKS`, `SCALE_JOINTS`, `FACE_ALIGN`, `DRIVE`, `WEIGHTS`, `TORSO_SCALE`, `GIRTH`,
+`JOINT_POS`, `WEIGHT_SMOOTH`, `EYES`/`EYE_MODE`,
 `KEEP_PIECES`, `MATERIAL_EFFECT`, `TEXTURES`/`MATERIALS`, ...; `docs/GUIA_MANUAL.md` §4 explains each). It fits the
 model onto the game's bind pose (overall scale, torso block, each `DRIVE` limb turned and stretched onto its game
 pivot, other bones follow their driver), maps weights to game bones, splits pieces of ≤40 bones, and rewrites the
@@ -82,6 +83,15 @@ Finds the body by shape, in the game frame, from skinned bind positions:
 - `adjust` {'head_cm'}: the head's `DRIVE` `offset` and the neck's `tip_offset` (same y, metres). `measure_neck()`
   compares the model's neck at the converter's scale (least squares over `SCALE_JOINTS`, as `convert.fit`) with the
   game's and gives the stretch and the offset that keeps the model's own length (window: Adjustments tab).
+
+- `adjust` also takes `props` {model bone: hand_left | hand_right | head | chest | hips | out} (`extra_bones()`
+  lists the candidates: skinned bones that are no body joint, face or helper; `PROP_PLACES`), `garments` {material:
+  percent} (→ `MATERIAL_SCALE` (k, 1, k)), `weights` {model bone: game bone | {game bone: share}}, `smooth` (→
+  `WEIGHT_SMOOTH`), `eyes_open` {top, bottom} (→ `EYES` from `eye_bones()`, by name, `EYE_MODE` 'rotate'), `face`
+  (→ `FACE`), `head_by_face` (→ `FACE_ALIGN` from the face bones + `face` / `aim_face`); an FBX's moved joints
+  (`objlib.JOINTS`, model bone names) replace `sk.pos` and are written as `JOINT_POS`. Absent keys write nothing
+  new: the map stays byte-identical (checked on 7 rigs). `kit.ADJUST_KEYS` documents them; `kit.py adjust`
+  edits them and `--info` reports the choices.
 
 Regression check after changing it: generate maps for a few different rigs and diff the reports before/after.
 
@@ -113,7 +123,10 @@ character extracted from the game's original archive), `map.py`, `out/<c>/`, `pr
   taken from the tool's backup (`<game>/TS3 Modding Tool backup/`), the live archive, or any other installer's
   `<game>/* backup/` folder. With none, `make` refuses unless `--force`. Extractions are tagged
   (`game/<c>/.ts3tool_source`) and redone when built on a modded archive and an original turns up.
-- `build()`: map (kept as is unless remapping), convert, check the `.oct` reads back byte for byte, previews.
+- `build()`: map (kept as is unless remapping), convert (the previous `out/` moves to `out_prev/`), check the
+  `.oct` reads back byte for byte, previews (+ `compare.png` when there is a previous conversion).
+- `adjust` (command): the Adjustments from the CLI (`ADJUST_KEYS`, `check_adjust`, versions in
+  `adjust_versions`, `adjust_info` = what the window's tab shows, `strain()` = stretch per game bone).
 - `export_pack()` builds the pack with `tools/build_release.py` and fills `kit/pack/` (UTF-8 BOM + CRLF for
   PowerShell 5.1; `@@WHAT@@` escaped for single quotes).
 - The `.exe` takes the same commands (`app.main` forwards them; output in `report.txt` and `%TEMP%`).
@@ -130,6 +143,11 @@ the bone's segment, torso block scale about the landmarks) — an approximation;
 the window's joints mode `View.on_joints` is set: a left click within 14 px of a joint drags it across the screen at
 its depth (mirrored to its Left/Right twin when `mirror`), and the release reports {bone: position}, saved as the
 project's `joints` → `objlib.use_joints()` → `rig(joints=...)` replaces those joints before weighting.
+`SourceFBX` does the same for an FBX: its merged meshes and the body joints (roles from the Bones tab), named
+by role so mirroring works; `keys` maps roles back to model bones and `unit` scales files in cm to about 1.8 m
+for the view (the app divides it out when saving). `Character.K` is one number per vertex the shader colours by
+(`View.colour_mode` 1 = red over the texture, `strain()` from `kit.strain(work)`, the report's stretch lines;
+2 = heat, `bone_weight()`).
 `View(label)`: standalone moderngl context, framebuffer read back into the label (~12 ms a frame); mouse orbit/pan/
 zoom; optional game original (grey) and skeleton lines. Without OpenGL 3.3 `available()` is False and the window
 shows the still images. `kit.py doctor` reports it.
@@ -138,7 +156,9 @@ shows the still images. `kit.py doctor` reports it.
 
 Start screen (game, workspace `<Documents>/Toy Story 3 Modding Tool/`, sections, recent projects, new project) and a
 project screen in 4 steps (pinned Woody / Buzz Lightyear / Jessie, model, convert, install/export/restore), tabs Bones,
-Materials, Preview, Log. Work runs in a thread (stdout → Log tab); a spinner shows while busy. Settings in
+Materials, Adjustments (pages: head and proportions, accessories and clothes, eyes and face, weights; undo / redo
+keeps snapshots of `adjust_now()`, versions), Preview (3D, images, weights, joints; stretch in red; beside it the
+game's original or the previous conversion), Log. Work runs in a thread (stdout → Log tab); a spinner shows while busy. Settings in
 `~/.ts3_modding_tool.json`; the env var `TS3TOOL_SETTINGS` points it elsewhere: use it in tests so a user's own
 settings are never touched.
 
@@ -164,7 +184,7 @@ Commits carry no `Co-Authored-By` or other AI attribution line: the maintainer i
 Implemented first slice: `kit/modfile.py` (schema 1 + folder/ZIP packages), `kit/modstore.py`
 (transactional install/remove, exclusive target ownership, recoverable journal), `kit.py mods`
 commands, and `mod.json` in exports with a stable project ID. See `docs/MOD_FORMAT.md`.
-Run `python -I tests/test_mods.py`: synthetic integration tests, no game files or user settings.
+Run `python -I tests/test_mods.py` and `python -I tests/test_adjust.py`: synthetic tests, no game files or user settings.
 Backups in `<game>/TS3 Modding Tool/objects/` are SHA-256 addressed; never delete them manually.
 Done since: the console CLI (`kit/cli.py`, `kit/modcli.py`, `TS3 Modding CLI.exe`), the "Installed mods"
 screen with review and drag-and-drop (`kit/dropfiles.py`: `WM_DROPFILES` through a window subclass, no extra

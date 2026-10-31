@@ -20,7 +20,13 @@ textures are next.
 - **Live 3D preview** (GPU): turn and zoom it with the mouse, see it with its arms down as the game animates it,
   next to the game's original, with the game's skeleton on it; the Adjustments show live while you move them.
   Still images when the graphics card has no OpenGL 3.3.
-- **Move the automatic skeleton's joints** of an OBJ by dragging them in the 3D view (mirrored left/right).
+- **Move the joints** of an OBJ's automatic skeleton or an FBX's body by dragging them in the 3D view (mirrored
+  left/right).
+- **Adjustments**: head height and proportions; loose objects (hat, bag, weapon) with the hand, head, chest or hips,
+  or left out; narrower / wider clothes; open shut eyelids, animated face, head placed by the face; weights by
+  hand and smoothing; undo / redo, named versions, and the conversion before shown beside the new one.
+- **See problems**: the weights of any game bone in colour, and the parts the conversion stretched in red.
+- **Everything from the command line too** (`kit.py adjust`, `kit.py mods`), for scripts and AI agents.
 - **Install / restore** with a backup of the game's archive; refuses to build on an archive another mod changed, and
   finds the original in other installers' backups.
 - **Export a Nexus pack**: an installer that puts only your changes into each player's own game.

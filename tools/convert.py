@@ -106,6 +106,13 @@ def fit(scene, mesh, bones3, mp, log):
     P = (np.c_[mesh['pos'], np.ones(len(mesh['pos']))] @ mg)[:, :3] @ A
     R0 = (mg[:3, :3] / np.linalg.norm(mg[:3, :3], axis=1, keepdims=True)) @ A
     j5 = {c['bone']: c['xlink'][3, :3] @ A for c in sk}
+    # JOINT_POS {model bone: (x, y, z)}: joints the user moved by hand (the file's units, Y up, facing +Z); they
+    # only change where the bone's pivot is for the fit, the mesh and its weights stay the file's
+    for k, v in getattr(mp, 'JOINT_POS', {}).items():
+        if k in j5:
+            j5[k] = np.asarray(v, float)
+    if getattr(mp, 'JOINT_POS', None):
+        log('  %d joints moved by hand' % len([k for k in mp.JOINT_POS if k in j5]))
     allb = scene.bones()
     byname = {b['name']: (oid, b) for oid, b in allb.items()}
     piv3 = {b['name']: np.array(b['pivot']) for b in bones3}
@@ -370,6 +377,23 @@ def fit(scene, mesh, bones3, mp, log):
             w3.setdefault('Head', np.zeros(ncp))
             w3['Head'] += w3[tb] * (1 - k); w3[tb] *= k
             log('  %s moves %d%% as far' % (tb, k * 100))
+    # WEIGHT_SMOOTH n: n passes averaging each point's game-bone weights with its neighbours' (softer bends)
+    if getattr(mp, 'WEIGHT_SMOOTH', 0) and w3:
+        e = mesh['cp'][mesh['tri']]
+        e = np.r_[e[:, [0, 1]], e[:, [1, 2]], e[:, [2, 0]]]
+        e = np.unique(np.sort(e, 1), axis=0)
+        deg = np.bincount(e.ravel(), minlength=ncp).astype(float)
+        names = list(w3)
+        Wm = np.array([w3[n] for n in names])
+        total = Wm.sum(0)
+        for _ in range(int(mp.WEIGHT_SMOOTH)):
+            acc = Wm.copy()
+            np.add.at(acc.T, e[:, 0], Wm[:, e[:, 1]].T)
+            np.add.at(acc.T, e[:, 1], Wm[:, e[:, 0]].T)
+            Wm = acc / (1 + deg)
+            Wm *= total / np.maximum(Wm.sum(0), 1e-12)
+        w3 = dict(zip(names, Wm))
+        log('  weights smoothed, %d passes' % int(mp.WEIGHT_SMOOTH))
     if (W5 < 0.99).any():
         used = np.zeros(ncp, bool); used[mesh['cp'][mesh['tri']]] = True
         log('  %d vertices without full weights (%d of them used, %d with none)' % (
