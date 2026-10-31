@@ -327,9 +327,12 @@ def material_effect(f, subs):
     return max(set(used), key=used.count) if used else effects[0]
 
 
-def automap(fbx, ts3dir, base, log=print, overrides=None):
+def automap(fbx, ts3dir, base, log=print, overrides=None, adjust=None):
     """the map's tables for this FBX on that game character, and the roles found (for the app's bone table);
-    overrides {role: model bone} replaces what is found (roles: ROLES)"""
+    overrides {role: model bone} replaces what is found (roles: ROLES); adjust {'head_cm': up (+) or down (-)} moves
+    the head and the end of the neck from the game's head joint (the window's Adjustments tab)"""
+    adjust = adjust or {}
+    dy = float(adjust.get('head_cm') or 0) / 100      # game units are metres
     objlib.use_game(ts3dir, base)                      # an OBJ gets this character's skeleton
     sk = Skeleton(fbx)
     f3, bones3, subs3, *_ = T.load(os.path.join(ts3dir, base + '.oct'))
@@ -382,8 +385,8 @@ def automap(fbx, ts3dir, base, log=print, overrides=None):
 
     drive = {}
     if neck:
-        drive[neck] = (head, 'Neck', 'Head', {})
-    drive[head] = (None, 'Head', None, {})
+        drive[neck] = (head, 'Neck', 'Head', {'tip_offset': (0.0, dy, 0.0)} if dy else {})
+    drive[head] = (None, 'Head', None, {'offset': (0.0, dy, 0.0)} if dy else {})
     for sd, s in SIDES:
         hip, knee, foot, toe = (body[k + s] for k in ('hip', 'knee', 'foot', 'toe'))
         leg = sk.path(body['pelvis'], toe or foot)
@@ -455,6 +458,7 @@ def automap(fbx, ts3dir, base, log=print, overrides=None):
         sj += [(body['shoulder' + s], 'Bicep' + s), (body['elbow' + s], 'Forearm' + s), (body['hand' + s], 'Hand' + s),
                (body['hip' + s], 'Thigh' + s), (body['knee' + s], 'Calf' + s), (body['foot' + s], 'Foot' + s)]
     tables['SCALE_JOINTS'] = [(a, b) for a, b in sj if a in P]
+    neck_fit = measure_neck(P, neck, head, tables['SCALE_JOINTS'], bones3, dy)
     tables['FACE_ALIGN'] = []
     tables['DRIVE'] = drive
     tables['WEIGHTS'] = {n: W[n] for n in sorted(W, key=lambda n: (n not in sk.skinned, n)) if n in sk.skinned or n in drive}
@@ -468,7 +472,23 @@ def automap(fbx, ts3dir, base, log=print, overrides=None):
             log('  warning: the %s toes point backwards: the model may face -Z' % s.lower())
     if P[body['handLeft']][0] < 0:
         log('  warning: the left hand is at -x: the model may be facing backwards')
-    return tables, dict(body=body, roles=roles, follows=follows, notes=notes, skeleton=sk)
+    return tables, dict(body=body, roles=roles, follows=follows, notes=notes, skeleton=sk, neck=neck_fit)
+
+
+def measure_neck(P, neck, head, scale_joints, bones3, dy):
+    """the model's neck (neck joint to head joint) at the size the converter gives the model (its least-squares
+    scale over SCALE_JOINTS, as in convert.fit), next to the game character's: how much the converter stretches it,
+    and the head offset (cm) that would leave it at its own length"""
+    piv = {b['name']: np.array(b['pivot'], float) for b in bones3}
+    if not neck or head not in P or 'Neck' not in piv or 'Head' not in piv:
+        return None
+    pairs = [(P[a], piv[b]) for a, b in scale_joints if b in piv]
+    s = sum(float(a @ b) for a, b in pairs) / sum(float(a @ a) for a, _ in pairs)
+    model = float(np.linalg.norm(P[head] - P[neck])) * s
+    game = float(np.linalg.norm(piv['Head'] - piv['Neck']))
+    return dict(model_cm=round(model * 100, 1), game_cm=round(game * 100, 1),
+                stretch=round((game + dy) / model, 2) if model else None,
+                natural_cm=round((model - game) * 100, 1))
 
 
 # ------------------------------------------------------------------------------------------- writing
@@ -523,6 +543,10 @@ def report(info, log=print):
     b = info['body']
     log('torso: %s (hips %s, chest %s)' % (b['root'], b['pelvis'], b['chest']))
     log('neck: %s   head: %s' % (', '.join(b['neck']) or '-', b['head']))
+    nf = info.get('neck')
+    if nf:
+        log('  neck length: model %.1f cm, game %.1f cm: stretched x%.2f (the converter allows 0.80..1.25); '
+            'head %+.1f cm keeps its own length' % (nf['model_cm'], nf['game_cm'], nf['stretch'], nf['natural_cm']))
     for _, s in SIDES:
         log('%-5s leg: %s > %s > %s > %s' % (s, b['hip' + s], b['knee' + s], b['foot' + s], b['toe' + s] or '-'))
         log('%-5s arm: %s > %s > %s > %s' % (s, b['clavicle' + s] or '-', b['shoulder' + s], b['elbow' + s], b['hand' + s]))

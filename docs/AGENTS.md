@@ -51,6 +51,9 @@ The user may also use the window (`kit/app.py`); it works on the same project fo
 choices are stored in `kit_project.json` (`bones`: {role: model bone, '' = none}, roles as in `automap.ROLES`;
 `materials`: {FBX material: image file | [r, g, b] | 'skip'}) and apply whenever the map is written again
 (`make --remap`). To change a body part's bone you can set them there instead of editing `map.py`.
+`adjust`: {'head_cm': up (+) / down (-)} moves the head and the end of the neck from the game's head joint (the
+window's Adjustments tab). The report's line `neck length: model X cm, game Y cm: stretched xZ ...; head N cm keeps
+its own length` says when to use it: a stretch beyond 1.25 means a long, distorted neck; set `head_cm` to N.
 
 To publish: `kit.py export work/<name> --name "<Mod name>" --version 1.0 --author "<user>" --what "<one line>"
 --model-credits "<model author>"` writes `work/<name>/pack/<Mod name> for TS3/` and its zip: an installer that puts

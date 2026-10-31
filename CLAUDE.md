@@ -74,7 +74,10 @@ Finds the body by shape, in the game frame, from skinned bind positions:
   accessories (`Hat`, `Holster`, `Hair1`, `WingLeft1`) by name words + side; helper bones on a joint take its bone;
 - face bones stay on `Head` (`FACE = False`); every skinned bone gets an explicit `WEIGHTS` entry;
 - `MATERIAL_EFFECT` per character (`material_effect()`: Jessie lacks Woody/Buzz's skin shader);
-- `overrides` {role: bone} (the window's bone table, `ROLES`) replace what is found, with ancestry checks.
+- `overrides` {role: bone} (the window's bone table, `ROLES`) replace what is found, with ancestry checks;
+- `adjust` {'head_cm'}: the head's `DRIVE` `offset` and the neck's `tip_offset` (same y, metres). `measure_neck()`
+  compares the model's neck at the converter's scale (least squares over `SCALE_JOINTS`, as `convert.fit`) with the
+  game's and gives the stretch and the offset that keeps the model's own length (window: Adjustments tab).
 
 Regression check after changing it: generate maps for a few different rigs and diff the reports before/after.
 

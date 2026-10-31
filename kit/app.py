@@ -46,7 +46,15 @@ TEXT = {
         next_convert='Siguiente: pulsa «Convertir». Si quieres, revisa antes los huesos y materiales.',
         next_look='Mira la Vista previa. Si algo está mal, corrígelo en Huesos o Materiales y vuelve a convertir; '
                   'si está bien, instálalo en el juego.',
-        tab_bones='Huesos', tab_mats='Materiales', tab_preview='Vista previa', tab_log='Registro',
+        tab_bones='Huesos', tab_mats='Materiales', tab_preview='Vista previa', tab_log='Registro', tab_adjust='Ajustes',
+        adj_head_title='Cabeza y cuello',
+        adj_help='Mueve la cabeza (y el final del cuello con ella) desde donde está la cabeza del personaje del juego. '
+                 'Negativo = más abajo. Úsalo si el cuello sale estirado o aplastado.',
+        adj_info='El cuello de tu modelo mide %.1f cm y el de %s %.1f cm: con el ajuste aplicado ahora se estira ×%.2f '
+                 '(el convertidor permite de ×0,80 a ×1,25; más allá se deforma).',
+        adj_none='Pulsa «Convertir» o «Revisar huesos y materiales» para medir el cuello de tu modelo.',
+        adj_height='Altura de la cabeza', adj_natural='Cuello a su largo natural', adj_reset='Volver a 0',
+        adj_apply='Aplicar y convertir',
         role='Parte', model_bone='Hueso del modelo', how='Cómo', material='Material', triangles='Triángulos',
         uses='Usa', note='Nota', auto='automático', chosen='elegido', none='(ninguno)',
         back_auto='Volver a automático', ok='Aceptar', cancel='Cancelar', image='Imagen', colour='Color liso',
@@ -105,7 +113,15 @@ TEXT = {
         next_convert='Next: press "Convert". If you like, check the bones and materials first.',
         next_look='Look at the Preview. If something is wrong, fix it in Bones or Materials and convert again; '
                   'if it looks right, install it into the game.',
-        tab_bones='Bones', tab_mats='Materials', tab_preview='Preview', tab_log='Log',
+        tab_bones='Bones', tab_mats='Materials', tab_preview='Preview', tab_log='Log', tab_adjust='Adjustments',
+        adj_head_title='Head and neck',
+        adj_help="Moves the head (and the end of the neck with it) from where the game character's head is. "
+                 'Negative = lower. Use it when the neck comes out stretched or squashed.',
+        adj_info="Your model's neck is %.1f cm long and %s's %.1f cm: with the setting applied now it is stretched x%.2f "
+                 '(the converter allows x0.80 to x1.25; beyond that it gets distorted).',
+        adj_none="Press \"Convert\" or \"Check bones and materials\" to measure your model's neck.",
+        adj_height='Head height', adj_natural='Neck at its own length', adj_reset='Back to 0',
+        adj_apply='Apply and convert',
         role='Part', model_bone='Model bone', how='How', material='Material', triangles='Triangles',
         uses='Uses', note='Note', auto='automatic', chosen='chosen', none='(none)',
         back_auto='Back to automatic', ok='OK', cancel='Cancel', image='Image', colour='Solid colour',
@@ -140,6 +156,7 @@ TEXT = {
                    'Disney, Pixar or Avalanche Software.'),
 }
 OPTIONAL = {'neck', 'clavicleLeft', 'clavicleRight', 'toeLeft', 'toeRight'}
+TAB_BONES, TAB_MATS, TAB_ADJUST, TAB_PREVIEW, TAB_LOG = range(5)
 
 
 class Out:
@@ -492,6 +509,7 @@ class App:
                                    (self.t('role'), self.t('model_bone'), self.t('how')), self.edit_bone)
         self.mats_tv = self.table(self.t('tab_mats'), (('mat', 230), ('tris', 90), ('uses', 330), ('note', 200)),
                                   (self.t('material'), self.t('triangles'), self.t('uses'), self.t('note')), self.edit_material)
+        self.build_adjust()
         pv = ttk.Frame(self.nb)
         self.nb.add(pv, text=self.t('tab_preview'))
         self.pv_body = ttk.Label(pv, text=self.t('preview_empty'), anchor='center')
@@ -508,7 +526,64 @@ class App:
         sb.pack(side='right', fill='y'); self.log.pack(fill='both', expand=True)
         self.refresh()
         if os.path.isfile(os.path.join(self.work, 'previews', 'body.png')):
-            self.nb.select(2)
+            self.nb.select(TAB_PREVIEW)
+
+    def build_adjust(self):
+        """the Adjustments tab: fine-tuning that is written into map.py (head and neck for now; PLAN.md's roadmap has
+        the rest)"""
+        f = ttk.Frame(self.nb, padding=16)
+        self.nb.add(f, text=self.t('tab_adjust'))
+        ttk.Label(f, text=self.t('adj_head_title'), style='Head.TLabel').pack(anchor='w')
+        ttk.Label(f, text=self.t('adj_help'), wraplength=900).pack(anchor='w', pady=(2, 8))
+        self.adj_info = ttk.Label(f, wraplength=900, style='Hint.TLabel')
+        self.adj_info.pack(anchor='w', pady=(0, 8))
+        row = ttk.Frame(f); row.pack(anchor='w')
+        ttk.Label(row, text=self.t('adj_height')).pack(side='left')
+        self.head_cm = tk.DoubleVar(value=float(self.proj.get('adjust', {}).get('head_cm', 0)))
+        tk.Scale(row, variable=self.head_cm, from_=-15, to=15, resolution=0.1, orient='horizontal', length=420,
+                 showvalue=True).pack(side='left', padx=10)
+        ttk.Label(row, text='cm').pack(side='left')
+        b = ttk.Frame(f); b.pack(anchor='w', pady=(10, 0))
+        self.btn_natural = ttk.Button(b, text=self.t('adj_natural'), command=self.natural_neck)
+        self.btn_natural.pack(side='left')
+        ttk.Button(b, text=self.t('adj_reset'), command=lambda: self.head_cm.set(0)).pack(side='left', padx=8)
+        self.btn_apply = ttk.Button(b, text=self.t('adj_apply'), style='Big.TButton', command=self.apply_adjust)
+        self.btn_apply.pack(side='left', padx=(16, 0))
+        self.adj_note = ttk.Label(f, wraplength=900, style='Muted.TLabel')
+        self.adj_note.pack(anchor='w', pady=(10, 0))
+
+    def fill_adjust(self):
+        if not hasattr(self, 'adj_info') or not self.adj_info.winfo_exists():
+            return
+        nf = self.info.get('neck') if self.info else None
+        if nf:
+            char = dict(MAIN).get(self.proj.get('character'), self.proj.get('character'))
+            self.adj_info.config(text=self.t('adj_info') % (nf['model_cm'], char, nf['game_cm'], nf['stretch']))
+            self.btn_natural.config(text=self.t('adj_natural') + ' (%+.1f cm)' % nf['natural_cm'])
+        else:
+            self.adj_info.config(text=self.t('adj_none'))
+            self.btn_natural.config(text=self.t('adj_natural'))
+        self.adj_note.config(text=self.t('advanced_note') if self.proj.get('advanced') else '')
+        for w in (self.btn_natural, self.btn_apply):
+            w.state(['disabled'] if self.proj.get('advanced') or self.busy else ['!disabled'])
+
+    def natural_neck(self):
+        nf = self.info.get('neck') if self.info else None
+        if nf:
+            self.head_cm.set(nf['natural_cm'])
+
+    def apply_adjust(self):
+        cm = round(float(self.head_cm.get()), 1)
+        adj = self.proj.setdefault('adjust', {})
+        if cm:
+            adj['head_cm'] = cm
+        else:
+            adj.pop('head_cm', None)
+        if not adj:
+            self.proj.pop('adjust', None)
+        self.save_project()
+        self.info = None                                  # measured again after the conversion
+        self.convert()
 
     def fill_others(self):
         if not hasattr(self, 'other_box') or not self.other_box.winfo_exists():
@@ -619,7 +694,7 @@ class App:
     def converted(self, check):
         self.refresh()
         self.show_previews()
-        self.nb.select(2)
+        self.nb.select(TAB_PREVIEW)
         self.status.set(self.t('check') % ', '.join(check) if check else self.t('converted'))
         if self.info is None and not self.proj.get('advanced'):
             self.run(lambda: K.detect(self.work, self.proj, self.force, log=lambda *a: None),
@@ -679,6 +754,7 @@ class App:
             return
         for tv in (self.bones_tv, self.mats_tv):
             tv.delete(*tv.get_children())
+        self.fill_adjust()
         if not self.info:
             return
         body, chosen = self.info['body'], self.proj.get('bones', {})
@@ -811,7 +887,7 @@ class App:
             self.spinner.pack(side='right', padx=8, pady=2)
             self.spinner.start(12)
             if hasattr(self, 'nb') and self.nb.winfo_exists():
-                self.nb.select(2 if preview else 3)
+                self.nb.select(TAB_PREVIEW if preview else TAB_LOG)
                 if preview:
                     self.photos = []
                     self.pv_body.config(image='', text=self.t('drawing'), font=('Segoe UI', 12))

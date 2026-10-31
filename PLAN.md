@@ -188,6 +188,8 @@ ajuste en la ventana se sigue escribiendo en `map.py`, que continúa siendo edit
 
 ### 1. Ajustes finos del personaje (pestaña «Ajustes» con controles y vista previa al momento)
 
+**Hecho (31/10/2026): cabeza y cuello.** La pestaña Ajustes mide el cuello del modelo frente al del personaje (con el Woody de Wii: 5,2 cm frente a 10,6 cm, estirado ×2), tiene un control «Altura de la cabeza» y un botón «Cuello a su largo natural» que calcula el valor (−5,3 cm → ×1,01); se guarda en el proyecto (`adjust`) y se escribe en `map.py`. El resto de esta sección sigue pendiente.
+
 Caso que lo motivó: el Woody de Wii (OBJ, sin esqueleto) sobre Woody sale con el **cuello alargado**. El esqueleto
 estimado del OBJ pone el cuello corto respecto al del juego, y el convertidor lo estira hasta su límite
 (`Neck -> Neck stretch 1.25`) para llevar la cabeza a la articulación de la cabeza del juego; el torso además sale un

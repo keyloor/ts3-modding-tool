@@ -265,7 +265,7 @@ def detect(work, proj, force=False, log=print):
     """the map's tables as the kit would write them now (the project's own bone and material choices applied),
     without writing anything but the project file: (tables, automap info)"""
     game_dir = prepare(work, proj, force, log)
-    tables, info = AM.automap(proj['fbx'], game_dir, proj['character'], log, proj.get('bones'))
+    tables, info = AM.automap(proj['fbx'], game_dir, proj['character'], log, proj.get('bones'), proj.get('adjust'))
     AM.add_textures(tables, proj['fbx'], proj['textures'], log, proj.get('materials'))
     return tables, info
 
@@ -286,7 +286,7 @@ def build(work, proj, remap=False, force=False):
             print('\n== map: using your map.py as it is (--remap writes a new one)')
         else:
             print('\n== map: bones')
-            tables, info = AM.automap(fbx, game_dir, c, print, proj.get('bones'))
+            tables, info = AM.automap(fbx, game_dir, c, print, proj.get('bones'), proj.get('adjust'))
             AM.report(info)
             print('\n== map: textures')
             check = AM.add_textures(tables, fbx, tex, print, proj.get('materials'))

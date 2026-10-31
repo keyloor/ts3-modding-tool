@@ -254,7 +254,7 @@ los hombros y las axilas solo se pueden juzgar en el juego.
 
 | Se ve así | Arreglo en el mapa |
 |---|---|
-| La cabeza flota o se hunde | `offset` en el `DRIVE` de la cabeza y `tip_offset` igual en el del cuello, p. ej. `(0, -0.035, 0)` |
+| La cabeza flota o se hunde, o el cuello sale estirado | `offset` en el `DRIVE` de la cabeza y `tip_offset` igual en el del cuello, p. ej. `(0, -0.035, 0)`. En la ventana: pestaña **Ajustes** → «Cuello a su largo natural» lo calcula solo |
 | Un brazo o una pierna sale demasiado corto o largo | Revisa la pareja en `SCALE_JOINTS`; si es a propósito, `max_stretch` en su `DRIVE` |
 | Ropa ancha que atraviesa las piernas al andar | `MATERIAL_SCALE = {'material': (0.85, 1.0, 0.9)}` estrecha esa prenda alrededor de la cadera |
 | Una manga se queda pegada al pecho, o tira del pecho | Pesos de ese hueso de ayuda: `{'Spine3': 0.3, 'BicepLeft': 0.7}`, o `WEIGHT_RAMP` |
