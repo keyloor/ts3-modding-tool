@@ -211,6 +211,8 @@ estimado del OBJ pone el cuello corto respecto al del juego, y el convertidor lo
 - **Deshacer / rehacer** y **comparar** dos versiones del ajuste.
 
 ### 2. Mejor vista previa
+
+**Hecho (31/10/2026): vista 3D en vivo** (`kit/viewer.py`, moderngl, la misma técnica que DisneyInfinityCreator, con código propio). Se gira, mueve y acerca con el ratón; pose T o **brazos abajo**; el original del juego al lado y el esqueleto del juego encima; en la pestaña Ajustes, una vista en vivo que sigue los controles al instante (aproximada). Comando `doctor` para diagnosticar. Pendiente de esta sección: animaciones del juego y resaltar en rojo lo muy estirado.
 - Vista 3D que se gira con el ratón (no solo frente/perfil).
 - **Pose con los brazos bajados** (como anima el juego): ahí se ven los problemas de hombros y axilas.
 - Si se consigue leer las animaciones del juego: reproducir una (andar, saltar) sobre el modelo.

@@ -18,6 +18,7 @@ Users talk to the tool in Spanish or English; the maintainer works in Spanish.
 | `kit/objlib.py` | OBJ reader + automatic skeleton and weights; `open_scene()` stands in for `fbxlib.Scene` |
 | `kit/kit.py` | The commands (`characters`, `make`, `install`, `restore`, `export`) and the functions the window calls |
 | `kit/app.py` | The window (tkinter; texts in `TEXT`, `es` and `en`) |
+| `kit/viewer.py` | Live 3D preview: reads a converted character, skins it on the CPU (poses, live adjustments), draws it with moderngl offscreen into a tkinter label |
 | `kit/build_kit.py` | PyInstaller build: `release/<TOOL> v<VERSION>/` + zip, or `--desktop` (a copy on the Desktop + shortcut) |
 | `kit/pack/` | Templates of the exported Nexus pack: `installer.ps1`, `action.bat`, `README.txt` |
 | `tools/` | Game formats and the converter (below) |
@@ -113,6 +114,18 @@ character extracted from the game's original archive), `map.py`, `out/<c>/`, `pr
 - `export_pack()` builds the pack with `tools/build_release.py` and fills `kit/pack/` (UTF-8 BOM + CRLF for
   PowerShell 5.1; `@@WHAT@@` escaped for single quotes).
 - The `.exe` takes the same commands (`app.main` forwards them; output in `report.txt` and `%TEMP%`).
+
+## 3D preview (`kit/viewer.py`)
+
+`Character(dir, base)` reads every piece of a converted `.oct` with each vertex's game bones (remap BoneIDs →
+bone index) and weights, the diffuse maps and the skeleton. `pose(turns, shapes)`: turns (axis/degrees, 3x3 about
+the pivot, or 4x4) chain down the skeleton (pre-order), shapes (4x4) change only that bone's vertices; linear blend
+skinning in numpy (~6 ms for 7k vertices). `live_adjust(ch, applied, now)` turns the Adjustments' values into
+turns/shapes relative to the ones the model was converted with (head move/size, neck stretch, limb girth across
+the bone's segment, torso block scale about the landmarks) — an approximation; converting gives the exact result.
+`View(label)`: standalone moderngl context, framebuffer read back into the label (~12 ms a frame); mouse orbit/pan/
+zoom; optional game original (grey) and skeleton lines. Without OpenGL 3.3 `available()` is False and the window
+shows the still images. `kit.py doctor` reports it.
 
 ## The window (`kit/app.py`)
 

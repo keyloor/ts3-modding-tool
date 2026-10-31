@@ -13,6 +13,7 @@ sys.dont_write_bytecode = True
 import paths
 from about import CREDIT, TOOL, VERSION, AUTHOR
 import automap as AM
+import viewer as V
 import kit as K
 from PIL import Image, ImageTk
 
@@ -64,6 +65,11 @@ TEXT = {
         adj_torso_w='Torso: ancho', adj_torso_h='Torso: alto', adj_torso_d='Torso: fondo',
         adj_head_size='Cabeza: tamaño', adj_neck_thick='Cuello: grosor', adj_arms_thick='Brazos: grosor',
         adj_legs_thick='Piernas: grosor', adj_prop_reset='Todo a 100 %',
+        adj_live='En vivo, mientras mueves los controles (aproximado: «Aplicar y convertir» da el resultado exacto)',
+        pv_3d='3D', pv_images='Imágenes', pv_tpose='Pose T', pv_armsdown='Brazos abajo (como en el juego)',
+        pv_ghost='Original del juego al lado', pv_bones='Esqueleto del juego',
+        pv_help='Arrastra: girar · clic derecho: mover · rueda: acercar · doble clic: encuadrar',
+        pv_no_gl='Tu tarjeta gráfica no da OpenGL 3.3: solo hay imágenes fijas.',
         role='Parte', model_bone='Hueso del modelo', how='Cómo', material='Material', triangles='Triángulos',
         uses='Usa', note='Nota', auto='automático', chosen='elegido', none='(ninguno)',
         back_auto='Volver a automático', ok='Aceptar', cancel='Cancelar', image='Imagen', colour='Color liso',
@@ -140,6 +146,11 @@ TEXT = {
         adj_torso_w='Torso: width', adj_torso_h='Torso: height', adj_torso_d='Torso: depth',
         adj_head_size='Head: size', adj_neck_thick='Neck: thickness', adj_arms_thick='Arms: thickness',
         adj_legs_thick='Legs: thickness', adj_prop_reset='All to 100 %',
+        adj_live='Live, while you move the controls (approximate: "Apply and convert" gives the exact result)',
+        pv_3d='3D', pv_images='Images', pv_tpose='T pose', pv_armsdown='Arms down (as in the game)',
+        pv_ghost="The game's original beside it", pv_bones="The game's skeleton",
+        pv_help='Drag: turn · right drag: move · wheel: zoom · double click: frame',
+        pv_no_gl="Your graphics card doesn't offer OpenGL 3.3: only still images.",
         role='Part', model_bone='Model bone', how='How', material='Material', triangles='Triangles',
         uses='Uses', note='Note', auto='automatic', chosen='chosen', none='(none)',
         back_auto='Back to automatic', ok='OK', cancel='Cancel', image='Image', colour='Solid colour',
@@ -276,6 +287,7 @@ class App:
 
     # ------------------------------------------------------------------ frame
     def build(self):
+        self.release_views()
         for w in self.root.winfo_children():
             w.destroy()
         m = tk.Menu(self.root)
@@ -306,6 +318,7 @@ class App:
         (self.build_project if self.screen == 'project' and self.work else self.build_home)()
 
     def clear_body(self):
+        self.release_views()
         for w in self.body.winfo_children():
             w.destroy()
         self.buttons = []
@@ -528,14 +541,7 @@ class App:
         self.mats_tv = self.table(self.t('tab_mats'), (('mat', 230), ('tris', 90), ('uses', 330), ('note', 200)),
                                   (self.t('material'), self.t('triangles'), self.t('uses'), self.t('note')), self.edit_material)
         self.build_adjust()
-        pv = ttk.Frame(self.nb)
-        self.nb.add(pv, text=self.t('tab_preview'))
-        self.pv_body = ttk.Label(pv, text=self.t('preview_empty'), anchor='center')
-        self.pv_body.pack(fill='both', expand=True)
-        self.pv_face = ttk.Label(pv, anchor='center')
-        self.pv_face.pack(fill='both', expand=True)
-        self.pv_bar = ttk.Progressbar(pv, mode='indeterminate', length=320)   # packed while converting
-        pv.bind('<Configure>', lambda e: self.busy or self.show_previews())
+        self.build_preview()
         lg = ttk.Frame(self.nb)
         self.nb.add(lg, text=self.t('tab_log'))
         self.log = tk.Text(lg, wrap='none', font=('Consolas', 9))
@@ -545,6 +551,139 @@ class App:
         self.refresh()
         if os.path.isfile(os.path.join(self.work, 'previews', 'body.png')):
             self.nb.select(TAB_PREVIEW)
+        self.load_view()
+        c = self.proj.get('character')
+        if c and self.proj.get('fbx') and os.path.isfile(os.path.join(self.work, 'out', c, c + '.oct'))                 and not self.proj.get('advanced'):         # measure it again for the tables and the Adjustments tab
+            self.run(lambda: K.detect(self.work, self.proj, self.force, log=lambda *a: None),
+                     lambda res: (setattr(self, 'tables', res[0]), setattr(self, 'info', res[1]), self.fill_tables()),
+                     quiet=True)
+
+    # ------------------------------------------------------------------ 3D preview
+    def build_preview(self):
+        """the Preview tab: the live 3D view (GPU) or the still images, a pose, the game's original beside it"""
+        pv = ttk.Frame(self.nb)
+        self.nb.add(pv, text=self.t('tab_preview'))
+        gl = V.available()
+        bar = ttk.Frame(pv, padding=(4, 4)); bar.pack(fill='x')
+        self.pv_mode = tk.StringVar(value='3d' if gl else 'images')
+        for val, key in (('3d', 'pv_3d'), ('images', 'pv_images')):
+            rb = ttk.Radiobutton(bar, text=self.t(key), value=val, variable=self.pv_mode, style='Toolbutton',
+                                 command=self.switch_preview)
+            rb.pack(side='left')
+            if val == '3d' and not gl:
+                rb.state(['disabled'])
+        ttk.Separator(bar, orient='vertical').pack(side='left', fill='y', padx=10)
+        self.pose_var = tk.StringVar(value='down')
+        for val, key in (('t', 'pv_tpose'), ('down', 'pv_armsdown')):
+            ttk.Radiobutton(bar, text=self.t(key), value=val, variable=self.pose_var, style='Toolbutton',
+                            command=self.live_pose).pack(side='left')
+        self.ghost_on, self.bones_on = tk.BooleanVar(value=False), tk.BooleanVar(value=True)
+        ttk.Checkbutton(bar, text=self.t('pv_ghost'), variable=self.ghost_on, command=self.view_flags).pack(side='left', padx=(12, 0))
+        ttk.Checkbutton(bar, text=self.t('pv_bones'), variable=self.bones_on, command=self.view_flags).pack(side='left', padx=8)
+        ttk.Label(bar, text=self.t('pv_help') if gl else self.t('pv_no_gl'), style='Muted.TLabel').pack(side='right')
+        self.pv_3d = tk.Label(pv, bg='#ebebeb', text=self.t('preview_empty'), font=('Segoe UI', 12))
+        self.pv_imgs = ttk.Frame(pv)
+        self.pv_body = ttk.Label(self.pv_imgs, text=self.t('preview_empty'), anchor='center')
+        self.pv_body.pack(fill='both', expand=True)
+        self.pv_face = ttk.Label(self.pv_imgs, anchor='center')
+        self.pv_face.pack(fill='both', expand=True)
+        self.pv_imgs.bind('<Configure>', lambda e: self.busy or self.show_previews())
+        self.pv_bar = ttk.Progressbar(pv, mode='indeterminate', length=320)   # packed while converting
+        self.view = V.View(self.pv_3d) if gl else None
+        self.switch_preview()
+
+    def switch_preview(self):
+        for w in (self.pv_3d, self.pv_imgs):
+            w.pack_forget()
+        if self.pv_mode.get() == '3d' and self.view is not None:
+            self.pv_3d.pack(fill='both', expand=True)
+            self.view.redraw()
+        else:
+            self.pv_imgs.pack(fill='both', expand=True)
+            self.show_previews()
+
+    def views(self):
+        return [v for v in (getattr(self, 'view', None), getattr(self, 'adj_view', None)) if v is not None]
+
+    def release_views(self):
+        for v in self.views():
+            try:
+                v.release()
+            except Exception:
+                pass
+        self.view = self.adj_view = None
+        self.ch = self.ghost_ch = None
+
+    def load_view(self):
+        """the converted character (and the game's original) into the 3D views, posed with the current choices"""
+        self.ch = self.ghost_ch = None
+        c = self.proj.get('character')
+        out = os.path.join(self.work, 'out', c or '-')
+        if not self.views():
+            return
+        if not c or not os.path.isfile(os.path.join(out, c + '.oct')):
+            for v in self.views():
+                v.set_character(None)
+            return
+        try:
+            self.ch = V.Character(out, c)
+            gdir = os.path.join(self.work, 'game', c)
+            self.ghost_ch = V.Character(gdir, c) if os.path.isfile(os.path.join(gdir, c + '.oct')) else None
+        except Exception:
+            print('\n' + traceback.format_exc())
+            self.ch = None
+            return
+        self.applied = json.loads(json.dumps(self.proj.get('adjust', {})))      # what out/ was converted with
+        self.live_pose(new=True)
+
+    def adjust_now(self):
+        """the Adjustments tab's values, in kit_project.json's 'adjust' form (neutral values left out)"""
+        if not hasattr(self, 'prop'):
+            return dict(self.proj.get('adjust', {}))
+        adj = {}
+        cm = round(float(self.head_cm.get()), 1)
+        if cm:
+            adj['head_cm'] = cm
+        torso = [int(self.prop['torso_' + a].get()) for a in 'xyz']
+        if torso != [100, 100, 100]:
+            adj['torso'] = torso
+        for key in ('head_pct', 'neck_pct', 'arms_pct', 'legs_pct'):
+            if int(self.prop[key].get()) != 100:
+                adj[key] = int(self.prop[key].get())
+        return adj
+
+    def live_pose(self, new=False):
+        """pose the loaded character (T or arms down) with the Adjustments values shown live, and redraw"""
+        self._live_job = None
+        if getattr(self, 'ch', None) is None:
+            return
+        turns, shapes = V.live_adjust(self.ch, self.applied, self.adjust_now())
+        down = getattr(self, 'pose_var', None) is not None and self.pose_var.get() == 'down'
+        if down:
+            turns = dict(V.ARMS_DOWN, **turns)
+        self.ch.pose(turns, shapes)
+        if self.ghost_ch is not None:
+            self.ghost_ch.pose(V.ARMS_DOWN if down else None)
+        for v in self.views():
+            if new:
+                v.set_character(self.ch, self.ghost_ch)
+                self.view_flags()
+            else:
+                v.update()
+
+    def live_soon(self, *_):
+        """a slider moved: show it in the 3D views shortly (not on every pixel of the drag)"""
+        if getattr(self, '_live_job', None):
+            self.root.after_cancel(self._live_job)
+        self._live_job = self.root.after(30, self.live_pose)
+
+    def view_flags(self):
+        """the Preview tab's choices; the Adjustments tab's live view shows only the character"""
+        for v in self.views():
+            main = v is getattr(self, 'view', None)
+            v.show_ghost = main and hasattr(self, 'ghost_on') and bool(self.ghost_on.get())
+            v.show_bones = main and (not hasattr(self, 'bones_on') or bool(self.bones_on.get()))
+            v.redraw()
 
     PROPORTIONS = (('torso_x', 'adj_torso_w'), ('torso_y', 'adj_torso_h'), ('torso_z', 'adj_torso_d'),
                    ('head_pct', 'adj_head_size'), ('neck_pct', 'adj_neck_thick'), ('arms_pct', 'adj_arms_thick'),
@@ -555,24 +694,27 @@ class App:
         has the rest)"""
         f = ttk.Frame(self.nb, padding=16)
         self.nb.add(f, text=self.t('tab_adjust'))
-        f.columnconfigure(0, weight=1, uniform='adj'); f.columnconfigure(1, weight=1, uniform='adj')
+        for c in range(3):
+            f.columnconfigure(c, weight=1, uniform='adj')
+        f.rowconfigure(1, weight=1)
         adj = self.proj.get('adjust', {})
         top = ttk.Frame(f); top.grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 12))
         self.btn_apply = ttk.Button(top, text=self.t('adj_apply'), style='Big.TButton', command=self.apply_adjust)
         self.btn_apply.pack(side='left')
-        self.adj_note = ttk.Label(top, wraplength=700, style='Muted.TLabel')
+        self.adj_note = ttk.Label(top, wraplength=480, style='Muted.TLabel')
         self.adj_note.pack(side='left', padx=14)
 
-        left = ttk.Frame(f); left.grid(row=1, column=0, sticky='nsew', padx=(0, 16))
+        left = ttk.Frame(f); left.grid(row=1, column=0, sticky='nsew', padx=(0, 14))
         ttk.Label(left, text=self.t('adj_head_title'), style='Head.TLabel').pack(anchor='w')
-        ttk.Label(left, text=self.t('adj_help'), wraplength=500).pack(anchor='w', pady=(2, 8))
-        self.adj_info = ttk.Label(left, wraplength=500, style='Hint.TLabel')
+        ttk.Label(left, text=self.t('adj_help'), wraplength=340).pack(anchor='w', pady=(2, 8))
+        self.adj_info = ttk.Label(left, wraplength=340, style='Hint.TLabel')
         self.adj_info.pack(anchor='w', pady=(0, 8))
         row = ttk.Frame(left); row.pack(anchor='w')
         ttk.Label(row, text=self.t('adj_height')).pack(side='left')
         self.head_cm = tk.DoubleVar(value=float(adj.get('head_cm', 0)))
-        tk.Scale(row, variable=self.head_cm, from_=-15, to=15, resolution=0.1, orient='horizontal', length=260,
-                 showvalue=False).pack(side='left', padx=10)
+        self.head_cm.trace_add('write', self.live_soon)          # the live view follows the slider
+        tk.Scale(row, variable=self.head_cm, from_=-15, to=15, resolution=0.1, orient='horizontal', length=170,
+                 showvalue=False).pack(side='left', padx=8)
         ttk.Label(row, textvariable=self.head_cm, width=5).pack(side='left')
         ttk.Label(row, text='cm').pack(side='left')
         b = ttk.Frame(left); b.pack(anchor='w', pady=(10, 0))
@@ -580,10 +722,10 @@ class App:
         self.btn_natural.pack(side='left')
         ttk.Button(b, text=self.t('adj_reset'), command=lambda: self.head_cm.set(0)).pack(side='left', padx=8)
 
-        right = ttk.Frame(f); right.grid(row=1, column=1, sticky='nsew')
+        right = ttk.Frame(f); right.grid(row=1, column=1, sticky='nsew', padx=(0, 14))
         ttk.Label(right, text=self.t('adj_prop_title'), style='Head.TLabel').pack(anchor='w')
-        ttk.Label(right, text=self.t('adj_prop_help'), wraplength=500).pack(anchor='w', pady=(2, 8))
-        self.torso_info = ttk.Label(right, wraplength=500, style='Hint.TLabel')
+        ttk.Label(right, text=self.t('adj_prop_help'), wraplength=340).pack(anchor='w', pady=(2, 8))
+        self.torso_info = ttk.Label(right, wraplength=340, style='Hint.TLabel')
         self.torso_info.pack(anchor='w', pady=(0, 6))
         grid = ttk.Frame(right); grid.pack(anchor='w')
         torso = adj.get('torso', [100, 100, 100])
@@ -591,14 +733,21 @@ class App:
         for r, (key, label) in enumerate(self.PROPORTIONS):
             v = torso['xyz'.index(key[-1])] if key.startswith('torso') else adj.get(key, 100)
             self.prop[key] = tk.IntVar(value=int(round(float(v))))
+            self.prop[key].trace_add('write', self.live_soon)
             ttk.Label(grid, text=self.t(label)).grid(row=r, column=0, sticky='w')
-            tk.Scale(grid, variable=self.prop[key], from_=50, to=150, resolution=1, orient='horizontal', length=240,
-                     showvalue=False).grid(row=r, column=1, padx=8, pady=1)
+            tk.Scale(grid, variable=self.prop[key], from_=50, to=150, resolution=1, orient='horizontal', length=150,
+                     showvalue=False).grid(row=r, column=1, padx=6, pady=1)
             ttk.Label(grid, textvariable=self.prop[key], width=4, anchor='e').grid(row=r, column=2, sticky='e')
             ttk.Label(grid, text='%').grid(row=r, column=3, sticky='w')
         ttk.Button(right, text=self.t('adj_prop_reset'),
                    command=lambda: [v.set(100) for v in self.prop.values()]).pack(anchor='w', pady=(6, 0))
 
+        live = ttk.Frame(f); live.grid(row=0, column=2, rowspan=2, sticky='nsew')
+        ttk.Label(live, text=self.t('adj_live'), style='Muted.TLabel', wraplength=340).pack(anchor='w', pady=(0, 4))
+        self.adj_3d = tk.Label(live, bg='#ebebeb', text=self.t('preview_empty') if V.available() else self.t('pv_no_gl'),
+                               wraplength=300)
+        self.adj_3d.pack(fill='both', expand=True)
+        self.adj_view = V.View(self.adj_3d) if V.available() else None
 
     def fill_adjust(self):
         if not hasattr(self, 'adj_info') or not self.adj_info.winfo_exists():
@@ -625,16 +774,7 @@ class App:
 
     def apply_adjust(self):
         """the tab's values into the project ('adjust'; only what isn't at its neutral value), then convert"""
-        adj = {}
-        cm = round(float(self.head_cm.get()), 1)
-        if cm:
-            adj['head_cm'] = cm
-        torso = [int(self.prop['torso_' + a].get()) for a in 'xyz']
-        if torso != [100, 100, 100]:
-            adj['torso'] = torso
-        for key in ('head_pct', 'neck_pct', 'arms_pct', 'legs_pct'):
-            if int(self.prop[key].get()) != 100:
-                adj[key] = int(self.prop[key].get())
+        adj = self.adjust_now()
         if adj:
             self.proj['adjust'] = adj
         else:
@@ -752,6 +892,7 @@ class App:
     def converted(self, check):
         self.refresh()
         self.show_previews()
+        self.load_view()
         self.nb.select(TAB_PREVIEW)
         self.status.set(self.t('check') % ', '.join(check) if check else self.t('converted'))
         if self.info is None and not self.proj.get('advanced'):
@@ -950,6 +1091,9 @@ class App:
                     self.photos = []
                     self.pv_body.config(image='', text=self.t('drawing'), font=('Segoe UI', 12))
                     self.pv_face.config(image='')
+                    for v in self.views():               # the 3D views show the same note until the new model
+                        v.set_character(None)
+                        v.label.config(text=self.t('drawing'))
                     self.pv_bar.pack(pady=(0, 40)); self.pv_bar.start(12)
 
         def work():
@@ -1019,7 +1163,7 @@ class App:
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] in ('characters', 'make', 'install', 'restore', 'export'):
+    if len(sys.argv) > 1 and sys.argv[1] in ('characters', 'doctor', 'make', 'install', 'restore', 'export'):
         # '<tool>.exe make <project> ...': kit.py's commands without Python. The .exe has no console, so what they print
         # goes to %TEMP%\<tool>.log (make also writes <project>\report.txt)
         if sys.stdout is None:

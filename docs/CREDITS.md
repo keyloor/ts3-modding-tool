@@ -17,7 +17,8 @@ kit no incluye ni usa su código.
 
 ## Software de terceros incluido / Third-party software
 
-El `.exe` del kit (hecho con PyInstaller) lleva dentro Python, Tcl/Tk, numpy y Pillow. Sus licencias se incluyen en
+El `.exe` del kit (hecho con PyInstaller) lleva dentro Python, Tcl/Tk, numpy, Pillow, moderngl y glcontext (licencia
+MIT, la vista 3D). Sus licencias se incluyen en
 `licenses/` / their licenses are included in `licenses/`.
 
 ## Aviso / Disclaimer

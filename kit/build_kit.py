@@ -6,7 +6,7 @@
 
 'Toy Story 3 Modding Tool.exe' (PyInstaller, one folder, no console) + the kit's and the tools' Python source (for the
 command line and AI agents), docs, the skill, the license, and the licenses of what the .exe carries inside
-(Python, numpy, Pillow, Tcl/Tk).
+(Python, numpy, Pillow, moderngl, glcontext, Tcl/Tk).
 """
 import glob, importlib.metadata as md, os, shutil, subprocess, sys, zipfile
 
@@ -17,7 +17,7 @@ from about import TOOL, VERSION
 KIT = paths.KIT
 TOOLS_USED = ['octlib', 'fbxlib', 'ts3model', 'convert', 'render', 'install', 'build_release', 'zx', 'zls', 'rt',
               'fbxinfo', 'bones5', 'dump', 'texpeek', 'angles', 'skelcmp']
-KIT_FILES = ['about', 'paths', 'automap', 'autotex', 'objlib', 'kit', 'app', 'build_kit']
+KIT_FILES = ['about', 'paths', 'automap', 'autotex', 'objlib', 'viewer', 'kit', 'app', 'build_kit']
 SHORTCUT = 'Abrir ' + TOOL + '.lnk'
 
 
@@ -61,6 +61,7 @@ def main(to_desk=False):
     subprocess.run([sys.executable, '-m', 'PyInstaller', '--noconfirm', '--windowed', '--name', TOOL,
                     '--paths', os.path.join(KIT, 'kit'), '--paths', paths.TOOLS,
                     '--distpath', os.path.join(work, 'dist'), '--workpath', os.path.join(work, 'work'),
+                    '--hidden-import', 'glcontext.wgl', '--hidden-import', 'glcontext.empty',   # moderngl's GL backend
                     '--specpath', work, os.path.join(KIT, 'kit', 'app.py')], check=True)
     shutil.copytree(os.path.join(work, 'dist', TOOL), rel)
 
@@ -85,7 +86,7 @@ def main(to_desk=False):
     lic = os.path.join(rel, 'licenses')
     os.makedirs(lic)
     shutil.copy2(os.path.join(sys.base_prefix, 'LICENSE.txt'), os.path.join(lic, 'Python.txt'))
-    for dist in ('numpy', 'pillow'):
+    for dist in ('numpy', 'pillow', 'moderngl', 'glcontext'):
         for f in md.distribution(dist).files:
             if 'licen' in f.name.lower() or 'copying' in f.name.lower():
                 shutil.copy2(f.locate(), os.path.join(lic, '%s - %s' % (dist, f.name)))

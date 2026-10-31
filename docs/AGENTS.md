@@ -16,6 +16,8 @@ go back into the game's `.zip`. Everything is driven by a **map**: a Python file
 Python 3.12 with `numpy` and `Pillow` (`pip install numpy pillow`); always `python -I`. One project folder per model +
 character (e.g. `work/cj`); `kit.py` keeps its settings in `<project>/kit_project.json`.
 
+0. If anything behaves oddly, `python -I <KIT>/kit/kit.py doctor` prints the versions, the game, which original
+   archives it finds and whether the 3D preview works.
 1. **Gather**: the FBX, its textures folder, which character. `python -I <KIT>/kit/kit.py characters` finds the game
    (Steam's folders; else ask the user and pass `--game`) and lists the characters, marking those another mod or the
    kit has changed.

@@ -27,7 +27,8 @@ welcome.
 
 ## Code
 
-- Python 3.12, with only `numpy`, `Pillow` and `tkinter`. A new dependency makes the `.exe` bigger and is one more
+- Python 3.12, with only `numpy`, `Pillow`, `tkinter` and `moderngl` (the 3D preview; the tool works without it).
+  A new dependency makes the `.exe` bigger and is one more
   license to ship: discuss it in an issue first.
 - Read `CLAUDE.md` first: how the pieces fit, the decisions behind them, and the checks.
 - Match the code around you: the same naming, short docstrings that say what something is for and why, comments
@@ -46,13 +47,15 @@ There are no unit tests; these are the checks:
 3. **If you touched `tools/`**: convert a model before and after your change and compare the output files byte for
    byte (`fc /b` on Windows); they must be identical unless changing them was the point.
 4. **If you touched the window**: open it (`python -I kit/app.py`) in both languages (menu Idioma / Language).
-5. **In game**: say whether you tried it in the game (and how it looked). A preview can look right while the game,
+5. **Something odd on one machine**: `python -I kit/kit.py doctor` (or `"Toy Story 3 Modding Tool.exe" doctor`)
+   prints the versions, the game, the original archives found and whether the 3D preview works: paste it in the issue.
+6. **In game**: say whether you tried it in the game (and how it looked). A preview can look right while the game,
    which animates with the arms down, shows a problem.
 
 ## Run from source
 
 ```
-pip install numpy pillow
+pip install numpy pillow moderngl
 python -I kit/app.py                 # the window
 python -I kit/kit.py --help          # the command line
 python -I kit/build_kit.py           # the .exe + release folder (needs: pip install pyinstaller)

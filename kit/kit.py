@@ -447,10 +447,34 @@ def list_characters(a):
         print('  %s%s' % (c, state))
 
 
+def doctor(a):
+    """what the tool runs on, for a bug report: versions, the game, the original archives, the 3D preview"""
+    import platform, PIL
+    print(CREDIT)
+    print('python %s, %s%s' % (platform.python_version(), platform.platform(), ' (frozen .exe)' if paths.FROZEN else ''))
+    print('numpy %s, Pillow %s' % (np.__version__, PIL.__version__))
+    try:
+        import moderngl
+        ctx = moderngl.create_context(standalone=True)
+        print('3D preview: moderngl %s, OpenGL %s, %s' % (moderngl.__version__, ctx.info['GL_VERSION'], ctx.info['GL_RENDERER']))
+        ctx.release()
+    except Exception as e:
+        print('3D preview: not available (%s): the window shows still images' % (str(e).splitlines() or [e])[0])
+    try:
+        game = find_game(a.game)
+        print('game:', game)
+        for c in ORIGINAL:
+            src = find_original(game, c)
+            print('  %-14s original: %s' % (c, os.path.relpath(src, game) if src else 'none found (another mod changed it)'))
+    except KitError as e:
+        print('game:', e)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog='kit.py', description=CREDIT)
     sub = p.add_subparsers(dest='cmd', required=True)
     s = sub.add_parser('characters'); s.add_argument('--game'); s.set_defaults(fn=list_characters)
+    s = sub.add_parser('doctor'); s.add_argument('--game'); s.set_defaults(fn=doctor)
     s = sub.add_parser('make')
     s.add_argument('project'); s.add_argument('--character'); s.add_argument('--fbx'); s.add_argument('--textures')
     s.add_argument('--game'); s.add_argument('--remap', action='store_true'); s.add_argument('--install', action='store_true')

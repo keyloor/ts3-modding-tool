@@ -17,6 +17,7 @@ rules. For any map table or manual fix, read `<KIT>/docs/GUIA_MANUAL.md` (Spanis
 ## Quick path (Python 3.12 with numpy and Pillow; always `python -I`)
 
 ```
+python -I <KIT>/kit/kit.py doctor
 python -I <KIT>/kit/kit.py characters
 python -I <KIT>/tools/fbxinfo.py <fbx>
 python -I <KIT>/kit/kit.py make work/<name> --character woody --fbx <fbx> --textures <textures dir>

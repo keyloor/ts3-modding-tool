@@ -17,7 +17,9 @@ textures are next.
 - **OBJ models**: no skeleton in the file? It measures the model (crotch, neck, shoulders, fingertips), stretches the
   game's skeleton over it and weights it.
 - **Textures**: matches each material to its images by name (diffuse, normal, ORM/specular), or uses its colour.
-- **Preview** next to the game's own character, with the game's joints drawn on it.
+- **Live 3D preview** (GPU): turn and zoom it with the mouse, see it with its arms down as the game animates it,
+  next to the game's original, with the game's skeleton on it; the Adjustments show live while you move them.
+  Still images when the graphics card has no OpenGL 3.3.
 - **Install / restore** with a backup of the game's archive; refuses to build on an archive another mod changed, and
   finds the original in other installers' backups.
 - **Export a Nexus pack**: an installer that puts only your changes into each player's own game.
@@ -31,7 +33,7 @@ textures are next.
 **With Python** (3.12):
 
 ```
-pip install numpy pillow
+pip install numpy pillow moderngl
 python -I kit/app.py
 ```
 
