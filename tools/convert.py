@@ -261,6 +261,14 @@ def fit(scene, mesh, bones3, mp, log):
             off[ax] = float(np.mean(y - x))
     log('  torso block: scale %s, offset %s, landmark error %.3f' % (np.round(np.diag(A), 3), np.round(off, 3),
         np.abs(L5 @ A.T + off - L3).max()))
+    # TORSO_SCALE (x, y, z): the map widens / lengthens / deepens the fitted block about the landmarks' middle
+    if hasattr(mp, 'TORSO_SCALE'):
+        c = L5.mean(0)
+        for ax in range(3):
+            a2 = A[ax, ax] * float(mp.TORSO_SCALE[ax])
+            off[ax] += (A[ax, ax] - a2) * c[ax]
+            A[ax, ax] = a2
+        log('  torso block x %s -> scale %s' % (tuple(mp.TORSO_SCALE), np.round(np.diag(A), 3)))
     for k in mp.TORSO:
         xf[k] = (A, np.zeros(3), off, np.eye(3))
 
@@ -303,6 +311,12 @@ def fit(scene, mesh, bones3, mp, log):
         else:
             R, S = np.eye(3), np.eye(3)
             log('  %-12s -> %-14s move %.3f' % (k, t, np.linalg.norm(p3 - p5)))
+        # GIRTH {model bone: k}: the map makes that part thicker / thinner across its segment (a part with no aim,
+        # like the head, grows / shrinks as a whole about its pivot)
+        if k in getattr(mp, 'GIRTH', {}):
+            g = float(mp.GIRTH[k])
+            S = S + (g - 1) * (np.eye(3) - np.outer(u, u)) if a and a in j5 else g * np.eye(3)
+            log('  %-12s    girth x%.2f' % (k, g))
         xf[k] = (R @ S, p5, p3, R)
 
     def driver(name):

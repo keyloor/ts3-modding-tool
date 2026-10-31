@@ -204,6 +204,11 @@ SKIP_MATERIALS = []
   oclusión-rugosidad-metal (Unreal/Fortnite), o `spec` un número de 0 a 1, o una imagen de brillo con
   `mask='Body_S.png', mask_spec=(0.333, 0.333, 0.334, 0)` (cuánto cuenta cada canal R, G, B, A); `size`, `nsize`,
   `ssize` el tamaño en píxeles (potencias de dos, hasta 1024).
+- **`TORSO_SCALE`** `(x, y, z)` (opcional): hace el bloque del tronco más ancho, alto o profundo que lo que ajustó
+  la herramienta, alrededor de su centro: `(0.85, 1, 1)` = 15 % más estrecho.
+- **`GIRTH`** `{hueso del modelo: factor}` (opcional): engorda o adelgaza esa parte a lo ancho, sin cambiar su
+  largo (que es el del juego). En un hueso sin dirección, como la cabeza, cambia su tamaño entero:
+  `{'Head': 1.15, 'BicepLeft': 0.8}`.
 - **`MATERIALS`**: cada material del FBX (los nombres salen en `fbxinfo.py`) va a un juego de `TEXTURES`, a un color
   `(r, g, b)` o a `SKIP_MATERIALS` para dejarlo fuera. Si a un material del FBX no le das ninguna de las tres, el
   convertidor se para y te dice cuál.
@@ -256,6 +261,7 @@ los hombros y las axilas solo se pueden juzgar en el juego.
 |---|---|
 | La cabeza flota o se hunde, o el cuello sale estirado | `offset` en el `DRIVE` de la cabeza y `tip_offset` igual en el del cuello, p. ej. `(0, -0.035, 0)`. En la ventana: pestaña **Ajustes** → «Cuello a su largo natural» lo calcula solo |
 | Un brazo o una pierna sale demasiado corto o largo | Revisa la pareja en `SCALE_JOINTS`; si es a propósito, `max_stretch` en su `DRIVE` |
+| El torso sale muy ancho o estrecho, la cabeza muy grande o pequeña, brazos o piernas muy gruesos | `TORSO_SCALE` y `GIRTH`. En la ventana: pestaña **Ajustes** → Proporciones |
 | Ropa ancha que atraviesa las piernas al andar | `MATERIAL_SCALE = {'material': (0.85, 1.0, 0.9)}` estrecha esa prenda alrededor de la cadera |
 | Una manga se queda pegada al pecho, o tira del pecho | Pesos de ese hueso de ayuda: `{'Spine3': 0.3, 'BicepLeft': 0.7}`, o `WEIGHT_RAMP` |
 | Algo se mueve demasiado (la boca, una cola…) | `WEIGHT_SCALE = {'Jaw': 0.5}`: ese hueso mueve solo la mitad |

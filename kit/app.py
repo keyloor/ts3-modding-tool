@@ -55,6 +55,15 @@ TEXT = {
         adj_none='Pulsa «Convertir» o «Revisar huesos y materiales» para medir el cuello de tu modelo.',
         adj_height='Altura de la cabeza', adj_natural='Cuello a su largo natural', adj_reset='Volver a 0',
         adj_apply='Aplicar y convertir',
+        adj_prop_title='Proporciones',
+        adj_prop_help='Ancho, alto y fondo del torso, tamaño de la cabeza y grosor de cuello, brazos y piernas. '
+                      'El largo de brazos y piernas no se cambia: las articulaciones tienen que caer en las del '
+                      'personaje para que sus animaciones doblen en el sitio correcto.',
+        adj_torso_info='La herramienta ya ajusta el torso sola para llegar a los hombros y caderas del personaje: '
+                       '%s %% de ancho y %s %% de alto. Lo de abajo se aplica encima de eso.',
+        adj_torso_w='Torso: ancho', adj_torso_h='Torso: alto', adj_torso_d='Torso: fondo',
+        adj_head_size='Cabeza: tamaño', adj_neck_thick='Cuello: grosor', adj_arms_thick='Brazos: grosor',
+        adj_legs_thick='Piernas: grosor', adj_prop_reset='Todo a 100 %',
         role='Parte', model_bone='Hueso del modelo', how='Cómo', material='Material', triangles='Triángulos',
         uses='Usa', note='Nota', auto='automático', chosen='elegido', none='(ninguno)',
         back_auto='Volver a automático', ok='Aceptar', cancel='Cancelar', image='Imagen', colour='Color liso',
@@ -122,6 +131,15 @@ TEXT = {
         adj_none="Press \"Convert\" or \"Check bones and materials\" to measure your model's neck.",
         adj_height='Head height', adj_natural='Neck at its own length', adj_reset='Back to 0',
         adj_apply='Apply and convert',
+        adj_prop_title='Proportions',
+        adj_prop_help="Width, height and depth of the torso, size of the head, thickness of neck, arms and legs. "
+                      "Arm and leg length can't change: the joints must land on the character's so its animations "
+                      'bend in the right place.',
+        adj_torso_info="The tool already fits the torso to reach the character's shoulders and hips: "
+                       '%s %% wide and %s %% tall. The values below apply on top of that.',
+        adj_torso_w='Torso: width', adj_torso_h='Torso: height', adj_torso_d='Torso: depth',
+        adj_head_size='Head: size', adj_neck_thick='Neck: thickness', adj_arms_thick='Arms: thickness',
+        adj_legs_thick='Legs: thickness', adj_prop_reset='All to 100 %',
         role='Part', model_bone='Model bone', how='How', material='Material', triangles='Triangles',
         uses='Uses', note='Note', auto='automatic', chosen='chosen', none='(none)',
         back_auto='Back to automatic', ok='OK', cancel='Cancel', image='Image', colour='Solid colour',
@@ -528,29 +546,59 @@ class App:
         if os.path.isfile(os.path.join(self.work, 'previews', 'body.png')):
             self.nb.select(TAB_PREVIEW)
 
+    PROPORTIONS = (('torso_x', 'adj_torso_w'), ('torso_y', 'adj_torso_h'), ('torso_z', 'adj_torso_d'),
+                   ('head_pct', 'adj_head_size'), ('neck_pct', 'adj_neck_thick'), ('arms_pct', 'adj_arms_thick'),
+                   ('legs_pct', 'adj_legs_thick'))
+
     def build_adjust(self):
-        """the Adjustments tab: fine-tuning that is written into map.py (head and neck for now; PLAN.md's roadmap has
-        the rest)"""
+        """the Adjustments tab: fine-tuning that is written into map.py (head and neck, proportions; PLAN.md's roadmap
+        has the rest)"""
         f = ttk.Frame(self.nb, padding=16)
         self.nb.add(f, text=self.t('tab_adjust'))
-        ttk.Label(f, text=self.t('adj_head_title'), style='Head.TLabel').pack(anchor='w')
-        ttk.Label(f, text=self.t('adj_help'), wraplength=900).pack(anchor='w', pady=(2, 8))
-        self.adj_info = ttk.Label(f, wraplength=900, style='Hint.TLabel')
+        f.columnconfigure(0, weight=1, uniform='adj'); f.columnconfigure(1, weight=1, uniform='adj')
+        adj = self.proj.get('adjust', {})
+        top = ttk.Frame(f); top.grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 12))
+        self.btn_apply = ttk.Button(top, text=self.t('adj_apply'), style='Big.TButton', command=self.apply_adjust)
+        self.btn_apply.pack(side='left')
+        self.adj_note = ttk.Label(top, wraplength=700, style='Muted.TLabel')
+        self.adj_note.pack(side='left', padx=14)
+
+        left = ttk.Frame(f); left.grid(row=1, column=0, sticky='nsew', padx=(0, 16))
+        ttk.Label(left, text=self.t('adj_head_title'), style='Head.TLabel').pack(anchor='w')
+        ttk.Label(left, text=self.t('adj_help'), wraplength=500).pack(anchor='w', pady=(2, 8))
+        self.adj_info = ttk.Label(left, wraplength=500, style='Hint.TLabel')
         self.adj_info.pack(anchor='w', pady=(0, 8))
-        row = ttk.Frame(f); row.pack(anchor='w')
+        row = ttk.Frame(left); row.pack(anchor='w')
         ttk.Label(row, text=self.t('adj_height')).pack(side='left')
-        self.head_cm = tk.DoubleVar(value=float(self.proj.get('adjust', {}).get('head_cm', 0)))
-        tk.Scale(row, variable=self.head_cm, from_=-15, to=15, resolution=0.1, orient='horizontal', length=420,
-                 showvalue=True).pack(side='left', padx=10)
+        self.head_cm = tk.DoubleVar(value=float(adj.get('head_cm', 0)))
+        tk.Scale(row, variable=self.head_cm, from_=-15, to=15, resolution=0.1, orient='horizontal', length=260,
+                 showvalue=False).pack(side='left', padx=10)
+        ttk.Label(row, textvariable=self.head_cm, width=5).pack(side='left')
         ttk.Label(row, text='cm').pack(side='left')
-        b = ttk.Frame(f); b.pack(anchor='w', pady=(10, 0))
+        b = ttk.Frame(left); b.pack(anchor='w', pady=(10, 0))
         self.btn_natural = ttk.Button(b, text=self.t('adj_natural'), command=self.natural_neck)
         self.btn_natural.pack(side='left')
         ttk.Button(b, text=self.t('adj_reset'), command=lambda: self.head_cm.set(0)).pack(side='left', padx=8)
-        self.btn_apply = ttk.Button(b, text=self.t('adj_apply'), style='Big.TButton', command=self.apply_adjust)
-        self.btn_apply.pack(side='left', padx=(16, 0))
-        self.adj_note = ttk.Label(f, wraplength=900, style='Muted.TLabel')
-        self.adj_note.pack(anchor='w', pady=(10, 0))
+
+        right = ttk.Frame(f); right.grid(row=1, column=1, sticky='nsew')
+        ttk.Label(right, text=self.t('adj_prop_title'), style='Head.TLabel').pack(anchor='w')
+        ttk.Label(right, text=self.t('adj_prop_help'), wraplength=500).pack(anchor='w', pady=(2, 8))
+        self.torso_info = ttk.Label(right, wraplength=500, style='Hint.TLabel')
+        self.torso_info.pack(anchor='w', pady=(0, 6))
+        grid = ttk.Frame(right); grid.pack(anchor='w')
+        torso = adj.get('torso', [100, 100, 100])
+        self.prop = {}
+        for r, (key, label) in enumerate(self.PROPORTIONS):
+            v = torso['xyz'.index(key[-1])] if key.startswith('torso') else adj.get(key, 100)
+            self.prop[key] = tk.IntVar(value=int(round(float(v))))
+            ttk.Label(grid, text=self.t(label)).grid(row=r, column=0, sticky='w')
+            tk.Scale(grid, variable=self.prop[key], from_=50, to=150, resolution=1, orient='horizontal', length=240,
+                     showvalue=False).grid(row=r, column=1, padx=8, pady=1)
+            ttk.Label(grid, textvariable=self.prop[key], width=4, anchor='e').grid(row=r, column=2, sticky='e')
+            ttk.Label(grid, text='%').grid(row=r, column=3, sticky='w')
+        ttk.Button(right, text=self.t('adj_prop_reset'),
+                   command=lambda: [v.set(100) for v in self.prop.values()]).pack(anchor='w', pady=(6, 0))
+
 
     def fill_adjust(self):
         if not hasattr(self, 'adj_info') or not self.adj_info.winfo_exists():
@@ -563,6 +611,9 @@ class App:
         else:
             self.adj_info.config(text=self.t('adj_none'))
             self.btn_natural.config(text=self.t('adj_natural'))
+        tf = self.info.get('torso') if self.info else None
+        self.torso_info.config(text=self.t('adj_torso_info') % (tf.get('width_pct', 100), tf.get('height_pct', 100))
+                               if tf else '')
         self.adj_note.config(text=self.t('advanced_note') if self.proj.get('advanced') else '')
         for w in (self.btn_natural, self.btn_apply):
             w.state(['disabled'] if self.proj.get('advanced') or self.busy else ['!disabled'])
@@ -573,13 +624,20 @@ class App:
             self.head_cm.set(nf['natural_cm'])
 
     def apply_adjust(self):
+        """the tab's values into the project ('adjust'; only what isn't at its neutral value), then convert"""
+        adj = {}
         cm = round(float(self.head_cm.get()), 1)
-        adj = self.proj.setdefault('adjust', {})
         if cm:
             adj['head_cm'] = cm
+        torso = [int(self.prop['torso_' + a].get()) for a in 'xyz']
+        if torso != [100, 100, 100]:
+            adj['torso'] = torso
+        for key in ('head_pct', 'neck_pct', 'arms_pct', 'legs_pct'):
+            if int(self.prop[key].get()) != 100:
+                adj[key] = int(self.prop[key].get())
+        if adj:
+            self.proj['adjust'] = adj
         else:
-            adj.pop('head_cm', None)
-        if not adj:
             self.proj.pop('adjust', None)
         self.save_project()
         self.info = None                                  # measured again after the conversion

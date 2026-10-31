@@ -51,6 +51,9 @@ The user may also use the window (`kit/app.py`); it works on the same project fo
 choices are stored in `kit_project.json` (`bones`: {role: model bone, '' = none}, roles as in `automap.ROLES`;
 `materials`: {FBX material: image file | [r, g, b] | 'skip'}) and apply whenever the map is written again
 (`make --remap`). To change a body part's bone you can set them there instead of editing `map.py`.
+`adjust` also takes proportions, in percent: `torso` [x, y, z] (written as `TORSO_SCALE`), `head_pct` (head size),
+`neck_pct`, `arms_pct`, `legs_pct` (thickness; written as `GIRTH`). Lengths can't change: joints stay on the game's.
+The report's `torso fit: W% wide, H% tall` says how much the tool already reshapes the torso.
 `adjust`: {'head_cm': up (+) / down (-)} moves the head and the end of the neck from the game's head joint (the
 window's Adjustments tab). The report's line `neck length: model X cm, game Y cm: stretched xZ ...; head N cm keeps
 its own length` says when to use it: a stretch beyond 1.25 means a long, distorted neck; set `head_cm` to N.

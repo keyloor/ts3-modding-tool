@@ -54,7 +54,7 @@ Run with Python 3.12 + numpy + Pillow, always `python -I` (each script puts its 
 
 ## The converter (`tools/convert.py`)
 
-Driven by a map (tables: `TORSO`, `LANDMARKS`, `SCALE_JOINTS`, `FACE_ALIGN`, `DRIVE`, `WEIGHTS`, `EYES`/`EYE_MODE`,
+Driven by a map (tables: `TORSO`, `LANDMARKS`, `SCALE_JOINTS`, `FACE_ALIGN`, `DRIVE`, `WEIGHTS`, `TORSO_SCALE`, `GIRTH`, `EYES`/`EYE_MODE`,
 `KEEP_PIECES`, `MATERIAL_EFFECT`, `TEXTURES`/`MATERIALS`, ...; `docs/GUIA_MANUAL.md` §4 explains each). It fits the
 model onto the game's bind pose (overall scale, torso block, each `DRIVE` limb turned and stretched onto its game
 pivot, other bones follow their driver), maps weights to game bones, splits pieces of ≤40 bones, and rewrites the
@@ -75,6 +75,9 @@ Finds the body by shape, in the game frame, from skinned bind positions:
 - face bones stay on `Head` (`FACE = False`); every skinned bone gets an explicit `WEIGHTS` entry;
 - `MATERIAL_EFFECT` per character (`material_effect()`: Jessie lacks Woody/Buzz's skin shader);
 - `overrides` {role: bone} (the window's bone table, `ROLES`) replace what is found, with ancestry checks;
+- `adjust` {'torso': [x, y, z] %, 'head_pct', 'neck_pct', 'arms_pct', 'legs_pct'}: written as `TORSO_SCALE` and
+  `GIRTH` (head = its size; arms = shoulder + elbow bones, legs = hip + knee); `measure_torso()` reports the block
+  scale the converter fits on its own;
 - `adjust` {'head_cm'}: the head's `DRIVE` `offset` and the neck's `tip_offset` (same y, metres). `measure_neck()`
   compares the model's neck at the converter's scale (least squares over `SCALE_JOINTS`, as `convert.fit`) with the
   game's and gives the stretch and the offset that keeps the model's own length (window: Adjustments tab).

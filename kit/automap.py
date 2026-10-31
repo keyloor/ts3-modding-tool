@@ -459,6 +459,21 @@ def automap(fbx, ts3dir, base, log=print, overrides=None, adjust=None):
                (body['hip' + s], 'Thigh' + s), (body['knee' + s], 'Calf' + s), (body['foot' + s], 'Foot' + s)]
     tables['SCALE_JOINTS'] = [(a, b) for a, b in sj if a in P]
     neck_fit = measure_neck(P, neck, head, tables['SCALE_JOINTS'], bones3, dy)
+    torso_fit = measure_torso(P, tables['LANDMARKS'], tables['SCALE_JOINTS'], bones3)
+    # proportions from the window (percent): the torso block's size, and how thick each part is (GIRTH; the head's
+    # is its size). Lengths stay the game's: the joints must land on the game's joints for its animations.
+    ts = [float(x) / 100 for x in adjust.get('torso', (100, 100, 100))]
+    if any(abs(x - 1) > 1e-6 for x in ts):
+        tables['TORSO_SCALE'] = tuple(round(x, 3) for x in ts)
+    girth = {}
+    for key, bones in (('head_pct', [head]), ('neck_pct', [neck] if neck else []),
+                       ('arms_pct', [body[k + s] for k in ('shoulder', 'elbow') for _, s in SIDES]),
+                       ('legs_pct', [body[k + s] for k in ('hip', 'knee') for _, s in SIDES])):
+        pct = float(adjust.get(key) or 100)
+        if abs(pct - 100) > 1e-6:
+            girth.update({b: round(pct / 100, 3) for b in bones})
+    if girth:
+        tables['GIRTH'] = girth
     tables['FACE_ALIGN'] = []
     tables['DRIVE'] = drive
     tables['WEIGHTS'] = {n: W[n] for n in sorted(W, key=lambda n: (n not in sk.skinned, n)) if n in sk.skinned or n in drive}
@@ -472,7 +487,30 @@ def automap(fbx, ts3dir, base, log=print, overrides=None, adjust=None):
             log('  warning: the %s toes point backwards: the model may face -Z' % s.lower())
     if P[body['handLeft']][0] < 0:
         log('  warning: the left hand is at -x: the model may be facing backwards')
-    return tables, dict(body=body, roles=roles, follows=follows, notes=notes, skeleton=sk, neck=neck_fit)
+    return tables, dict(body=body, roles=roles, follows=follows, notes=notes, skeleton=sk, neck=neck_fit,
+                        torso=torso_fit)
+
+
+def model_scale(P, scale_joints, piv):
+    """the converter's overall scale for the model: least squares over SCALE_JOINTS, as in convert.fit"""
+    pairs = [(P[a], piv[b]) for a, b in scale_joints if b in piv]
+    return sum(float(a @ b) for a, b in pairs) / sum(float(a @ a) for a, _ in pairs)
+
+
+def measure_torso(P, landmarks, scale_joints, bones3):
+    """how much the converter widens (x) and lengthens (y) the torso block on its own to reach the game's shoulders
+    and hips (percent; as in convert.fit, which keeps it within 80..125)"""
+    piv = {b['name']: np.array(b['pivot'], float) for b in bones3}
+    lm = [(a, b) for a, b in landmarks if a in P and b in piv]
+    if len(lm) < 3:
+        return None
+    s = model_scale(P, scale_joints, piv)
+    L5 = np.array([P[a] * s for a, _ in lm]); L3 = np.array([piv[b] for _, b in lm])
+    out = {}
+    for ax, key in ((0, 'width_pct'), (1, 'height_pct')):
+        if np.ptp(L5[:, ax]) > 1e-3:
+            out[key] = round(float(np.clip(np.polyfit(L5[:, ax], L3[:, ax], 1)[0], 0.8, 1.25)) * 100)
+    return out
 
 
 def measure_neck(P, neck, head, scale_joints, bones3, dy):
@@ -482,8 +520,7 @@ def measure_neck(P, neck, head, scale_joints, bones3, dy):
     piv = {b['name']: np.array(b['pivot'], float) for b in bones3}
     if not neck or head not in P or 'Neck' not in piv or 'Head' not in piv:
         return None
-    pairs = [(P[a], piv[b]) for a, b in scale_joints if b in piv]
-    s = sum(float(a @ b) for a, b in pairs) / sum(float(a @ a) for a, _ in pairs)
+    s = model_scale(P, scale_joints, piv)
     model = float(np.linalg.norm(P[head] - P[neck])) * s
     game = float(np.linalg.norm(piv['Head'] - piv['Neck']))
     return dict(model_cm=round(model * 100, 1), game_cm=round(game * 100, 1),
@@ -514,6 +551,12 @@ def write_map(tables, info, path, fbx, base):
           'FACE_ALIGN = %r' % tables['FACE_ALIGN'], '',
           '# model bone: (model bone it aims at, game bone, game bone it aims at, options)', 'DRIVE = {']
     L += ['    %r: %r,' % (k, v) for k, v in tables['DRIVE'].items()] + ['}', '']
+    if 'TORSO_SCALE' in tables:
+        L += ['# the torso block, wider / longer / deeper than fitted (x, y, z)',
+              'TORSO_SCALE = %r' % (tables['TORSO_SCALE'],), '']
+    if 'GIRTH' in tables:
+        L += ['# thicker / thinner parts across their length (model bone: factor; the head\'s is its size)',
+              'GIRTH = %r' % tables['GIRTH'], '']
     L += ['# model bone -> game bone its vertices go to', 'WEIGHTS = {']
     for n, t in tables['WEIGHTS'].items():
         note = '  # ' + info['notes'][n] if n in info['notes'] else ''
@@ -547,6 +590,10 @@ def report(info, log=print):
     if nf:
         log('  neck length: model %.1f cm, game %.1f cm: stretched x%.2f (the converter allows 0.80..1.25); '
             'head %+.1f cm keeps its own length' % (nf['model_cm'], nf['game_cm'], nf['stretch'], nf['natural_cm']))
+    tf = info.get('torso')
+    if tf:
+        log('  torso fit: %s%% wide, %s%% tall to reach the game\'s shoulders and hips'
+            % (tf.get('width_pct', 100), tf.get('height_pct', 100)))
     for _, s in SIDES:
         log('%-5s leg: %s > %s > %s > %s' % (s, b['hip' + s], b['knee' + s], b['foot' + s], b['toe' + s] or '-'))
         log('%-5s arm: %s > %s > %s > %s' % (s, b['clavicle' + s] or '-', b['shoulder' + s], b['elbow' + s], b['hand' + s]))
