@@ -228,7 +228,8 @@ estimado del OBJ pone el cuello corto respecto al del juego, y el convertidor lo
 - *Deshacer / rehacer* (botones y Ctrl+Z / Ctrl+Y), *versiones con nombre* (`adjust_versions`), y la conversión
   anterior se guarda en `out_prev/` para verla al lado en la Vista previa (o `previews/compare.png`).
 Comprobado: sin estas opciones los mapas de 7 modelos salen idénticos, y el convertidor da TS5 Woody y CJ byte a byte
-iguales. Pendiente de probar en el juego.
+iguales. **Probado en el juego por keyloor el 31/10/2026**: personaje convertido, el Woody de Wii con el cuello
+arreglado y estas opciones de Ajustes funcionan.
 
 ### 2. Mejor vista previa
 
