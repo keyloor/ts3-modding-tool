@@ -202,7 +202,9 @@ estimado del OBJ pone el cuello corto respecto al del juego, y el convertidor lo
 - **Proporciones**: escala general, ancho y alto del torso, largo de brazos y piernas (límites de estiramiento por
   parte), separación de piernas y hombros.
 - **Mover una articulación a mano** (sobre todo en OBJ): arrastrar en la vista previa hombro, codo, rodilla, cuello…
-  del esqueleto estimado.
+  del esqueleto estimado. **Hecho (31/10/2026) para OBJ**: modo «Esqueleto de tu modelo» en la Vista previa, puntos
+  arrastrables, simetría izquierda/derecha, «Volver al automático»; se guarda en el proyecto (`joints`) y el
+  esqueleto automático y sus pesos los usan al convertir. Pendiente: lo mismo para FBX (mover los huesos de su rig).
 - **Ropa y accesorios**: estrechar o ensanchar una prenda (`MATERIAL_SCALE`), decidir si un objeto suelto (bastón,
   sombrero, arma) va con la mano, con la cabeza o fuera (`SKIP_BONES`).
 - **Ojos y cara**: abrir párpados cerrados (detectar los huesos de párpado y proponer `EYES` solo), cara animada sí/no
@@ -215,7 +217,15 @@ estimado del OBJ pone el cuello corto respecto al del juego, y el convertidor lo
 **Hecho (31/10/2026): vista 3D en vivo** (`kit/viewer.py`, moderngl, la misma técnica que DisneyInfinityCreator, con código propio). Se gira, mueve y acerca con el ratón; pose T o **brazos abajo**; el original del juego al lado y el esqueleto del juego encima; en la pestaña Ajustes, una vista en vivo que sigue los controles al instante (aproximada). Comando `doctor` para diagnosticar. Pendiente de esta sección: animaciones del juego y resaltar en rojo lo muy estirado.
 - Vista 3D que se gira con el ratón (no solo frente/perfil).
 - **Pose con los brazos bajados** (como anima el juego): ahí se ven los problemas de hombros y axilas.
-- Si se consigue leer las animaciones del juego: reproducir una (andar, saltar) sobre el modelo.
+- **Animaciones del juego en la vista previa** (andar, correr, saltar, atacar…), para ver el modelo moviéndose como
+  en el juego antes de instalarlo. Viabilidad (mirado el 31/10/2026): el archivo de cada personaje trae sus
+  animaciones como archivos sueltos (Woody: 308, en `characters/woody/motions/`, p. ej.
+  `woody_motion_walk_normal.oct`, 6,7 KB); son `.oct`, que ya leemos y reescribimos byte a byte. Los fotogramas van
+  en un `ClipDataBlock`, cuya cabecera y tablas (tiempos, descriptores, tablas muestreadas y constantes) documenta en
+  parte el `FORMATS.md` de DisneyInfinityTools (§4.10, mismo motor). Falta: saber qué salida es qué hueso
+  (`LayerBind` / `ConnectionTemplate`) y cómo están comprimidas las muestras. Es investigación; si sale, la vista 3D
+  ya sabe mover el modelo con el esqueleto del juego (`viewer.Character.pose`), así que reproducirlas sería poner
+  esas rotaciones fotograma a fotograma, con una lista para elegir la animación.
 - Esqueleto del juego y del modelo superpuestos; resaltar en rojo las partes muy estiradas o giradas.
 
 ### 3. Diagnóstico en lenguaje normal

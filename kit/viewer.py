@@ -127,6 +127,40 @@ class Character:
         return self.P.min(0), self.P.max(0)
 
 
+class SourceModel:
+    """an OBJ as the tool sees it before converting (turned up, on the floor) with its automatic skeleton, for the
+    joints mode where the user drags the joints. Has what View draws: P, N, UV, groups, textures, posed, parent."""
+
+    def __init__(self, path, game, joints, texdir):
+        import objlib
+        sc = objlib.ObjScene(path, game, joints)
+        m = sc.mesh
+        nd, ns = m['normals']; ud, us = m['uv']
+        self.P0 = sc.P[m['cp']].astype(np.float32)                 # one vertex per corner
+        self.N0 = nd.reshape(-1, 3)[ns].astype(np.float32)
+        self.UV = ud.reshape(-1, 2)[us].astype(np.float32)
+        self.UV[:, 1] = 1 - self.UV[:, 1]                          # OBJ v goes up; the images' rows go down
+        self.groups = {int(k): m['tri'][m['mat'] == k].astype(np.uint32).ravel() for k in np.unique(m['mat'])}
+        self.textures = {}
+        for k in self.groups:
+            name = sc.matnames[k] if k < len(sc.matnames) else ''
+            fn = sc.mtl.get(name, {}).get('d')
+            for d in (texdir, os.path.dirname(path)):
+                if fn and d and os.path.isfile(os.path.join(d, fn)):
+                    with Image.open(os.path.join(d, fn)) as im:
+                        im = im.convert('RGB'); im.thumbnail((1024, 1024))
+                        self.textures[k] = np.asarray(im)
+                    break
+        self.P, self.N = self.P0, self.N0
+        self.names = list(sc.skel)
+        self.index = {n: i for i, n in enumerate(self.names)}
+        self.posed = np.array([sc.skel[n][1] for n in self.names], float)
+        self.parent = np.array([self.index.get(sc.skel[n][0], -1) for n in self.names])
+
+    def bounds(self):
+        return self.P.min(0), self.P.max(0)
+
+
 ARMS_DOWN = {'BicepLeft': ((0, 0, 1), -70), 'BicepRight': ((0, 0, 1), 70)}   # about z: the left arm is at +x
 TORSO_BONES = ('Hips', 'Spine1', 'Spine2', 'Spine3')
 LANDMARK_BONES = ('Hips', 'BicepLeft', 'BicepRight', 'Neck', 'ThighLeft', 'ThighRight')
@@ -212,8 +246,9 @@ void main() {
 LINE_VERT = """
 #version 330
 uniform mat4 mvp;
+uniform float psize;
 in vec3 in_pos;
-void main() { gl_Position = mvp * vec4(in_pos, 1.0); gl_PointSize = 6.0; }
+void main() { gl_Position = mvp * vec4(in_pos, 1.0); gl_PointSize = psize; }
 """
 LINE_FRAG = """
 #version 330
@@ -291,8 +326,12 @@ class View:
         self.show_ghost, self.show_bones = False, True
         self.yaw, self.pitch, self.dist, self.target = 20.0, 8.0, 3.0, np.array([0, 0.9, 0], 'f4')
         self.fbo, self.size, self.photo, self._pending = None, (0, 0), None, False
+        self.on_joints = None          # joints mode: called with {bone: position} when a dragged joint is let go
+        self.mirror = True             # joints mode: a Left joint moves its Right twin too (mirrored in x)
+        self.selected, self._drag, self._moved, self._M = None, None, {}, None
         label.bind('<ButtonPress-1>', self._press); label.bind('<ButtonPress-3>', self._press)
         label.bind('<B1-Motion>', self._orbit); label.bind('<B3-Motion>', self._pan)
+        label.bind('<ButtonRelease-1>', self._release)
         label.bind('<MouseWheel>', self._zoom); label.bind('<Double-Button-1>', lambda e: self.frame())
         label.bind('<Configure>', lambda e: self.redraw())
 
@@ -326,8 +365,46 @@ class View:
     # -------------------------------------------------------------- mouse
     def _press(self, e):
         self._last = (e.x, e.y)
+        self._drag = None
+        if self.on_joints is not None and self.mesh is not None and self._M is not None and e.num == 1:
+            pts = self._screen(self.mesh.ch.posed)
+            d = np.hypot(pts[:, 0] - e.x, pts[:, 1] - e.y)
+            if d.min() < 14:                                       # a click on a joint drags it
+                self._drag = self.selected = int(np.argmin(d))
+                self.redraw()
+
+    def _screen(self, pts):
+        w, h = self.size
+        c = np.c_[pts, np.ones(len(pts))] @ self._M.T
+        n = c[:, :3] / c[:, 3:4]
+        return np.c_[(n[:, 0] + 1) / 2 * w, (1 - n[:, 1]) / 2 * h, n[:, 2]]
+
+    def _drag_joint(self, e):
+        ch = self.mesh.ch
+        k = self._drag
+        w, h = self.size
+        z = self._screen(ch.posed[k:k + 1])[0, 2]                  # keep its depth: move it across the screen
+        p = np.linalg.inv(self._M) @ np.array([e.x / w * 2 - 1, 1 - e.y / h * 2, z, 1.0])
+        ch.posed[k] = p[:3] / p[3]
+        self._moved[ch.names[k]] = ch.posed[k].copy()
+        name = ch.names[k]
+        twin = name[:-4] + 'Right' if name.endswith('Left') else name[:-5] + 'Left' if name.endswith('Right') else None
+        if self.mirror and twin in ch.index:
+            ch.posed[ch.index[twin]] = ch.posed[k] * (-1, 1, 1)
+            self._moved[twin] = ch.posed[ch.index[twin]].copy()
+        elif self.mirror and twin is None:                         # a middle joint stays in the middle
+            ch.posed[k][0] = 0.0
+            self._moved[name] = ch.posed[k].copy()
+        self.redraw()
+
+    def _release(self, e):
+        if self._drag is not None and self._moved and self.on_joints is not None:
+            self.on_joints({n: [float(x) for x in v] for n, v in self._moved.items()})
+        self._drag, self._moved = None, {}
 
     def _orbit(self, e):
+        if self._drag is not None:
+            return self._drag_joint(e)
         dx, dy = e.x - self._last[0], e.y - self._last[1]
         self._last = (e.x, e.y)
         self.yaw -= dx * 0.5
@@ -371,7 +448,8 @@ class View:
         self.ctx.viewport = (0, 0, w, h)
         self.fbo.clear(*self.bg, 1.0)
         self.ctx.enable(self.mgl.DEPTH_TEST)
-        mvp = (perspective(40, w / h, 0.05, 100) @ look_at(self._eye(), self.target)).T.copy()
+        self._M = perspective(40, w / h, 0.05, 100) @ look_at(self._eye(), self.target)
+        mvp = self._M.T.copy()
         self.prog['mvp'].write(mvp.tobytes())
         if self.mesh is not None:
             self.mesh.draw()
@@ -394,11 +472,20 @@ class View:
         self.lprog['mvp'].write(mvp.tobytes())
         lines = self.ctx.buffer(np.array(pts, 'f4').reshape(-1, 3).tobytes())
         dots = self.ctx.buffer(ch.posed.astype('f4').tobytes())
+        big = 12.0 if self.on_joints is not None else 6.0
         for buf, mode, colour in ((lines, self.mgl.LINES, (0.95, 0.55, 0.1)), (dots, self.mgl.POINTS, (0.85, 0.05, 0.05))):
             vao = self.ctx.vertex_array(self.lprog, [(buf, '3f', 'in_pos')])
             self.lprog['colour'].value = colour
+            self.lprog['psize'].value = big
             vao.render(mode)
             vao.release()
+        if self.on_joints is not None and self.selected is not None and self.selected < len(ch.posed):
+            sel = self.ctx.buffer(ch.posed[self.selected].astype('f4').tobytes())
+            vao = self.ctx.vertex_array(self.lprog, [(sel, '3f', 'in_pos')])
+            self.lprog['colour'].value = (0.1, 0.75, 0.2)
+            self.lprog['psize'].value = 16.0
+            vao.render(self.mgl.POINTS)
+            vao.release(); sel.release()
         lines.release(); dots.release()
         self.ctx.enable(self.mgl.DEPTH_TEST)
 

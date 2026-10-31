@@ -126,6 +126,10 @@ the pivot, or 4x4) chain down the skeleton (pre-order), shapes (4x4) change only
 skinning in numpy (~6 ms for 7k vertices). `live_adjust(ch, applied, now)` turns the Adjustments' values into
 turns/shapes relative to the ones the model was converted with (head move/size, neck stretch, limb girth across
 the bone's segment, torso block scale about the landmarks) — an approximation; converting gives the exact result.
+`SourceModel` is an OBJ before converting (corners as vertices, its `.mtl` images) with its automatic skeleton; in
+the window's joints mode `View.on_joints` is set: a left click within 14 px of a joint drags it across the screen at
+its depth (mirrored to its Left/Right twin when `mirror`), and the release reports {bone: position}, saved as the
+project's `joints` → `objlib.use_joints()` → `rig(joints=...)` replaces those joints before weighting.
 `View(label)`: standalone moderngl context, framebuffer read back into the label (~12 ms a frame); mouse orbit/pan/
 zoom; optional game original (grey) and skeleton lines. Without OpenGL 3.3 `available()` is False and the window
 shows the still images. `kit.py doctor` reports it.

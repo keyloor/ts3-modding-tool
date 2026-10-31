@@ -70,6 +70,12 @@ TEXT = {
         pv_ghost='Original del juego al lado', pv_bones='Esqueleto del juego',
         pv_help='Arrastra: girar · clic derecho: mover · rueda: acercar · doble clic: encuadrar',
         pv_no_gl='Tu tarjeta gráfica no da OpenGL 3.3: solo hay imágenes fijas.',
+        pv_joints='Esqueleto de tu modelo', joints_mirror='Simétrico (izquierda = derecha)',
+        joints_reset='Volver al automático',
+        joints_help='Arrastra un punto rojo para mover esa articulación; luego pulsa «Convertir».',
+        joints_moved='Articulación movida. Pulsa «Convertir» para aplicarla.',
+        joints_back='Esqueleto automático otra vez. Pulsa «Convertir» para aplicarlo.',
+        joints_need_convert='Convierte el modelo una vez para poder mover su esqueleto.',
         role='Parte', model_bone='Hueso del modelo', how='Cómo', material='Material', triangles='Triángulos',
         uses='Usa', note='Nota', auto='automático', chosen='elegido', none='(ninguno)',
         back_auto='Volver a automático', ok='Aceptar', cancel='Cancelar', image='Imagen', colour='Color liso',
@@ -151,6 +157,11 @@ TEXT = {
         pv_ghost="The game's original beside it", pv_bones="The game's skeleton",
         pv_help='Drag: turn · right drag: move · wheel: zoom · double click: frame',
         pv_no_gl="Your graphics card doesn't offer OpenGL 3.3: only still images.",
+        pv_joints="Your model's skeleton", joints_mirror='Mirror (left = right)', joints_reset='Back to automatic',
+        joints_help='Drag a red dot to move that joint, then press "Convert".',
+        joints_moved='Joint moved. Press "Convert" to apply it.',
+        joints_back='Automatic skeleton again. Press "Convert" to apply it.',
+        joints_need_convert="Convert the model once to be able to move its skeleton.",
         role='Part', model_bone='Model bone', how='How', material='Material', triangles='Triangles',
         uses='Uses', note='Note', auto='automatic', chosen='chosen', none='(none)',
         back_auto='Back to automatic', ok='OK', cancel='Cancel', image='Image', colour='Solid colour',
@@ -566,12 +577,14 @@ class App:
         gl = V.available()
         bar = ttk.Frame(pv, padding=(4, 4)); bar.pack(fill='x')
         self.pv_mode = tk.StringVar(value='3d' if gl else 'images')
-        for val, key in (('3d', 'pv_3d'), ('images', 'pv_images')):
+        for val, key in (('3d', 'pv_3d'), ('images', 'pv_images'), ('joints', 'pv_joints')):
             rb = ttk.Radiobutton(bar, text=self.t(key), value=val, variable=self.pv_mode, style='Toolbutton',
                                  command=self.switch_preview)
             rb.pack(side='left')
-            if val == '3d' and not gl:
+            if val != 'images' and not gl:
                 rb.state(['disabled'])
+            if val == 'joints':
+                self.rb_joints = rb
         ttk.Separator(bar, orient='vertical').pack(side='left', fill='y', padx=10)
         self.pose_var = tk.StringVar(value='down')
         for val, key in (('t', 'pv_tpose'), ('down', 'pv_armsdown')):
@@ -581,6 +594,12 @@ class App:
         ttk.Checkbutton(bar, text=self.t('pv_ghost'), variable=self.ghost_on, command=self.view_flags).pack(side='left', padx=(12, 0))
         ttk.Checkbutton(bar, text=self.t('pv_bones'), variable=self.bones_on, command=self.view_flags).pack(side='left', padx=8)
         ttk.Label(bar, text=self.t('pv_help') if gl else self.t('pv_no_gl'), style='Muted.TLabel').pack(side='right')
+        self.jbar = ttk.Frame(pv, padding=(4, 0, 4, 4))           # shown in the joints mode
+        self.mirror_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(self.jbar, text=self.t('joints_mirror'), variable=self.mirror_var,
+                        command=lambda: setattr(self.view, 'mirror', bool(self.mirror_var.get()))).pack(side='left')
+        ttk.Button(self.jbar, text=self.t('joints_reset'), command=self.reset_joints).pack(side='left', padx=10)
+        ttk.Label(self.jbar, text=self.t('joints_help'), style='Hint.TLabel').pack(side='left', padx=6)
         self.pv_3d = tk.Label(pv, bg='#ebebeb', text=self.t('preview_empty'), font=('Segoe UI', 12))
         self.pv_imgs = ttk.Frame(pv)
         self.pv_body = ttk.Label(self.pv_imgs, text=self.t('preview_empty'), anchor='center')
@@ -593,14 +612,61 @@ class App:
         self.switch_preview()
 
     def switch_preview(self):
-        for w in (self.pv_3d, self.pv_imgs):
+        for w in (self.pv_3d, self.pv_imgs, self.jbar):
             w.pack_forget()
-        if self.pv_mode.get() == '3d' and self.view is not None:
+        mode = self.pv_mode.get()
+        if mode == 'joints' and not self.start_joints():
+            mode = '3d' if self.view is not None else 'images'
+            self.pv_mode.set(mode)
+        if mode in ('3d', 'joints') and self.view is not None:
+            if mode == 'joints':
+                self.jbar.pack(fill='x')
+            elif self.view.on_joints is not None:                # back from the joints mode: the converted model
+                self.view.on_joints, self.view.selected = None, None
+                self.load_view()
             self.pv_3d.pack(fill='both', expand=True)
             self.view.redraw()
         else:
             self.pv_imgs.pack(fill='both', expand=True)
             self.show_previews()
+
+    def start_joints(self):
+        """the joints mode: the OBJ before converting with its automatic skeleton, the joints draggable"""
+        c, model = self.proj.get('character'), self.proj.get('fbx') or ''
+        if self.view is None or not model.lower().endswith('.obj'):
+            return False
+        gdir = os.path.join(self.work, 'game', c or '-')
+        if not c or not os.path.isfile(os.path.join(gdir, c + '.oct')):
+            self.status.set(self.t('joints_need_convert'))
+            return False
+        try:
+            self.root.config(cursor='watch'); self.root.update_idletasks()
+            src = V.SourceModel(model, (gdir, c), self.proj.get('joints'), self.proj.get('textures'))
+        except Exception:
+            print(traceback.format_exc())
+            self.status.set(self.t('error'))
+            return False
+        finally:
+            self.root.config(cursor='')
+        self.view.on_joints, self.view.mirror, self.view.selected = self.joints_moved, bool(self.mirror_var.get()), None
+        self.view.show_ghost, self.view.show_bones = False, True
+        self.view.set_character(src)
+        self.status.set(self.t('joints_help'))
+        return True
+
+    def joints_moved(self, moved):
+        self.proj.setdefault('joints', {}).update(moved)
+        self.save_project()
+        self.info = None
+        self.status.set(self.t('joints_moved'))
+
+    def reset_joints(self):
+        self.proj.pop('joints', None)
+        self.save_project()
+        self.info = None
+        if self.pv_mode.get() == 'joints':
+            self.switch_preview()
+        self.status.set(self.t('joints_back'))
 
     def views(self):
         return [v for v in (getattr(self, 'view', None), getattr(self, 'adj_view', None)) if v is not None]
@@ -665,6 +731,8 @@ class App:
         if self.ghost_ch is not None:
             self.ghost_ch.pose(V.ARMS_DOWN if down else None)
         for v in self.views():
+            if v.on_joints is not None:                          # the joints mode shows the model before converting
+                continue
             if new:
                 v.set_character(self.ch, self.ghost_ch)
                 self.view_flags()
@@ -680,6 +748,8 @@ class App:
     def view_flags(self):
         """the Preview tab's choices; the Adjustments tab's live view shows only the character"""
         for v in self.views():
+            if v.on_joints is not None:
+                continue
             main = v is getattr(self, 'view', None)
             v.show_ghost = main and hasattr(self, 'ghost_on') and bool(self.ghost_on.get())
             v.show_bones = main and (not hasattr(self, 'bones_on') or bool(self.bones_on.get()))
@@ -800,6 +870,9 @@ class App:
         self.model_lbl.config(text=os.path.basename(model) if model else self.t('no_model'))
         self.tex_lbl.config(text=self.t('textures') % (p.get('textures') or self.t('no_textures')))
         self.obj_lbl.config(text=self.t('obj_note') if model and model.lower().endswith('.obj') else '')
+        if getattr(self, 'rb_joints', None) is not None and self.rb_joints.winfo_exists():
+            self.rb_joints.state(['!disabled'] if model and model.lower().endswith('.obj') and V.available()
+                                 else ['disabled'])
         c = p.get('character')
         converted = bool(c) and os.path.isfile(os.path.join(self.work, 'out', c, c + '.oct'))
         can = bool(c and model)
@@ -892,6 +965,10 @@ class App:
     def converted(self, check):
         self.refresh()
         self.show_previews()
+        if getattr(self, 'pv_mode', None) is not None and self.pv_mode.get() == 'joints':
+            self.pv_mode.set('3d')                               # the converted result, with the moved joints
+            self.view.on_joints, self.view.selected = None, None
+            self.switch_preview()
         self.load_view()
         self.nb.select(TAB_PREVIEW)
         self.status.set(self.t('check') % ', '.join(check) if check else self.t('converted'))

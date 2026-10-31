@@ -24,6 +24,7 @@ import fbxlib
 import ts3model as T
 
 GAME = None                  # (game character dir, base name)
+JOINTS = {}                  # joints the user moved: {bone: [x, y, z]} in the scene's frame (the window's joints mode)
 _cache = {}
 
 
@@ -32,13 +33,19 @@ def use_game(ts3dir, base):
     GAME = (os.path.abspath(ts3dir), base)
 
 
+def use_joints(joints):
+    """the project's moved joints (kit_project.json 'joints'); they replace the estimated ones before weighting"""
+    global JOINTS
+    JOINTS = {k: [float(x) for x in v] for k, v in (joints or {}).items()}
+
+
 def open_scene(path):
     if not path.lower().endswith('.obj'):
         return fbxlib.Scene(path)
-    key = (os.path.abspath(path), os.path.getmtime(path), GAME)
+    key = (os.path.abspath(path), os.path.getmtime(path), GAME, tuple(sorted((k, tuple(v)) for k, v in JOINTS.items())))
     if key not in _cache:
         _cache.clear()
-        _cache[key] = ObjScene(path, GAME)
+        _cache[key] = ObjScene(path, GAME, JOINTS)
     return _cache[key]
 
 
@@ -203,9 +210,9 @@ def landmarks(P, tris, H):
     return out
 
 
-def rig(P, game_dir, base, tris=None):
+def rig(P, game_dir, base, tris=None, joints=None):
     """bones {name: (parent, position)} fitted to the model's points P (Y up, facing +Z, on the floor, centred) and
-    skin weights {bone: (vertex indices, weights)}"""
+    skin weights {bone: (vertex indices, weights)}; joints {bone: position} are ones the user moved by hand"""
     _, bones3, *_ = T.load(os.path.join(game_dir, base + '.oct'))
     lower = {b['name'].lower(): np.array(b['pivot'], float) for b in bones3}
 
@@ -283,6 +290,11 @@ def rig(P, game_dir, base, tris=None):
         out['Hand' + s] = ('Forearm' + s, sh + fh * (tip - sh))
         out['_tip' + s] = (None, tip)
 
+    # the joints the user moved by hand replace the estimated ones (before weighting: the weights follow them)
+    for n, pos in (joints or {}).items():
+        if n in out and not n.startswith('_'):
+            out[n] = (out[n][0], np.array(pos, float))
+
     # weights: each bone is the segment to its child (to the fingertip, the toe tip, the top of the head)
     ends = {'Hips': 'Spine1', 'Spine1': 'Spine2', 'Spine2': 'Spine3', 'Spine3': 'Neck', 'Neck': 'Head'}
     seg = {n: (out[n][1], out[ends[n]][1]) for n in ends}
@@ -324,7 +336,7 @@ class ObjScene:
     """the part of fbxlib.Scene the kit uses: meshes() (one mesh, skinned to the fitted skeleton), bones(),
     to_yup(); plus the .mtl's textures and colours for autotex"""
 
-    def __init__(self, path, game):
+    def __init__(self, path, game, joints=None):
         V, VT, VN, cv, ct, cn, poly, pmat, self.matnames, self.mtl = read_obj(path)
         self.name = os.path.splitext(os.path.basename(path))[0]
         self.settings, self.objects, self.conn = {}, {}, []
@@ -359,7 +371,7 @@ class ObjScene:
         self.mesh = dict(name=self.name, pos=P, cp=cv, tri=tri, normals=(N.reshape(-1), cn), uv=(uv.reshape(-1), ct),
                          mat=self.tri_mat, matnames=self.matnames, model=None)
         if game:
-            self.skel, skin = rig(P, *game, tris=cv[tri])
+            self.skel, skin = rig(P, *game, tris=cv[tri], joints=joints)
         else:                                   # no game character given: one bone moves everything
             self.skel, skin = {'Hips': (None, np.zeros(3))}, {'Hips': (np.arange(len(P)), np.ones(len(P)))}
         self.mesh['skin'] = []

@@ -53,6 +53,9 @@ The user may also use the window (`kit/app.py`); it works on the same project fo
 choices are stored in `kit_project.json` (`bones`: {role: model bone, '' = none}, roles as in `automap.ROLES`;
 `materials`: {FBX material: image file | [r, g, b] | 'skip'}) and apply whenever the map is written again
 (`make --remap`). To change a body part's bone you can set them there instead of editing `map.py`.
+`joints` (OBJ only): {bone of the automatic skeleton, e.g. 'ForearmLeft': [x, y, z]} replaces that estimated joint
+(coordinates in the OBJ scene's frame: Y up, facing +Z, on the floor, centred, the model's own units); the window
+writes it from the Preview tab's "Your model's skeleton" mode.
 `adjust` also takes proportions, in percent: `torso` [x, y, z] (written as `TORSO_SCALE`), `head_pct` (head size),
 `neck_pct`, `arms_pct`, `legs_pct` (thickness; written as `GIRTH`). Lengths can't change: joints stay on the game's.
 The report's `torso fit: W% wide, H% tall` says how much the tool already reshapes the torso.

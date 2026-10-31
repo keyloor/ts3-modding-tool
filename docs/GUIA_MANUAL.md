@@ -55,6 +55,10 @@ Un `.obj` no trae esqueleto ni piel. La herramienta (ventana o `kit.py make`) le
 pesos por cercanía. Las texturas salen del `.mtl`. Funciona con humanoides en pose T o A. Las manos y la cara se
 mueven en bloque, con la mano y con la cabeza.
 
+Si alguna articulación del esqueleto automático sale fuera de sitio (un codo, un hombro), en la ventana, Vista
+previa → **Esqueleto de tu modelo**, se arrastra a su sitio (con simetría izquierda/derecha) y se vuelve a
+convertir; queda guardado en el proyecto (`joints`).
+
 Para el mejor resultado, o para hacerlo **a mano**, ponle esqueleto tú:
 - en Blender (Armature → *With Automatic Weights*);
 - o subiéndolo a Mixamo (auto-rigger gratis), que devuelve un FBX con esqueleto.

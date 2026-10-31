@@ -265,6 +265,7 @@ def detect(work, proj, force=False, log=print):
     """the map's tables as the kit would write them now (the project's own bone and material choices applied),
     without writing anything but the project file: (tables, automap info)"""
     game_dir = prepare(work, proj, force, log)
+    objlib.use_joints(proj.get('joints'))
     tables, info = AM.automap(proj['fbx'], game_dir, proj['character'], log, proj.get('bones'), proj.get('adjust'))
     AM.add_textures(tables, proj['fbx'], proj['textures'], log, proj.get('materials'))
     return tables, info
@@ -276,6 +277,7 @@ def build(work, proj, remap=False, force=False):
     game_dir = prepare(work, proj, force)
     c, fbx, tex = proj['character'], proj['fbx'], proj['textures']
     objlib.use_game(game_dir, c)
+    objlib.use_joints(proj.get('joints'))               # an OBJ's joints the user moved by hand
     with open(os.path.join(work, 'report.txt'), 'w', encoding='utf-8') as rep, \
             contextlib.redirect_stdout(Tee(sys.stdout, rep)):
         print('%s: %s -> %s' % (CREDIT, os.path.basename(fbx), c))
