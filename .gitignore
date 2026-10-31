@@ -1,0 +1,9 @@
+# what builds and tests make (and never the game's files or other people's models)
+build/
+release/
+work/
+output/
+previews/
+maps/
+__pycache__/
+*.pyc
