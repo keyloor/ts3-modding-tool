@@ -106,6 +106,40 @@ TEXT = {
         adj_version_name='Nombre de esta versión de los ajustes:',
         adj_version_saved='Versión «%s» guardada.',
         adj_version_loaded='Versión «%s» cargada. Pulsa «Aplicar y convertir» para verla.',
+        tab_diag='Diagnóstico', diag_warn='Revisa esto', diag_tip='Se puede mejorar',
+        diag_intro='Lo que la herramienta ve en tu modelo convertido. Cada botón cambia los Ajustes y vuelve a convertir; '
+                   'Deshacer (en Ajustes) lo quita.',
+        diag_none='No hay nada que señalar. Mira igual la Vista previa y pruébalo en el juego.',
+        diag_status='Diagnóstico: %d cosas que revisar.',
+        diag=dict(neck='El cuello sale %(how)s más de la cuenta: el de tu modelo mide %(model_cm)s cm y el del '
+                       'personaje %(game_cm)s cm (×%(stretch)s). Se verá deformado.',
+                  torso='Para llegar a los hombros y caderas del personaje, el torso sale al %(pct)s %% de %(dim)s del '
+                        'de tu modelo.',
+                  limit='Los %(part)s llegan al límite de estiramiento (×%(k)s): puede que no lleguen a las '
+                        'articulaciones del juego. Sube el límite o revisa sus articulaciones.',
+                  materials='Ningún archivo de imagen coincidió con estos materiales (se usa una suposición): %(list)s.',
+                  backwards='El modelo parece mirar hacia atrás (su mano izquierda está a la derecha): expórtalo mirando '
+                            'al frente.',
+                  eyes='Tu modelo tiene huesos de ojos y párpados (%(list)s): si los ojos salen cerrados, se pueden abrir.',
+                  face='Tu modelo tiene huesos de la cara (%(n)d: mandíbula, labios, cejas): su cara puede moverse con '
+                       'la del juego.',
+                  prop='%(bone)s parece un objeto en la mano, pero se mueve con %(now)s.'),
+        diag_how=dict(stretched='estirado', squeezed='encogido'), diag_dim=dict(wide='ancho', tall='alto'),
+        diag_fix=dict(head_natural='Cuello a su largo natural', neck_limit='Dejar que el cuello se estire más',
+                      torso_own='Dejar el torso a su tamaño', raise_limit='Subir el límite', open_eyes='Abrir los ojos',
+                      animate_face='Animar la cara', prop_right='Con la mano derecha', prop_left='Con la mano izquierda'),
+        diag_see=dict(adjust='Ver en Ajustes', accessories='Ver en Accesorios', materials='Ver Materiales',
+                      joints='Ver sus articulaciones'),
+        adj_page_size='Tamaño y límites', adj_size_title='Tamaño y separación',
+        adj_size_help='Todo el modelo más grande o más pequeño (las articulaciones siguen en las del juego, así que '
+                      'cambia sobre todo el grosor), y los brazos o las piernas más separados del cuerpo (cada lado).',
+        adj_scale='Tamaño general', adj_shoulders='Hombros: separación', adj_hips='Caderas: separación',
+        adj_limit_title='Cuánto se puede estirar cada parte',
+        adj_limit_help='Para llegar a las articulaciones del juego, cada parte se estira o se encoge como mucho este '
+                       'factor (1,25 es lo normal). Si una parte sale en rojo en la Vista previa porque llega al límite, '
+                       'súbelo para que llegue del todo, o mueve su articulación.',
+        adj_limit_parts=dict(neck='Cuello', arms='Brazos', legs='Piernas', hands='Manos'),
+        adj_size_reset='Todo como estaba',
         adj_page_body='Cabeza y proporciones', adj_page_acc='Accesorios y ropa', adj_page_face='Ojos y cara',
         adj_page_weights='Pesos',
         adj_acc_help='Objetos sueltos de tu modelo (sombrero, bolsa, un arma, el pelo…): con qué parte del cuerpo se '
@@ -261,6 +295,39 @@ TEXT = {
         adj_version_name='Name of this version of the adjustments:',
         adj_version_saved='Version "%s" saved.',
         adj_version_loaded='Version "%s" loaded. Press "Apply and convert" to see it.',
+        tab_diag='Diagnosis', diag_warn='Check this', diag_tip='Could be better',
+        diag_intro='What the tool sees in your converted model. Each button changes the Adjustments and converts '
+                   'again; Undo (in Adjustments) takes it back.',
+        diag_none='Nothing to point out. Still look at the Preview and try it in the game.',
+        diag_status='Diagnosis: %d things to check.',
+        diag=dict(neck="The neck is %(how)s too much: your model's is %(model_cm)s cm and the character's "
+                       '%(game_cm)s cm (x%(stretch)s). It will look distorted.',
+                  torso="To reach the character's shoulders and hips the torso is made %(pct)s %% as %(dim)s as your "
+                        "model's.",
+                  limit="The %(part)s hit the stretch limit (x%(k)s): they may not reach the game's joints. Raise the "
+                        'limit or check their joints.',
+                  materials='No image file matched these materials (a guess is used): %(list)s.',
+                  backwards='The model seems to face backwards (its left hand is on the right): export it facing '
+                            'forward.',
+                  eyes='Your model has eye and lid bones (%(list)s): if its eyes look shut, they can be opened.',
+                  face="Your model has face bones (%(n)d: jaw, lips, brows): its face can move with the game's.",
+                  prop='%(bone)s looks like a held object but moves with %(now)s.'),
+        diag_how=dict(stretched='stretched', squeezed='squeezed'), diag_dim=dict(wide='wide', tall='tall'),
+        diag_fix=dict(head_natural='Neck at its own length', neck_limit='Let the neck stretch further',
+                      torso_own='Keep the torso its own size', raise_limit='Raise the limit', open_eyes='Open the eyes',
+                      animate_face='Animate the face', prop_right='With the right hand', prop_left='With the left hand'),
+        diag_see=dict(adjust='See in Adjustments', accessories='See in Accessories', materials='See Materials',
+                      joints='See its joints'),
+        adj_page_size='Size and limits', adj_size_title='Size and spacing',
+        adj_size_help="The whole model bigger or smaller (the joints stay on the game's, so mostly its thickness "
+                      'changes), and arms or legs further from the body (each side).',
+        adj_scale='Overall size', adj_shoulders='Shoulders: spacing', adj_hips='Hips: spacing',
+        adj_limit_title='How far each part may stretch',
+        adj_limit_help="To reach the game's joints each part is stretched or squeezed at most by this factor (1.25 is "
+                       'the usual). If a part shows red in the Preview because it hits the limit, raise it so it '
+                       'reaches all the way, or move its joint.',
+        adj_limit_parts=dict(neck='Neck', arms='Arms', legs='Legs', hands='Hands'),
+        adj_size_reset='All back as it was',
         adj_page_body='Head and proportions', adj_page_acc='Accessories and clothes', adj_page_face='Eyes and face',
         adj_page_weights='Weights',
         adj_acc_help="Your model's loose objects (hat, bag, a weapon, the hair...): which part of the body they move "
@@ -334,7 +401,7 @@ TEXT = {
                    'Disney, Pixar or Avalanche Software.'),
 }
 OPTIONAL = {'neck', 'clavicleLeft', 'clavicleRight', 'toeLeft', 'toeRight'}
-TAB_BONES, TAB_MATS, TAB_ADJUST, TAB_PREVIEW, TAB_LOG = range(5)
+TAB_BONES, TAB_MATS, TAB_ADJUST, TAB_PREVIEW, TAB_DIAG, TAB_LOG = range(6)
 
 
 class Out:
@@ -1023,6 +1090,7 @@ class App:
                                   (self.t('material'), self.t('triangles'), self.t('uses'), self.t('note')), self.edit_material)
         self.build_adjust()
         self.build_preview()
+        self.build_diagnosis()
         lg = ttk.Frame(self.nb)
         self.nb.add(lg, text=self.t('tab_log'))
         self.log = tk.Text(lg, wrap='none', font=('Consolas', 9))
@@ -1286,6 +1354,46 @@ class App:
         ttk.Button(right, text=self.t('adj_prop_reset'),
                    command=lambda: [v.set(100) for v in self.prop.values()]).pack(anchor='w', pady=(6, 0))
 
+        # overall size, shoulder / hip spacing, how far each part may stretch
+        sz = ttk.Frame(self.adj_nb, padding=10)
+        self.adj_nb.add(sz, text=self.t('adj_page_size'))
+        ttk.Label(sz, text=self.t('adj_size_title'), style='Head.TLabel').grid(row=0, column=0, columnspan=4, sticky='w')
+        ttk.Label(sz, text=self.t('adj_size_help'), wraplength=560).grid(row=1, column=0, columnspan=4, sticky='w', pady=(2, 8))
+        self.size_vars = {}
+        rows = (('scale_pct', 'adj_scale', 80, 120, 1, '%', 100), ('shoulders_cm', 'adj_shoulders', -8, 8, 0.5, 'cm', 0),
+                ('hips_cm', 'adj_hips', -8, 8, 0.5, 'cm', 0))
+        r = 2
+        for key, label, lo, hi, step, unit, neutral in rows:
+            v = tk.DoubleVar(value=float(adj.get(key, neutral)))
+            v.trace_add('write', self.live_soon)
+            self.size_vars[key] = v
+            ttk.Label(sz, text=self.t(label)).grid(row=r, column=0, sticky='w')
+            tk.Scale(sz, variable=v, from_=lo, to=hi, resolution=step, orient='horizontal', length=170,
+                     showvalue=False).grid(row=r, column=1, padx=6, pady=1)
+            ttk.Label(sz, textvariable=v, width=5, anchor='e').grid(row=r, column=2, sticky='e')
+            ttk.Label(sz, text=unit).grid(row=r, column=3, sticky='w')
+            r += 1
+        ttk.Label(sz, text=self.t('adj_limit_title'), style='Head.TLabel').grid(row=r, column=0, columnspan=4,
+                                                                               sticky='w', pady=(14, 0))
+        ttk.Label(sz, text=self.t('adj_limit_help'), wraplength=560).grid(row=r + 1, column=0, columnspan=4, sticky='w',
+                                                                         pady=(2, 8))
+        r += 2
+        lim = adj.get('stretch_limit', {})
+        self.limit_vars = {}
+        for part in ('neck', 'arms', 'legs', 'hands'):
+            v = tk.DoubleVar(value=float(lim.get(part, 1.25)))
+            v.trace_add('write', lambda *_: self.adj_touched())
+            self.limit_vars[part] = v
+            ttk.Label(sz, text=self.t('adj_limit_parts')[part]).grid(row=r, column=0, sticky='w')
+            tk.Scale(sz, variable=v, from_=1.25, to=2.5, resolution=0.05, orient='horizontal', length=170,
+                     showvalue=False).grid(row=r, column=1, padx=6, pady=1)
+            ttk.Label(sz, textvariable=v, width=5, anchor='e').grid(row=r, column=2, sticky='e')
+            ttk.Label(sz, text='×').grid(row=r, column=3, sticky='w')
+            r += 1
+        ttk.Button(sz, text=self.t('adj_size_reset'), command=lambda: (
+            [v.set(100 if k == 'scale_pct' else 0) for k, v in self.size_vars.items()],
+            [v.set(1.25) for v in self.limit_vars.values()])).grid(row=r, column=0, sticky='w', pady=(10, 0))
+
         # accessories and clothes
         acc = ttk.Frame(self.adj_nb, padding=10)
         self.adj_nb.add(acc, text=self.t('adj_page_acc'))
@@ -1390,6 +1498,13 @@ class App:
             adj['head_by_face'] = True
         if int(self.smooth_var.get()):
             adj['smooth'] = int(self.smooth_var.get())
+        for key, v in self.size_vars.items():
+            x = round(float(v.get()), 1)
+            if x != (100 if key == 'scale_pct' else 0):
+                adj[key] = int(x) if key == 'scale_pct' else x
+        lim = {p: round(float(v.get()), 2) for p, v in self.limit_vars.items() if round(float(v.get()), 2) != 1.25}
+        if lim:
+            adj['stretch_limit'] = lim
         return adj
 
     def set_adjust_ui(self, adj):
@@ -1408,6 +1523,10 @@ class App:
             self.eye_top.set(int(eo.get('top', 15))); self.eye_bot.set(int(eo.get('bottom', 5)))
             self.face_on.set(bool(adj.get('face'))); self.byface_on.set(bool(adj.get('head_by_face')))
             self.smooth_var.set(int(adj.get('smooth', 0)))
+            for key, v in self.size_vars.items():
+                v.set(float(adj.get(key, 100 if key == 'scale_pct' else 0)))
+            for p, v in self.limit_vars.items():
+                v.set(float(adj.get('stretch_limit', {}).get(p, 1.25)))
         finally:
             self._restoring = False
         self.fill_adjust_lists()
@@ -1887,12 +2006,95 @@ class App:
         tv.bind('<Double-1>', lambda e: on_edit(tv.focus()))
         return tv
 
+    # ------------------------------------------------------------------ diagnosis
+    def build_diagnosis(self):
+        """the Diagnosis tab: kit.diagnose()'s findings in plain words, each with buttons that apply its fix"""
+        f = ttk.Frame(self.nb)
+        self.nb.add(f, text=self.t('tab_diag'))
+        self.diag_tab = f
+        canvas = tk.Canvas(f, highlightthickness=0, background='#f0f0f0')
+        sb = ttk.Scrollbar(f, orient='vertical', command=canvas.yview)
+        self.diag_box = ttk.Frame(canvas, padding=14)
+        self.diag_box.bind('<Configure>', lambda e: canvas.config(scrollregion=canvas.bbox('all')))
+        win = canvas.create_window((0, 0), window=self.diag_box, anchor='nw')
+        canvas.bind('<Configure>', lambda e: canvas.itemconfigure(win, width=e.width))
+        canvas.config(yscrollcommand=sb.set)
+        sb.pack(side='right', fill='y'); canvas.pack(fill='both', expand=True)
+        self.fill_diagnosis()
+
+    def fill_diagnosis(self):
+        if not hasattr(self, 'diag_box') or not self.diag_box.winfo_exists():
+            return
+        for w in self.diag_box.winfo_children():
+            w.destroy()
+        found = []
+        if self.info and self.tables:
+            try:
+                found = K.diagnose(self.work, self.proj, self.tables, self.info)
+            except Exception:
+                print(traceback.format_exc())
+        warns = sum(d['level'] == 'warn' for d in found)
+        self.nb.tab(self.diag_tab, text=self.t('tab_diag') + (' (%d)' % len(found) if found else ''))
+        if not self.info:
+            ttk.Label(self.diag_box, text=self.t('adj_need_info'), wraplength=900).pack(anchor='w')
+            return
+        ttk.Label(self.diag_box, text=self.t('diag_intro') if found else self.t('diag_none'), wraplength=900,
+                  style='Muted.TLabel').pack(anchor='w', pady=(0, 10))
+        texts, fixes = self.t('diag'), self.t('diag_fix')
+        for d in sorted(found, key=lambda d: d['level'] != 'warn'):
+            box = ttk.LabelFrame(self.diag_box, text=self.t('diag_warn') if d['level'] == 'warn' else self.t('diag_tip'),
+                                 padding=10)
+            box.pack(fill='x', pady=4)
+            key = d['id'] if d['id'] in texts else d['id'].split('_')[0]
+            args = dict(d['args'])
+            if 'part' in args:
+                args['part'] = self.t('adj_limit_parts').get(args['part'], args['part'])
+            if 'how' in args:
+                args['how'] = self.t('diag_how')[args['how']]
+            if 'dim' in args:
+                args['dim'] = self.t('diag_dim')[args['dim']]
+            try:
+                msg = texts[key] % args
+            except (KeyError, TypeError, ValueError):
+                msg = d['message']
+            ttk.Label(box, text=msg, wraplength=880).pack(anchor='w')
+            bar = ttk.Frame(box); bar.pack(anchor='w', pady=(6, 0))
+            for fx in d['fixes']:
+                ttk.Button(bar, text=fixes.get(fx['label'], fx['label']),
+                           command=lambda fx=fx: self.apply_fix(fx)).pack(side='left', padx=(0, 8))
+            if d['see']:
+                ttk.Button(bar, text=self.t('diag_see')[d['see']], command=lambda s=d['see']: self.see(s)).pack(side='left')
+        if warns:
+            self.status.set(self.t('diag_status') % warns)
+
+    def apply_fix(self, fx):
+        """a finding's fix: into the Adjustments tab's values, then convert with them"""
+        if self.busy or self.proj.get('advanced'):
+            self.status.set(self.t('advanced_note') if self.proj.get('advanced') else self.t('mods_busy'))
+            return
+        self.set_adjust_ui(K.merge_adjust(self.adjust_now(), fx['set']))
+        self.record_adjust()
+        self.apply_adjust()
+
+    def see(self, where):
+        if where in ('adjust', 'accessories'):
+            self.nb.select(TAB_ADJUST)
+            if where == 'accessories':
+                self.adj_nb.select(2)
+        elif where == 'materials':
+            self.nb.select(TAB_MATS)
+        elif where == 'joints':
+            self.nb.select(TAB_PREVIEW)
+            if self.rb_joints.instate(['!disabled']):
+                self.pv_mode.set('joints'); self.switch_preview()
+
     def fill_tables(self):
         if not hasattr(self, 'bones_tv') or not self.bones_tv.winfo_exists():
             return
         for tv in (self.bones_tv, self.mats_tv):
             tv.delete(*tv.get_children())
         self.fill_adjust()
+        self.fill_diagnosis()
         if not self.info:
             return
         body, chosen = self.info['body'], self.proj.get('bones', {})

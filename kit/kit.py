@@ -14,6 +14,11 @@
       the fine-tuning the window's Adjustments tab makes (kit_project.json 'adjust'; keys in ADJUST_KEYS):
       shows it, with --info also what the tool measured and what can be chosen (bones, materials, eyes, face);
       changes it; keeps named versions of it. Then 'make --remap' converts with it.
+  python kit.py diagnose <project dir> [--fix ID [--option N]] [--json]
+      what looks wrong or could be better (a stretched neck, a torso made much wider, parts at the stretch limit,
+      materials with no image, shut eyes, a face that could move...), each with its fixes; --fix applies one to
+      the adjustments. Then 'make --remap'.
+  python kit.py install <project dir>
   python kit.py restore <project dir>
       put the converted character into the game / put the game's own archive back (the game must be closed)
   python kit.py export <project dir> --name "<pack name>" [--version 1.0] [--author <you>] [--what <one line>]
@@ -198,6 +203,11 @@ ADJUST_KEYS = {
     'torso': '[x, y, z]: the torso block wider / taller / deeper, in percent',
     'head_pct': 'number: head size, percent', 'neck_pct': 'number: neck thickness, percent',
     'arms_pct': 'number: arm thickness, percent', 'legs_pct': 'number: leg thickness, percent',
+    'scale_pct': "number: the whole model bigger / smaller, percent (the joints stay on the game's)",
+    'stretch_limit': '{neck | arms | legs | hands: L}: that part may stretch up to L and squeeze to 1/L (1.25 is '
+                     "the converter's own)",
+    'shoulders_cm': 'number: each arm further out (+) or in (-), cm',
+    'hips_cm': 'number: each leg further out (+) or in (-), cm',
     'props': '{model bone: hand_left | hand_right | head | chest | hips | out}: where a loose object goes',
     'garments': '{model material: percent}: that material narrower / wider (x and z, about the hips)',
     'weights': '{model bone: game bone | {game bone: share}}: which game bones move that bone\'s vertices',
@@ -212,10 +222,14 @@ def check_adjust(adj):
     for k, v in adj.items():
         if k not in ADJUST_KEYS:
             raise KitError('unknown adjust key %r (known: %s)' % (k, ', '.join(ADJUST_KEYS)))
-        if k in ('props', 'garments', 'weights', 'eyes_open') and not isinstance(v, dict):
+        if k in ('props', 'garments', 'weights', 'eyes_open', 'stretch_limit') and not isinstance(v, dict):
             raise KitError('%s must be a JSON object: %s' % (k, ADJUST_KEYS[k]))
         if k == 'torso' and not (isinstance(v, list) and len(v) == 3):
             raise KitError('torso must be [x, y, z]')
+        if k == 'stretch_limit':
+            bad = [p for p in v if p not in ('neck', 'arms', 'legs', 'hands')]
+            if bad:
+                raise KitError('stretch_limit: unknown part %r (neck, arms, legs, hands)' % bad[0])
         if k == 'props':
             bad = [p for p in v.values() if p not in tuple(AM.PROP_PLACES) + ('out',)]
             if bad:
@@ -227,7 +241,8 @@ def strain(work):
     model's own length; the converter keeps limbs within 0.8..1.25 and the torso block's width / height too)"""
     out = {}
     try:
-        lines = open(os.path.join(work, 'report.txt'), encoding='utf-8').read().splitlines()
+        with open(os.path.join(work, 'report.txt'), encoding='utf-8') as f:
+            lines = f.read().splitlines()
     except OSError:
         return out
     torso = None
@@ -243,6 +258,122 @@ def strain(work):
         for n in ('Hips', 'Spine1', 'Spine2', 'Spine3'):
             out.setdefault(n, k)
     return out
+
+
+LIMIT_PARTS = {'arms': ('Bicep', 'Forearm'), 'legs': ('Thigh', 'Calf'), 'hands': ('Hand',)}
+
+
+def limit_step(k):
+    """a stretch limit just above k, on the window's 0.05 steps (at most 2.5)"""
+    return min(2.5, float(np.ceil((k + 0.05) * 20) / 20))   # some room: the converter measures a little differently
+
+
+def merge_adjust(adj, change):
+    """adj with change applied: dict values (stretch_limit, props...) are merged entry by entry"""
+    out = json.loads(json.dumps(adj or {}))
+    for k, v in change.items():
+        out[k] = dict(out[k], **v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
+def diagnose(work, proj, tables=None, info=None):
+    """what looks wrong or could be better, in plain words, each with the adjust changes that fix it:
+    [{id, level ('warn' | 'tip'), message, args, fixes: [{label, set}], see: tab}]. 'kit.py diagnose' and the
+    window's Diagnosis tab show it; tables / info from detect() (measured again when not given)."""
+    if tables is None or info is None:
+        tables, info = detect(work, proj, log=lambda *a: None)
+    adj = proj.get('adjust', {})
+    lim_now = adj.get('stretch_limit', {})
+    out = []
+
+    def add(id_, level, message, args=None, fixes=(), see=None):
+        args = args or {}
+        out.append(dict(id=id_, level=level, message=message % args, args=args, fixes=list(fixes), see=see))
+
+    nf = info.get('neck')
+    lim = float(lim_now.get('neck', 1.25))
+    if nf and nf.get('stretch') and not 1 / lim - 0.005 <= nf['stretch'] <= lim + 0.005:
+        args = dict(nf, how='stretched' if nf['stretch'] > 1 else 'squeezed')
+        add('neck', 'warn', 'The neck is %(how)s past the limit: the model\'s is %(model_cm)s cm, the game\'s '
+            '%(game_cm)s cm (x%(stretch)s). It will look distorted.', args,
+            [{'label': 'head_natural', 'set': {'head_cm': nf['natural_cm']}},
+             {'label': 'neck_limit', 'set': {'stretch_limit': {'neck': limit_step(max(nf['stretch'],
+                                                                                      1 / nf['stretch']))}}}],
+            'adjust')
+    tf = info.get('torso') or {}
+    torso = list(adj.get('torso', [100, 100, 100]))
+    for ax, key in ((0, 'width_pct'), (1, 'height_pct')):
+        p = tf.get(key, 100)
+        if p >= 115 or p <= 87:
+            keep = list(torso); keep[ax] = int(round(10000 / p))
+            add('torso_' + key[:-4], 'warn' if p in (80, 125) else 'tip',
+                'To reach the character\'s shoulders and hips the torso is made %(pct)s%% as %(dim)s as the model\'s.',
+                {'pct': p, 'dim': 'wide' if ax == 0 else 'tall'},
+                [{'label': 'torso_own', 'set': {'torso': keep}}], 'adjust')
+    st = strain(work)
+    for part, prefixes in LIMIT_PARTS.items():
+        lim = float(lim_now.get(part, 1.25))
+        hit = {n: k for n, k in st.items() if n.startswith(prefixes) and (k >= lim - 0.005 or k <= 1 / lim + 0.005)}
+        if hit:
+            worst = max(hit.values(), key=lambda k: abs(np.log(k)))
+            add('limit_' + part, 'warn', 'The %(part)s reach the stretch limit (x%(k)s): they may not reach the '
+                'game\'s joints. Raise the limit, or check their joints.', {'part': part, 'k': worst},
+                [{'label': 'raise_limit', 'set': {'stretch_limit': {part: round(min(2.5, lim + 0.25), 2)}}}], 'joints')
+    check = [m for m, why in tables.get('_tex_notes', {}).items() if why == 'check']
+    if check:
+        add('materials', 'warn', 'No image matched these materials (a guess is used): %(list)s.',
+            {'list': ', '.join(check)}, (), 'materials')
+    sk, body = info['skeleton'], info['body']
+    if body.get('handLeft') in sk.pos and sk.pos[body['handLeft']][0] < 0:
+        add('backwards', 'warn', 'The model seems to face backwards (its left hand is on the right): export it '
+            'facing forward.', {}, (), None)
+    if info.get('eyes') and not adj.get('eyes_open'):
+        add('eyes', 'tip', 'The model has eye and lid bones (%(list)s): if its eyes look shut, they can be opened.',
+            {'list': ', '.join(e for e, _, _ in info['eyes'].values())},
+            [{'label': 'open_eyes', 'set': {'eyes_open': {'top': 15, 'bottom': 5}}}], 'adjust')
+    if len(info.get('face') or {}) >= 2 and not adj.get('face'):
+        add('face', 'tip', 'The model has face bones (%(n)d: jaw, lips, brows): its face can move with the game\'s.',
+            {'n': len(info['face'])}, [{'label': 'animate_face', 'set': {'face': True}}], 'adjust')
+    for b in info.get('extras', []):
+        now = tables['WEIGHTS'].get(b)
+        if set(AM.words(b)) & AM.PROP_WORDS and b not in adj.get('props', {}) and \
+                not (isinstance(now, str) and now.startswith('Hand')):
+            add('prop_' + b, 'tip', '%(bone)s looks like a held object but moves with %(now)s.', {'bone': b, 'now': now},
+                [{'label': 'prop_right', 'set': {'props': {b: 'hand_right'}}},
+                 {'label': 'prop_left', 'set': {'props': {b: 'hand_left'}}}], 'accessories')
+    return out
+
+
+def diagnose_cmd(a):
+    work = os.path.abspath(a.project)
+    proj = load_project(work)
+    if not proj:
+        raise KitError('no project at %s (make it first)' % work)
+    found = diagnose(work, proj)
+    applied = None
+    if a.fix:
+        item = next((d for d in found if d['id'] == a.fix), None)
+        if item is None or not item['fixes']:
+            raise KitError('no fix for %r (ids with fixes: %s)' % (a.fix, ', '.join(d['id'] for d in found if d['fixes'])
+                                                                   or 'none'))
+        if not 0 <= a.option < len(item['fixes']):
+            raise KitError('%s has %d fixes (--option 0..%d)' % (a.fix, len(item['fixes']), len(item['fixes']) - 1))
+        applied = item['fixes'][a.option]
+        proj['adjust'] = merge_adjust(proj.get('adjust', {}), applied['set'])
+        check_adjust(proj['adjust'])
+        save_project(work, proj)
+    if a.json:
+        print(json.dumps(dict(project=work, found=found, applied=applied,
+                              next='make --remap converts with it' if applied else None), ensure_ascii=False))
+        return
+    for d in found:
+        print('[%s] %s: %s' % (d['level'], d['id'], d['message']))
+        for k, f in enumerate(d['fixes']):
+            print('    fix --fix %s --option %d (%s): adjust %s' % (d['id'], k, f['label'], json.dumps(f['set'])))
+    if not found:
+        print('nothing to point out')
+    if applied:
+        print('applied: %s. Convert with it: kit.py make "%s" --remap' % (json.dumps(applied['set']), a.project))
 
 
 def adjust_info(work, proj):
@@ -703,6 +834,11 @@ def main(argv=None):
     s.add_argument('--delete-version', metavar='NAME')
     s.add_argument('--info', action='store_true', help='also what was measured and what can be chosen')
     s.add_argument('--json', action='store_true'); s.set_defaults(fn=adjust)
+    s = sub.add_parser('diagnose', help='what looks wrong or could be better, with fixes (then make --remap)')
+    s.add_argument('project')
+    s.add_argument('--fix', metavar='ID', help='apply that finding\'s fix to the adjustments')
+    s.add_argument('--option', type=int, default=0, help='which of its fixes (default 0)')
+    s.add_argument('--json', action='store_true'); s.set_defaults(fn=diagnose_cmd)
     for name, fn in (('install', install), ('restore', restore)):
         s = sub.add_parser(name); s.add_argument('project'); s.set_defaults(fn=fn)
     s = sub.add_parser('export')

@@ -29,7 +29,8 @@ sus argumentos habituales; **`--json` se aplica únicamente a los subcomandos `m
 Lo que se elige en la ventana (huesos, materiales, ajustes, articulaciones) se guarda en
 `kit_project.json` del proyecto. Los ajustes y articulaciones se cambian con `kit.py adjust
 PROYECTO` (`--info --json` dice qué se midió y qué se puede elegir; claves en `docs/AGENTS.md`),
-y luego `kit.py make PROYECTO --remap` convierte. La vista 3D no tiene equivalente: `make` deja
+y luego `kit.py make PROYECTO --remap` convierte. `kit.py diagnose PROYECTO --json` dice qué se ve mal y
+con qué cambio se arregla (`--fix ID` lo aplica), como la pestaña Diagnóstico. La vista 3D no tiene equivalente: `make` deja
 imágenes en `previews/` (y `compare.png`, la conversión anterior al lado), y `adjust --info`
 da en números cuánto se estiró cada parte.
 

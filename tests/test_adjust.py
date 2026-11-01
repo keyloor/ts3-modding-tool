@@ -70,6 +70,45 @@ class Adjust(unittest.TestCase):
         self.run_kit('--delete-version', 'wide')
         self.assertNotIn('adjust_versions', self.project())
 
+    def test_body_keys(self):
+        self.run_kit('--set', 'scale_pct=105', '--set', 'shoulders_cm=2', '--put', 'stretch_limit', 'neck=1.6')
+        self.assertEqual(self.project()['adjust'], {'scale_pct': 105, 'shoulders_cm': 2,
+                                                    'stretch_limit': {'neck': 1.6}})
+        with self.assertRaises(SystemExit):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                K.main(['adjust', str(self.work), '--put', 'stretch_limit', 'tail=2'])
+
+    def test_merge_and_limit_steps(self):
+        self.assertEqual(K.merge_adjust({'stretch_limit': {'neck': 1.5}, 'face': True},
+                                        {'stretch_limit': {'hands': 1.5}, 'head_cm': 2}),
+                         {'stretch_limit': {'neck': 1.5, 'hands': 1.5}, 'face': True, 'head_cm': 2})
+        self.assertEqual(K.limit_step(1.5625), 1.65)
+        self.assertEqual(K.limit_step(9), 2.5)
+
+    def test_diagnose_findings_and_fix(self):
+        """diagnose() on measurements given by hand (no model): what it says and the fixes it offers"""
+        class Sk:
+            pos = {'hand_l': [0.6, 1.4, 0]}
+        (self.work / 'report.txt').write_text(
+            '  bip_hand_L   -> HandLeft       turn   3.3 deg  stretch 1.25  move 0.087\n', encoding='utf-8')
+        tables = {'WEIGHTS': {'Staff': 'Hips'}, '_tex_notes': {'Coat': 'check', 'Skin': ''}}
+        info = {'neck': {'model_cm': 6.9, 'game_cm': 10.6, 'stretch': 1.52, 'natural_cm': -3.6},
+                'torso': {'width_pct': 125, 'height_pct': 100}, 'skeleton': Sk(), 'body': {'handLeft': 'hand_l'},
+                'eyes': {'Left': ('EyeL', ['LidTopL'], [])}, 'face': {'jaw': 'Jaw', 'upperlip': 'Lip'},
+                'extras': ['Staff']}
+        found = {d['id']: d for d in K.diagnose(str(self.work), self.project(), tables, info)}
+        self.assertEqual(set(found), {'neck', 'torso_width', 'limit_hands', 'materials', 'eyes', 'face', 'prop_Staff'})
+        self.assertEqual(found['neck']['fixes'][0]['set'], {'head_cm': -3.6})
+        self.assertEqual(found['neck']['fixes'][1]['set'], {'stretch_limit': {'neck': 1.6}})
+        self.assertEqual(found['torso_width']['fixes'][0]['set'], {'torso': [80, 100, 100]})
+        self.assertEqual(found['limit_hands']['fixes'][0]['set'], {'stretch_limit': {'hands': 1.5}})
+        self.assertEqual(found['materials']['args']['list'], 'Coat')
+        # with those fixed in the project, they are no longer pointed out
+        proj = dict(self.project(), adjust={'eyes_open': {'top': 15, 'bottom': 5}, 'face': True,
+                                            'stretch_limit': {'neck': 1.6, 'hands': 1.5}, 'props': {'Staff': 'out'}})
+        again = {d['id'] for d in K.diagnose(str(self.work), proj, tables, info)}
+        self.assertEqual(again, {'torso_width', 'materials'})
+
     def test_strain_from_report(self):
         (self.work / 'report.txt').write_text(
             '  torso block: scale [0.969 0.982 1.   ], offset [0 0 0], landmark error 0.041\n'

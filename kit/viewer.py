@@ -305,6 +305,14 @@ def live_adjust(ch, applied, now):
                 D = across(b, g, along)
                 if D is not None:
                     shapes[b] = D
+    for key, bones in (('shoulders_cm', ('BicepLeft', 'BicepRight')), ('hips_cm', ('ThighLeft', 'ThighRight'))):
+        d = (val(now, key, 0) - val(applied, key, 0)) / 100
+        for b in bones:
+            if abs(d) > 1e-6 and b in k:
+                if b.startswith('Bicep') and ch.parent[k[b]] >= 0:    # the arms down pose turns the biceps: move
+                    b = ch.names[ch.parent[k[b]]]                    # the clavicle under it instead
+                m = np.eye(4); m[0, 3] = d if b.endswith('Left') else -d     # the left side is at +x
+                turns[b] = m
     t_now, t_app = now.get('torso', [100] * 3), applied.get('torso', [100] * 3)
     r = np.array([float(a) / float(b) for a, b in zip(t_now, t_app)])
     if np.abs(r - 1).max() > 1e-6:

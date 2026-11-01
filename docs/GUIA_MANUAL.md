@@ -188,7 +188,8 @@ SKIP_MATERIALS = []
   personaje del juego.
 - **`DRIVE`**: los huesos que se giran y estiran hasta su sitio en el juego. `('Brazo', 'Codo', 'BicepLeft',
   'ForearmLeft')` quiere decir: el segmento del brazo al codo se gira para apuntar como el del juego, se estira a su
-  largo (entre 0,8 y 1,25; `max_stretch` sube el límite) y se pone en su pivote. Opciones:
+  largo (entre 0,8 y 1,25; `max_stretch` sube el límite y `min_stretch` baja el otro) y se pone en su pivote.
+  Opciones:
   - `floor`: el pie conserva su altura (no se hunde ni flota);
   - `aim_floor`: la rodilla apunta a un pie que se queda en el suelo;
   - `offset` / `tip_offset`: mueve el pivote o la punta (en metros), por ejemplo la cabeza un poco más abajo;
@@ -213,6 +214,8 @@ SKIP_MATERIALS = []
 - **`GIRTH`** `{hueso del modelo: factor}` (opcional): engorda o adelgaza esa parte a lo ancho, sin cambiar su
   largo (que es el del juego). En un hueso sin dirección, como la cabeza, cambia su tamaño entero:
   `{'Head': 1.15, 'BicepLeft': 0.8}`.
+- **`SCALE`** número (opcional): todo el modelo más grande o más pequeño que lo que ajustó la herramienta; las
+  articulaciones siguen cayendo en las del juego, así que cambia sobre todo el grosor (`1.05` = 5 % más).
 - **`JOINT_POS`** `{hueso del modelo: (x, y, z)}` (opcional): mueve la articulación de ese hueso para el ajuste
   (en las unidades del archivo, Y arriba, mirando a +Z); la malla y sus pesos no cambian. Es lo que escribe la
   ventana al arrastrar una articulación de un FBX.

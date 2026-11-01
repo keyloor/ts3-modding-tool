@@ -25,7 +25,9 @@ textures are next.
 - **Adjustments**: head height and proportions; loose objects (hat, bag, weapon) with the hand, head, chest or hips,
   or left out; narrower / wider clothes; open shut eyelids, animated face, head placed by the face; weights by
   hand and smoothing; undo / redo, named versions, and the conversion before shown beside the new one.
-- **See problems**: the weights of any game bone in colour, and the parts the conversion stretched in red.
+- **See problems**: a Diagnosis tab that says in plain words what looks wrong (a stretched neck, a torso made much
+  wider, parts at the stretch limit...) with a button that fixes it; the weights of any game bone in colour; the
+  parts the conversion stretched in red. Overall size, shoulder / hip spacing and stretch limits per part.
 - **Everything from the command line too** (`kit.py adjust`, `kit.py mods`), for scripts and AI agents.
 - **Install / restore** with a backup of the game's archive; refuses to build on an archive another mod changed, and
   finds the original in other installers' backups.

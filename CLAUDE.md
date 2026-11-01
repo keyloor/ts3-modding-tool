@@ -56,7 +56,7 @@ Run with Python 3.12 + numpy + Pillow, always `python -I` (each script puts its 
 ## The converter (`tools/convert.py`)
 
 Driven by a map (tables: `TORSO`, `LANDMARKS`, `SCALE_JOINTS`, `FACE_ALIGN`, `DRIVE`, `WEIGHTS`, `TORSO_SCALE`, `GIRTH`,
-`JOINT_POS`, `WEIGHT_SMOOTH`, `EYES`/`EYE_MODE`,
+`JOINT_POS`, `WEIGHT_SMOOTH`, `SCALE`, `EYES`/`EYE_MODE`,
 `KEEP_PIECES`, `MATERIAL_EFFECT`, `TEXTURES`/`MATERIALS`, ...; `docs/GUIA_MANUAL.md` §4 explains each). It fits the
 model onto the game's bind pose (overall scale, torso block, each `DRIVE` limb turned and stretched onto its game
 pivot, other bones follow their driver), maps weights to game bones, splits pieces of ≤40 bones, and rewrites the
@@ -88,7 +88,9 @@ Finds the body by shape, in the game frame, from skinned bind positions:
   lists the candidates: skinned bones that are no body joint, face or helper; `PROP_PLACES`), `garments` {material:
   percent} (→ `MATERIAL_SCALE` (k, 1, k)), `weights` {model bone: game bone | {game bone: share}}, `smooth` (→
   `WEIGHT_SMOOTH`), `eyes_open` {top, bottom} (→ `EYES` from `eye_bones()`, by name, `EYE_MODE` 'rotate'), `face`
-  (→ `FACE`), `head_by_face` (→ `FACE_ALIGN` from the face bones + `face` / `aim_face`); an FBX's moved joints
+  (→ `FACE`), `head_by_face` (→ `FACE_ALIGN` from the face bones + `face` / `aim_face`), `scale_pct` (→ `SCALE`),
+  `stretch_limit` {neck | arms | legs | hands: L} (→ `max_stretch` / `min_stretch` on those `DRIVE` bones),
+  `shoulders_cm` / `hips_cm` (→ `offset` + `tip_offset` in x on the arm / leg `DRIVE` bones); an FBX's moved joints
   (`objlib.JOINTS`, model bone names) replace `sk.pos` and are written as `JOINT_POS`. Absent keys write nothing
   new: the map stays byte-identical (checked on 7 rigs). `kit.ADJUST_KEYS` documents them; `kit.py adjust`
   edits them and `--info` reports the choices.
@@ -125,6 +127,10 @@ character extracted from the game's original archive), `map.py`, `out/<c>/`, `pr
   (`game/<c>/.ts3tool_source`) and redone when built on a modded archive and an original turns up.
 - `build()`: map (kept as is unless remapping), convert (the previous `out/` moves to `out_prev/`), check the
   `.oct` reads back byte for byte, previews (+ `compare.png` when there is a previous conversion).
+- `diagnose()` (command `diagnose`, the window's Diagnosis tab): findings {id, level, message, args, fixes: [{label,
+  set}], see} from the measurements (neck, torso), `strain()` (parts at their stretch limit), the materials marked
+  CHECK, the skeleton (backwards, eyes, face, held props); `merge_adjust()` applies a fix; `limit_step()` keeps
+  suggested limits on the window's 0.05 steps. The window has its texts per id (`diag`, `diag_fix`).
 - `adjust` (command): the Adjustments from the CLI (`ADJUST_KEYS`, `check_adjust`, versions in
   `adjust_versions`, `adjust_info` = what the window's tab shows, `strain()` = stretch per game bone).
 - `export_pack()` builds the pack with `tools/build_release.py`: `patches/`, `mod.json`, `README_tool.txt` (no

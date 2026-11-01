@@ -89,7 +89,15 @@ NAME. Unknown keys and places are refused. The `adjust` keys (also in `kit.ADJUS
 moves with that part, or is left out), `garments` {material: percent} (narrower / wider across, about the hips),
 `weights` {model bone: game bone | {game bone: share}}, `smooth` (passes), `eyes_open` {top, bottom} degrees
 (opens shut lids; needs eye and lid bones found by name), `face` true (jaw, lips and brows move with the game's),
-`head_by_face` true (the head placed by the face bones). Each conversion keeps the one before in `out_prev/` and
+`head_by_face` true (the head placed by the face bones), `scale_pct` (the whole model bigger / smaller; the joints
+stay on the game's, so mostly the thickness changes), `shoulders_cm` / `hips_cm` (each arm / leg further out, cm),
+`stretch_limit` {neck | arms | legs | hands: L} (that part may stretch to L and squeeze to 1/L; 1.25 is the default).
+
+**`kit.py diagnose work/<name> [--json]`** says in plain words what looks wrong or could be better (a neck stretched
+past the limit, a torso made much wider, parts at the stretch limit in the last report, materials with no image,
+a model facing backwards, lid or face bones that could be used, a held object that doesn't follow the hand), each
+with its fixes as `adjust` changes; `--fix ID [--option N]` applies one, then `make --remap`. Run it after every
+conversion and tell the user what it found before changing anything they didn't ask for. Each conversion keeps the one before in `out_prev/` and
 draws `previews/compare.png` (before, after).
 `adjust` also takes proportions, in percent: `torso` [x, y, z] (written as `TORSO_SCALE`), `head_pct` (head size),
 `neck_pct`, `arms_pct`, `legs_pct` (thickness; written as `GIRTH`). Lengths can't change: joints stay on the game's.

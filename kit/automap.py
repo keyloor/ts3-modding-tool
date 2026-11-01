@@ -521,6 +521,33 @@ def automap(fbx, ts3dir, base, log=print, overrides=None, adjust=None):
             girth.update({b: round(pct / 100, 3) for b in bones})
     if girth:
         tables['GIRTH'] = girth
+    # the whole model bigger / smaller (percent): its joints still land on the game's
+    if abs(float(adjust.get('scale_pct') or 100) - 100) > 1e-6:
+        tables['SCALE'] = round(float(adjust['scale_pct']) / 100, 3)
+    # how far each part may be stretched or squeezed to reach the game's joints: {part: L} allows 1/L .. L (the
+    # converter's own is 1.25: 0.8 .. 1.25)
+    parts = {'neck': [neck] if neck else [], 'hands': [body['hand' + s] for _, s in SIDES],
+             'arms': [body[k + s] for k in ('shoulder', 'elbow') for _, s in SIDES],
+             'legs': [body[k + s] for k in ('hip', 'knee') for _, s in SIDES]}
+    for part, lim in (adjust.get('stretch_limit') or {}).items():
+        lim = max(1.0, float(lim))
+        for b in parts.get(part, []):
+            if b in drive:
+                drive[b][3].update(max_stretch=round(lim, 3), min_stretch=round(1 / lim, 3))
+    # shoulders / hips further apart (cm, each side; negative = closer): the whole arm or leg moves sideways
+    for key, bones in (('shoulders_cm', ('shoulder', 'elbow', 'hand')), ('hips_cm', ('hip', 'knee', 'foot'))):
+        cm = float(adjust.get(key) or 0)
+        if not cm:
+            continue
+        for sd, s in SIDES:
+            dx = (round(sd * cm / 100, 4), 0.0, 0.0)
+            for k in bones:
+                b = body[k + s]
+                if b in drive:
+                    o = drive[b][3]
+                    o['offset'] = tuple(x + y for x, y in zip(o.get('offset', (0, 0, 0)), dx))
+                    if drive[b][0]:
+                        o['tip_offset'] = tuple(x + y for x, y in zip(o.get('tip_offset', (0, 0, 0)), dx))
     if moved:
         tables['JOINT_POS'] = {n: tuple(round(float(x), 5) for x in v) for n, v in moved.items()}
 
@@ -668,6 +695,8 @@ def write_map(tables, info, path, fbx, base):
     if 'GIRTH' in tables:
         L += ['# thicker / thinner parts across their length (model bone: factor; the head\'s is its size)',
               'GIRTH = %r' % tables['GIRTH'], '']
+    if 'SCALE' in tables:
+        L += ['# the whole model bigger / smaller than fitted', 'SCALE = %r' % tables['SCALE'], '']
     if 'JOINT_POS' in tables:
         L += ["# joints moved by hand (the file's units, Y up, facing +Z)", 'JOINT_POS = {']
         L += ['    %r: %r,' % kv for kv in tables['JOINT_POS'].items()] + ['}', '']

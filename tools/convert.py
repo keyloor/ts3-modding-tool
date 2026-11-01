@@ -253,6 +253,9 @@ def fit(scene, mesh, bones3, mp, log):
     # overall size: least squares over the main joints (both skeletons stand on the floor at the origin)
     pairs = [(j5[a], piv3[b]) for a, b in mp.SCALE_JOINTS if a in j5]
     s = sum(float(np.dot(a, b)) for a, b in pairs) / sum(float(np.dot(a, a)) for a, _ in pairs)
+    if hasattr(mp, 'SCALE'):                            # SCALE: bigger / smaller than fitted; the joints still
+        s *= float(mp.SCALE)                            # land on the game's, so parts get thicker / thinner
+        log('  overall size x%.3f' % float(mp.SCALE))
     log('scale %.5f (model height %.2f -> %.3f)' % (s, P[:, 1].max(), P[:, 1].max() * s))
 
     xf = {}   # bone -> (M, p5, p3, R): v' = p3 + M (v - p5); R turns normals
@@ -310,7 +313,7 @@ def fit(scene, mesh, bones3, mp, log):
             # cap for an unusually short source neck or a deliberately stylised
             # rig, without changing the established conversions.
             kk = float(np.clip(np.linalg.norm(d3) / max(np.linalg.norm(d5), 1e-9),
-                               0.8, opt.get('max_stretch', 1.25)))
+                               opt.get('min_stretch', 0.8), opt.get('max_stretch', 1.25)))
             u = unit(d5)
             S = np.eye(3) + (kk - 1) * np.outer(u, u)
             ang = np.degrees(np.arccos(np.clip(np.dot(unit(d5), unit(d3)), -1, 1)))

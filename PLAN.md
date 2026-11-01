@@ -214,6 +214,12 @@ estimado del OBJ pone el cuello corto respecto al del juego, y el convertidor lo
 - **Pesos**: ver los pesos en color sobre el modelo, repartir un hueso de ayuda entre dos (`{hueso: parte}`), suavizar.
 - **Deshacer / rehacer** y **comparar** dos versiones del ajuste.
 
+**Hecho (31/10/2026): tamaño y límites.** Página «Tamaño y límites»: tamaño general (`scale_pct` → `SCALE`, opción
+nueva del convertidor), hombros y caderas más o menos separados (`shoulders_cm`, `hips_cm` → `offset` /
+`tip_offset` de cada `DRIVE` del brazo o la pierna) y cuánto se puede estirar cada parte (`stretch_limit` {neck,
+arms, legs, hands: L} → `max_stretch` L y `min_stretch` 1/L, opción nueva). Queda de esta sección: alinear boca y
+cejas una por una (hoy, «colocar la cabeza por la cara» usa todas juntas).
+
 **Hecho (31/10/2026): el resto de esta sección.** La pestaña Ajustes tiene cuatro páginas y todo se guarda en
 `adjust` (y se cambia también con `kit.py adjust`):
 - *Accesorios y ropa*: cada hueso suelto (pelo, bolsa, arma…) va con la mano izquierda/derecha, la cabeza, el
@@ -263,6 +269,15 @@ hueso del juego (azul oscuro nada, verde un poco, rojo todo). Pendiente: animaci
 Convertir los números del registro en avisos con su arreglo propuesto, con un botón para aplicarlo: «El cuello se
 estira al máximo: ¿bajar la cabeza 4 cm?», «El torso sale un 24 % más ancho: ¿limitar a 10 %?», «Este material no
 encontró imagen», «Los ojos parecen cerrados: ¿abrirlos?».
+
+**Hecho (31/10/2026).** Pestaña **Diagnóstico** (con el número de avisos) y `kit.py diagnose` (`--fix ID
+[--option N]`, `--json`): cuello estirado o encogido más allá del límite (arreglos: cuello a su largo natural, o
+dejar que se estire más), torso ensanchado o alargado mucho para llegar a hombros y caderas (dejarlo a su tamaño),
+brazos, piernas o manos en el límite de estiramiento según el último informe (subir el límite; ver sus
+articulaciones), materiales sin imagen, modelo mirando hacia atrás, huesos de párpados (abrir los ojos), huesos de
+la cara (animarla), objetos en la mano que no se mueven con ella (con la mano derecha / izquierda). Cada botón cambia
+los Ajustes y vuelve a convertir; Deshacer lo quita. No se intenta adivinar si los ojos están cerrados: se ofrece
+cuando hay huesos de párpado.
 
 ### 4. Sección Texturas
 - **Explorador de todas las texturas del juego**: personajes, escenarios, objetos, menús (las de los `.oct` de cada

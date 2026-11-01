@@ -34,6 +34,7 @@ python -I <KIT>/kit/kit.py make work/<name> --character woody --fbx <fbx> --text
 #   read work/<name>/report.txt, open previews/body.png and previews/face.png, edit work/<name>/map.py if needed:
 python -I <KIT>/kit/kit.py make work/<name>
 #   or change the window's Adjustments without editing map.py, then convert with them:
+python -I <KIT>/kit/kit.py diagnose work/<name> --json          # what looks wrong, with fixes (--fix ID)
 python -I <KIT>/kit/kit.py adjust work/<name> --info --json
 python -I <KIT>/kit/kit.py adjust work/<name> --set head_cm=-3 --put props "<bone>=hand_right" --set smooth=2
 python -I <KIT>/kit/kit.py make work/<name> --remap
