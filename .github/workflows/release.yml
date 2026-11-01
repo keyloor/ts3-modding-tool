@@ -1,0 +1,52 @@
+name: Release (Windows .exe)
+
+# A tag v<version> (the same as kit/about.py's VERSION) builds the release zip, checks its console .exe with the
+# CLI tests, and attaches the zip to the GitHub release of that tag.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: The tag matches the tool's version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $v = python -I -c "import sys; sys.path.insert(0, 'kit'); import about; print(about.VERSION)"
+          if ("v$v" -ne "${{ github.ref_name }}") { throw "tag ${{ github.ref_name }} but kit/about.py says $v" }
+      - run: python -I tests/test_mods.py
+      - run: python -I tests/test_adjust.py
+      - run: python -I kit/build_kit.py
+      - name: The console .exe answers like the source
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem release -Recurse -Filter 'TS3 Modding CLI.exe' | Select-Object -First 1
+          python -I tests/test_cli.py --exe $exe.FullName
+      - name: Notes for this version (its section of CHANGELOG.md)
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart('v')
+          $out = @(); $on = $false
+          foreach ($line in Get-Content CHANGELOG.md -Encoding utf8) {
+            if ($line -match '^## ') { $on = $line -match ("^## " + [regex]::Escape($v) + "(\s|$)"); continue }
+            if ($on) { $out += $line }
+          }
+          if (-not $out) { throw "CHANGELOG.md has no section '## $v'" }
+          Set-Content release_notes.md ($out -join "`n") -Encoding utf8
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: release/*.zip
+          body_path: release_notes.md

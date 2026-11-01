@@ -1,0 +1,7 @@
+# What the tool and its .exe are built with (the GitHub workflows install exactly these).
+# Running from source needs only numpy and pillow; moderngl (and glcontext) give the live 3D preview.
+numpy==2.5.1
+pillow==12.3.0
+moderngl==5.13.0
+glcontext==3.1.0
+pyinstaller==6.22.3
