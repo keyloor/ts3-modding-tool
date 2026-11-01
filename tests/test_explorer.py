@@ -334,6 +334,17 @@ class Explorer(unittest.TestCase):
         self.assertEqual(result['ok'], code == 0)
         return result
 
+    def test_cli_model_inspect_and_preview(self):
+        """also through the console .exe (--exe): it has no tkinter, so the model code must not need it"""
+        files, _ = scene([rigid_piece()])
+        self.write_zip({'test.oct': files['scene.oct'], 'scene_0.vbuf': files['scene_0.vbuf'], 'scene_0.ibuf': files['scene_0.ibuf']})
+        model = self.call('inspect', self.path, '--member', 'test.oct')['data']['model']
+        self.assertEqual((model['vertices'], model['triangles'], model['pieces']), (3, 1, 1))
+        out = self.call('preview', self.path, '--out', self.root / 'cli-model')['data']       # a ZIP: its main model
+        self.assertIn('model.png', out['files'])
+        with Image.open(self.root / 'cli-model' / 'model.png') as image:
+            self.assertEqual(image.size, (720, 720))
+
     def test_cli_search_inspect_extract_preview_and_errors(self):
         result = self.call('list', '--query', 'texture', '--limit', 1)['data']
         self.assertEqual(result['total'], 1)

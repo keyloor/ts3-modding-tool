@@ -17,7 +17,7 @@ graphics cards) available() is False and the window keeps the still images.
 """
 import io, math, os, struct, sys
 import numpy as np
-from PIL import Image, ImageTk
+from PIL import Image                                  # ImageTk only when drawing: the console .exe has no tkinter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paths  # noqa: F401  (puts the shared tools on sys.path)
@@ -891,6 +891,7 @@ class View:
             if self.show_bones:
                 self._bones(mvp)
         img = Image.frombytes('RGB', (w, h), self.fbo.read(components=3, alignment=1)).transpose(Image.FLIP_TOP_BOTTOM)
+        from PIL import ImageTk
         self.photo = ImageTk.PhotoImage(img)
         self.label.config(image=self.photo, text='')
 
