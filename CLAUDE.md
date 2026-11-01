@@ -137,6 +137,10 @@ character extracted from the game's original archive), `map.py`, `out/<c>/`, `pr
   scripts: players install it with the manager, and Nexus doesn't quarantine it). `installer=True` (`--installer`)
   adds `kit/pack/`'s installer instead (UTF-8 BOM + CRLF for PowerShell 5.1; `@@WHAT@@` escaped for single quotes).
 - The `.exe` takes the same commands (`app.main` forwards them; output in `report.txt` and `%TEMP%`).
+- `main()`: every command returns its data; `--json` (stripped from argv wherever it is) prints one envelope
+  like `modcli`'s (`command` = `kit.<cmd>`) with the command's stdout sent to stderr. `KitError.code` names the
+  refusal (from `KitError.CODES` by message when not given); exit 0 / 2 / 3 / 5 / 130. A new command returns a
+  dict and prints its text only when `not a.json`.
 
 ## 3D preview (`kit/viewer.py`)
 

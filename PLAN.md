@@ -346,7 +346,8 @@ En esta primera versión se rechazan destinos compartidos entre mods y cambios e
 no hay combinación por prioridades. Después: CLI con salida JSON (`TS3 Modding CLI.exe`, `docs/CLI.md`),
 pantalla «Mods instalados» con revisión antes de instalar y arrastrar/soltar (`kit/dropfiles.py`), y
 **consulta de actualizaciones** (`kit/modupdate.py`: botón en la pantalla, columna, `mods updates`).
-A y B hechos. C–E no empezados. La verificación en el juego sigue pendiente.
+A y B hechos. Desde el 31/10/2026 también los comandos de personajes (`make`, `adjust`, `diagnose`, `install`...)
+tienen `--json` con la misma forma. C–E no empezados. La verificación en el juego sigue pendiente.
 
 Orden recomendado, porque cada paso usa el anterior: **A** formato común → **B** arrastrar y soltar → **C** explorador
 → **D** volcado de texturas → **E** exportar / reimportar glTF. Reglas de siempre (ver `CLAUDE.md`): código propio,

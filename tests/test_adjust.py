@@ -19,16 +19,30 @@ class Adjust(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='ts3-adjust-test-')
         self.work = Path(self.temp.name)
-        (self.work / 'kit_project.json').write_text(json.dumps({'character': 'woody', 'fbx': 'model.fbx'}))
+        (self.work / 'kit_project.json').write_text(json.dumps({'character': 'woody', 'fbx': 'model.fbx',
+                                                               'game': str(self.work / 'no game')}))
 
     def tearDown(self):
         self.temp.cleanup()
 
-    def run_kit(self, *args):
+    def kit_json(self, *args):
+        """kit.main with --json: (exit status, the one JSON object it printed)"""
         out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            K.main(['adjust', str(self.work), '--json'] + list(args))
-        return json.loads(out.getvalue())
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            status = K.main(list(args) + ['--json'])
+        lines = out.getvalue().splitlines()
+        self.assertEqual(len(lines), 1)
+        return status, json.loads(lines[0])
+
+    def run_kit(self, *args):
+        status, d = self.kit_json('adjust', str(self.work), *args)
+        self.assertEqual((status, d['ok'], d['command'], d['error']), (0, True, 'kit.adjust', None))
+        return d['data']
+
+    def refused(self, *args):
+        status, d = self.kit_json(*args)
+        self.assertFalse(d['ok'])
+        return status, d['error']['code']
 
     def project(self):
         return json.loads((self.work / 'kit_project.json').read_text())
@@ -53,9 +67,7 @@ class Adjust(unittest.TestCase):
 
     def test_rejects_unknown(self):
         for args in (['--set', 'bogus=1'], ['--put', 'props', 'Hat=pocket'], ['--set', 'torso=[1,2]']):
-            with self.assertRaises(SystemExit):
-                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-                    K.main(['adjust', str(self.work)] + args)
+            self.assertEqual(self.refused('adjust', str(self.work), *args), (3, 'invalid_value'))
         self.assertNotIn('adjust', self.project())
 
     def test_versions_and_joints(self):
@@ -74,9 +86,20 @@ class Adjust(unittest.TestCase):
         self.run_kit('--set', 'scale_pct=105', '--set', 'shoulders_cm=2', '--put', 'stretch_limit', 'neck=1.6')
         self.assertEqual(self.project()['adjust'], {'scale_pct': 105, 'shoulders_cm': 2,
                                                     'stretch_limit': {'neck': 1.6}})
-        with self.assertRaises(SystemExit):
-            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-                K.main(['adjust', str(self.work), '--put', 'stretch_limit', 'tail=2'])
+        self.assertEqual(self.refused('adjust', str(self.work), '--put', 'stretch_limit', 'tail=2'), (3, 'invalid_value'))
+
+    def test_json_envelope_and_errors(self):
+        self.assertEqual(self.refused('characters', '--bogus'), (2, 'invalid_arguments'))
+        self.assertEqual(self.refused('install', str(self.work / 'nothing here')), (3, 'no_project'))
+        self.assertEqual(self.refused('install', str(self.work)), (3, 'game_not_found'))
+        self.assertEqual(self.refused('characters', '--game', str(self.work)), (3, 'game_not_found'))
+        status, d = self.kit_json('diagnose', str(self.work), '--fix', 'nothing')
+        self.assertEqual((status, d['command']), (3, 'kit.diagnose'))
+        # without --json the answer is text, the error on stderr, and the same exit status
+        err = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            self.assertEqual(K.main(['install', str(self.work / 'nothing here')]), 3)
+        self.assertIn('error:', err.getvalue())
 
     def test_merge_and_limit_steps(self):
         self.assertEqual(K.merge_adjust({'stretch_limit': {'neck': 1.5}, 'face': True},

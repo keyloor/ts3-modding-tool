@@ -23,9 +23,11 @@ Sin Python, en PowerShell, desde la copia del escritorio o el paquete distribuid
 de salida al proceso que lo llama. El `.exe` de la ventana sigue aceptando comandos por
 compatibilidad, pero guarda sus mensajes en un archivo temporal; para automatizar usa la CLI.
 
-`kit/kit.py mods ...` también admite este protocolo. Los comandos anteriores de personajes
-(`doctor`, `characters`, `make`, `install`, `restore`, `export`) funcionan desde la CLI con
-sus argumentos habituales; **`--json` se aplica únicamente a los subcomandos `mods`**.
+`kit/kit.py mods ...` también admite este protocolo, y **los comandos de personajes también**
+(`characters`, `doctor`, `make`, `adjust`, `diagnose`, `install`, `restore`, `export`): con
+`--json` (en cualquier sitio de la línea) escriben un solo objeto JSON en stdout, con la misma
+forma que los de `mods` y `command` = `kit.<comando>`; el progreso (la conversión de `make`) va
+a stderr. Sin `--json` escriben texto, como siempre. Ver «Comandos de personajes» abajo.
 Lo que se elige en la ventana (huesos, materiales, ajustes, articulaciones) se guarda en
 `kit_project.json` del proyecto. Los ajustes y articulaciones se cambian con `kit.py adjust
 PROYECTO` (`--info --json` dice qué se midió y qué se puede elegir; claves en `docs/AGENTS.md`),
@@ -33,6 +35,23 @@ y luego `kit.py make PROYECTO --remap` convierte. `kit.py diagnose PROYECTO --js
 con qué cambio se arregla (`--fix ID` lo aplica), como la pestaña Diagnóstico. La vista 3D no tiene equivalente: `make` deja
 imágenes en `previews/` (y `compare.png`, la conversión anterior al lado), y `adjust --info`
 da en números cuánto se estiró cada parte.
+
+## Comandos de personajes (`--json`)
+
+| Comando | `data` |
+|---|---|
+| `characters [--game J]` | `game`, `characters`: [{`name`, `state` (`original`, `changed_by_tool`, `changed_by_another_mod`, `unknown`), `archive`}] |
+| `doctor [--game J]` | versiones, `preview_3d` {`ok`, ...}, `game`, `originals` {personaje: copia original o null} |
+| `make PROYECTO [...]` | `character`, `map`, `out`, `report`, `previews` [rutas], `check_materials`, `diagnosis` (como `diagnose`), `installed` (con `--install`) |
+| `adjust PROYECTO [...]` | `adjust`, `joints`, `versions`, `keys`; con `--info`, `info` (medidas y opciones) |
+| `diagnose PROYECTO [--fix ID]` | `found` [{`id`, `level`, `message`, `args`, `fixes`, `see`}], `applied` |
+| `install` / `restore PROYECTO` | `character`, `game`, `archive`, `backup` |
+| `export PROYECTO --name N [...]` | `pack`, `zip`, `installer`, `mod_id` |
+
+Códigos de error: `invalid_arguments` (salida 2), y con salida 3 `no_project`, `game_not_found`,
+`game_running`, `no_character`, `not_converted`, `original_missing`, `not_installed`,
+`check_failed` (el `.oct` no se relee igual: no instalar), `convert_failed`, `invalid_value`,
+`invalid_data`, `io_error`, `rejected`; `internal_error` (5) e `interrupted` (130).
 
 ## Flujo de un agente
 

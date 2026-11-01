@@ -77,6 +77,11 @@ choices are stored in `kit_project.json` (`bones`: {role: model bone, '' = none}
 {model bone: [x, y, z]} moves that bone's joint for the fit (the file's units, Y up, facing +Z; `JOINT_POS` in the
 map), the mesh and its weights stay. The window writes it from the Preview tab's "Your model's skeleton" mode.
 
+Every `kit.py` command takes `--json` (anywhere on the line): one JSON object on stdout, `{schema_version, ok,
+command: 'kit.<command>', data, error: {code, message}}`, the same shape as the `mods` commands; progress goes to
+stderr; exit 0 ok, 2 bad arguments, 3 refused (codes in `docs/CLI.md`), 5 internal error. `make --json` returns the
+previews' paths, the materials to check and the diagnosis, so read those instead of parsing `report.txt`.
+
 **`kit.py adjust work/<name>`** reads and changes all of this without editing JSON by hand, then
 `kit.py make work/<name> --remap` converts with it:
 `--info --json` adds what the tool measured (neck, torso, how far each part was stretched in the last conversion:

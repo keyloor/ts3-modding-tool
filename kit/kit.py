@@ -60,7 +60,23 @@ IMAGES = ('.png', '.tga', '.jpg', '.jpeg', '.bmp', '.dds')
 
 
 class KitError(Exception):
-    pass
+    """a refusal the user can act on; code is the stable name --json gives it (from the message when not given)"""
+    CODES = (('close Toy Story 3', 'game_running'), ('game was not found', 'game_not_found'),
+             ('is not the game folder', 'game_not_found'), ('the game has no', 'no_character'),
+             ('not a kit project', 'no_project'), ('no project at', 'no_project'),
+             ('nothing converted yet', 'not_converted'), ('no backup of the original', 'original_missing'),
+             ('--force to build on it', 'original_missing'), ('does not read back the same', 'check_failed'),
+             ('has not changed', 'not_installed'))
+
+    def __init__(self, message, code=None):
+        super().__init__(message)
+        self.code = code or next((c for k, c in self.CODES if k in message), 'rejected')
+
+
+class Parser(argparse.ArgumentParser):
+    """argument errors as KitError, so --json reports them too"""
+    def error(self, message):
+        raise KitError(message, 'invalid_arguments')
 
 
 # ------------------------------------------------------------------------------------------- the game
@@ -218,10 +234,17 @@ ADJUST_KEYS = {
 
 
 def check_adjust(adj):
-    """KitError if a key or value is not one the tool reads"""
+    """KitError (code invalid_value) if a key or value is not one the tool reads"""
+    try:
+        _check_adjust(adj)
+    except KitError as e:
+        raise KitError(str(e), 'invalid_value') from None
+
+
+def _check_adjust(adj):
     for k, v in adj.items():
         if k not in ADJUST_KEYS:
-            raise KitError('unknown adjust key %r (known: %s)' % (k, ', '.join(ADJUST_KEYS)))
+            raise KitError('unknown adjust key %r (known: %s)' % (k, ', '.join(ADJUST_KEYS)), 'invalid_value')
         if k in ('props', 'garments', 'weights', 'eyes_open', 'stretch_limit') and not isinstance(v, dict):
             raise KitError('%s must be a JSON object: %s' % (k, ADJUST_KEYS[k]))
         if k == 'torso' and not (isinstance(v, list) and len(v) == 3):
@@ -355,17 +378,17 @@ def diagnose_cmd(a):
         item = next((d for d in found if d['id'] == a.fix), None)
         if item is None or not item['fixes']:
             raise KitError('no fix for %r (ids with fixes: %s)' % (a.fix, ', '.join(d['id'] for d in found if d['fixes'])
-                                                                   or 'none'))
+                                                                   or 'none'), 'invalid_value')
         if not 0 <= a.option < len(item['fixes']):
-            raise KitError('%s has %d fixes (--option 0..%d)' % (a.fix, len(item['fixes']), len(item['fixes']) - 1))
+            raise KitError('%s has %d fixes (--option 0..%d)' % (a.fix, len(item['fixes']), len(item['fixes']) - 1),
+                           'invalid_value')
         applied = item['fixes'][a.option]
         proj['adjust'] = merge_adjust(proj.get('adjust', {}), applied['set'])
         check_adjust(proj['adjust'])
         save_project(work, proj)
+    out = dict(project=work, found=found, applied=applied, next='make --remap converts with it' if applied else None)
     if a.json:
-        print(json.dumps(dict(project=work, found=found, applied=applied,
-                              next='make --remap converts with it' if applied else None), ensure_ascii=False))
-        return
+        return out
     for d in found:
         print('[%s] %s: %s' % (d['level'], d['id'], d['message']))
         for k, f in enumerate(d['fixes']):
@@ -374,6 +397,7 @@ def diagnose_cmd(a):
         print('nothing to point out')
     if applied:
         print('applied: %s. Convert with it: kit.py make "%s" --remap' % (json.dumps(applied['set']), a.project))
+    return out
 
 
 def adjust_info(work, proj):
@@ -426,12 +450,13 @@ def adjust(a):
         name, _, v = kv.partition('=')
         xyz = [float(x) for x in v.split(',')]
         if len(xyz) != 3:
-            raise KitError('--joint wants BONE=X,Y,Z')
+            raise KitError('--joint wants BONE=X,Y,Z', 'invalid_value')
         joints[name] = xyz
     versions = proj.get('adjust_versions', {})
     if a.load_version:
         if a.load_version not in versions:
-            raise KitError('no version %r (saved: %s)' % (a.load_version, ', '.join(versions) or 'none'))
+            raise KitError('no version %r (saved: %s)' % (a.load_version, ', '.join(versions) or 'none'),
+                           'invalid_value')
         adj = dict(versions[a.load_version].get('adjust', {}))
         joints = dict(versions[a.load_version].get('joints', {}))
     for key, val in (('adjust', adj), ('joints', joints)):
@@ -457,9 +482,7 @@ def adjust(a):
     if a.info:
         out['info'] = adjust_info(work, proj)
     if a.json:
-        print(json.dumps(out, ensure_ascii=False, default=lambda o: list(o) if isinstance(o, (set, tuple)) else
-                         [float(x) for x in o] if isinstance(o, np.ndarray) else str(o)))
-        return
+        return out
     print('project: %s' % work)
     print('adjust: %s' % json.dumps(out['adjust'], ensure_ascii=False))
     if out['joints']:
@@ -480,6 +503,7 @@ def adjust(a):
         print('materials (garments): %s' % ', '.join(i['materials']))
     if changed:
         print('saved. Convert with it: kit.py make "%s" --remap' % a.project)
+    return out
 
 
 def guess_textures(fbx):
@@ -640,11 +664,25 @@ def make(a):
         v = getattr(a, k)
         if v:
             proj[k] = os.path.abspath(v) if k != 'character' else v
-    build(work, proj, a.remap, a.force)
-    print('Look at the previews. To fine-tune, edit map.py and run make again (docs/GUIA_MANUAL.md).')
-    print('Into the game: kit.py install "%s"   (back to the original: kit.py restore "%s")' % (a.project, a.project))
+    check = build(work, proj, a.remap, a.force)
+    c = proj['character']
+    data = dict(project=work, character=c, map=os.path.join(work, 'map.py'), out=os.path.join(work, 'out', c),
+                report=os.path.join(work, 'report.txt'), check_materials=check, installed=None,
+                previews=[os.path.join(work, 'previews', n) for n in ('body.png', 'face.png', 'compare.png')
+                          if os.path.isfile(os.path.join(work, 'previews', n))])
+    try:
+        data['diagnosis'] = diagnose(work, load_project(work))
+    except Exception as e:                                # a hand-made map the measuring can't follow
+        data['diagnosis'], data['diagnosis_error'] = [], str(e)
+    if not a.json:
+        print('Look at the previews. To fine-tune, edit map.py and run make again (docs/GUIA_MANUAL.md).')
+        print('Into the game: kit.py install "%s"   (back to the original: kit.py restore "%s")' % (a.project, a.project))
+        warns = [d['id'] for d in data['diagnosis'] if d['level'] == 'warn']
+        if warns:
+            print('Diagnosis: %s (kit.py diagnose "%s" for the fixes)' % (', '.join(warns), a.project))
     if a.install:
-        install(a)
+        data['installed'] = install(a)
+    return data
 
 
 def install_project(work):
@@ -762,50 +800,100 @@ def export_pack(work, name, version='1.0', author='', what='', model_credits='',
     return dst, zpath
 
 
+def project_place(work):
+    proj = load_project(work)
+    game = find_game(proj.get('game'))
+    c = proj['character']
+    return dict(project=work, character=c, game=game, archive=os.path.join(game, *archive(c).split('/')),
+                backup=backup_path(game, c))
+
+
 def install(a):
-    c = install_project(os.path.abspath(a.project))
-    print('installed. Start the game and play as %s; kit.py restore "%s" puts the original back.' % (c, a.project))
+    work = os.path.abspath(a.project)
+    c = install_project(work)
+    if not a.json:
+        print('installed. Start the game and play as %s; kit.py restore "%s" puts the original back.' % (c, a.project))
+    return project_place(work)
 
 
 def restore(a):
-    c = restore_project(os.path.abspath(a.project))
-    print('restored the game\'s %s' % archive(c))
+    work = os.path.abspath(a.project)
+    c = restore_project(work)
+    if not a.json:
+        print('restored the game\'s %s' % archive(c))
+    return project_place(work)
 
 
 def list_characters(a):
     game = find_game(a.game)
-    print('game:', game)
+    found = []
     for c in characters(game):
         live = os.path.join(game, *archive(c).split('/'))
-        state = ''
-        if os.path.isfile(backup_path(game, c)):
-            state = '  (changed by the kit)'
-        elif c in ORIGINAL and md5(live) != ORIGINAL[c]:
-            state = '  (changed by another mod)'
-        print('  %s%s' % (c, state))
+        state = 'changed_by_tool' if os.path.isfile(backup_path(game, c)) else \
+            'changed_by_another_mod' if c in ORIGINAL and md5(live) != ORIGINAL[c] else \
+            'original' if c in ORIGINAL else 'unknown'
+        found.append(dict(name=c, state=state, archive=live))
+    if not a.json:
+        print('game:', game)
+        notes = {'changed_by_tool': '  (changed by the kit)', 'changed_by_another_mod': '  (changed by another mod)'}
+        for d in found:
+            print('  %s%s' % (d['name'], notes.get(d['state'], '')))
+    return dict(game=game, characters=found)
 
 
 def doctor(a):
     """what the tool runs on, for a bug report: versions, the game, the original archives, the 3D preview"""
     import platform, PIL
-    print(CREDIT)
-    print('python %s, %s%s' % (platform.python_version(), platform.platform(), ' (frozen .exe)' if paths.FROZEN else ''))
-    print('numpy %s, Pillow %s' % (np.__version__, PIL.__version__))
+    data = dict(tool=CREDIT, python=platform.python_version(), platform=platform.platform(), frozen=paths.FROZEN,
+                numpy=np.__version__, pillow=PIL.__version__)
     try:
         import moderngl
         ctx = moderngl.create_context(standalone=True)
-        print('3D preview: moderngl %s, OpenGL %s, %s' % (moderngl.__version__, ctx.info['GL_VERSION'], ctx.info['GL_RENDERER']))
+        data['preview_3d'] = dict(ok=True, moderngl=moderngl.__version__, opengl=ctx.info['GL_VERSION'],
+                                  renderer=ctx.info['GL_RENDERER'])
         ctx.release()
     except Exception as e:
-        print('3D preview: not available (%s): the window shows still images' % (str(e).splitlines() or [e])[0])
+        data['preview_3d'] = dict(ok=False, error=(str(e).splitlines() or [type(e).__name__])[0])
     try:
         game = find_game(a.game)
-        print('game:', game)
-        for c in ORIGINAL:
-            src = find_original(game, c)
-            print('  %-14s original: %s' % (c, os.path.relpath(src, game) if src else 'none found (another mod changed it)'))
+        data['game'] = game
+        data['originals'] = {c: find_original(game, c) for c in ORIGINAL}
     except KitError as e:
-        print('game:', e)
+        data['game'], data['game_error'] = None, str(e)
+    if not a.json:
+        print(CREDIT)
+        print('python %s, %s%s' % (data['python'], data['platform'], ' (frozen .exe)' if paths.FROZEN else ''))
+        print('numpy %s, Pillow %s' % (data['numpy'], data['pillow']))
+        g = data['preview_3d']
+        print('3D preview: moderngl %s, OpenGL %s, %s' % (g['moderngl'], g['opengl'], g['renderer']) if g['ok'] else
+              '3D preview: not available (%s): the window shows still images' % g['error'])
+        if data['game']:
+            print('game:', data['game'])
+            for c, src in data['originals'].items():
+                print('  %-14s original: %s' % (c, os.path.relpath(src, data['game']) if src else
+                                                'none found (another mod changed it)'))
+        else:
+            print('game:', data['game_error'])
+    return data
+
+
+def export_cmd(a):
+    work = os.path.abspath(a.project)
+    pack, zpath = export_pack(work, a.name, a.version, a.author, a.what, a.model_credits, a.installer)
+    if not a.json:
+        print('pack: %s\nzip:  %s' % (pack, zpath))
+    return dict(project=work, pack=pack, zip=zpath, installer=a.installer, mod_id=load_project(work).get('mod_id'))
+
+
+def to_json(o):
+    """what json can't write by itself: sets and tuples as lists, numpy numbers as numbers"""
+    if isinstance(o, (set, tuple)):
+        return list(o)
+    if isinstance(o, np.ndarray):
+        return o.tolist()
+    if isinstance(o, np.generic):
+        return o.item()
+    return str(o)
 
 
 def main(argv=None):
@@ -813,7 +901,9 @@ def main(argv=None):
     if argv and argv[0] == 'mods':
         import modcli
         return modcli.main(argv[1:], game_resolver=find_game)
-    p = argparse.ArgumentParser(prog='kit.py', description=CREDIT)
+    as_json = '--json' in argv                            # anywhere, as with the mods commands
+    argv = [x for x in argv if x != '--json']
+    p = Parser(prog='kit.py', description=CREDIT, epilog='--json: one JSON object on stdout (see docs/CLI.md)')
     sub = p.add_subparsers(dest='cmd', required=True)
     s = sub.add_parser('characters'); s.add_argument('--game'); s.set_defaults(fn=list_characters)
     s = sub.add_parser('doctor'); s.add_argument('--game'); s.set_defaults(fn=doctor)
@@ -833,12 +923,12 @@ def main(argv=None):
     s.add_argument('--save-version', metavar='NAME'); s.add_argument('--load-version', metavar='NAME')
     s.add_argument('--delete-version', metavar='NAME')
     s.add_argument('--info', action='store_true', help='also what was measured and what can be chosen')
-    s.add_argument('--json', action='store_true'); s.set_defaults(fn=adjust)
+    s.set_defaults(fn=adjust)
     s = sub.add_parser('diagnose', help='what looks wrong or could be better, with fixes (then make --remap)')
     s.add_argument('project')
     s.add_argument('--fix', metavar='ID', help='apply that finding\'s fix to the adjustments')
     s.add_argument('--option', type=int, default=0, help='which of its fixes (default 0)')
-    s.add_argument('--json', action='store_true'); s.set_defaults(fn=diagnose_cmd)
+    s.set_defaults(fn=diagnose_cmd)
     for name, fn in (('install', install), ('restore', restore)):
         s = sub.add_parser(name); s.add_argument('project'); s.set_defaults(fn=fn)
     s = sub.add_parser('export')
@@ -847,13 +937,43 @@ def main(argv=None):
     s.add_argument('--model-credits', default='')
     s.add_argument('--installer', action='store_true',
                    help='also its own installer (.bat), for players without the tool; Nexus reviews it by hand')
-    s.set_defaults(fn=lambda a: print('pack: %s\nzip:  %s' % export_pack(
-        os.path.abspath(a.project), a.name, a.version, a.author, a.what, a.model_credits, a.installer)))
-    a = p.parse_args(argv)
+    s.set_defaults(fn=export_cmd)
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8')
+    command, data, error, status = 'kit', None, None, 0
     try:
-        a.fn(a)
-    except (KitError, ValueError, OSError) as e:
-        sys.exit('error: %s' % e)
+        a = p.parse_args(argv)
+        a.json = as_json
+        command = 'kit.' + a.cmd
+        if as_json:                                      # progress goes to stderr: stdout holds only the answer
+            with contextlib.redirect_stdout(sys.stderr):
+                data = a.fn(a)
+        else:
+            data = a.fn(a)
+    except KitError as e:
+        status = 2 if e.code == 'invalid_arguments' else 3
+        error = {'code': e.code, 'message': str(e)}
+    except modfile.ModError as e:
+        status, error = 3, {'code': 'invalid_value', 'message': str(e)}
+    except SystemExit as e:                              # --help, or the converter stopping with its reason
+        if e.code in (0, None):
+            raise
+        status, error = 3, {'code': 'convert_failed', 'message': str(e.code)}
+    except (ValueError, OSError) as e:
+        status, error = 3, {'code': 'io_error' if isinstance(e, OSError) else 'invalid_data', 'message': str(e)}
+    except KeyboardInterrupt:
+        status, error = 130, {'code': 'interrupted', 'message': 'interrupted'}
+    except Exception as e:
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        status, error = 5, {'code': 'internal_error', 'message': str(e) or type(e).__name__}
+    if as_json:
+        print(json.dumps({'schema_version': 1, 'ok': status == 0, 'command': command, 'data': data, 'error': error},
+                         ensure_ascii=False, default=to_json))
+    elif error:
+        print('error: %s' % error['message'], file=sys.stderr)
+    return status
 
 
 if __name__ == '__main__':
