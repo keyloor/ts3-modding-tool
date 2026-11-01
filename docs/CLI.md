@@ -51,6 +51,8 @@ da en números cuánto se estiró cada parte.
 Códigos de error: `invalid_arguments` (salida 2), y con salida 3 `no_project`, `game_not_found`,
 `game_running`, `no_character`, `not_converted`, `original_missing`, `not_installed`,
 `check_failed` (el `.oct` no se relee igual: no instalar), `convert_failed`, `invalid_value`,
+`invalid_model` (el modelo no sirve tal como está: `error.problem` dice qué —`split_skeleton`, `no_skin`,
+`pose`, `not_humanoid`, `leg`, `arm`, `no_head`, `bad_choice`, `bad_file`— y `message` cómo arreglarlo),
 `invalid_data`, `io_error`, `rejected`; `internal_error` (5) e `interrupted` (130).
 
 ## Flujo de un agente
@@ -172,6 +174,7 @@ Desde el código fuente:
 ```text
 python -I tests/test_mods.py
 python -I tests/test_adjust.py
+python -I tests/test_model_errors.py
 python -I tests/test_cli.py
 python -I tests/test_cli.py --exe "C:/ruta/TS3 Modding CLI.exe"
 ```

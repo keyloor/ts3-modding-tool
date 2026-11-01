@@ -40,6 +40,15 @@ FINGER_SETS = {1: ['Middle'], 2: ['Index', 'Middle'], 3: ['Index', 'Middle', 'Ri
 KEEP_BY_CHARACTER = {'buzz': ['JetPack_Flame']}       # game pieces a model usually lacks
 
 
+class ModelError(ValueError):
+    """the model can't be used as it is. problem names what is wrong (the window and kit.MODEL_HELP explain it and
+    how to fix the model), args the bones involved; the message is the technical detail"""
+
+    def __init__(self, problem, detail, **args):
+        super().__init__(detail)
+        self.problem, self.info = problem, args
+
+
 def words(name):
     """'mixamorig:LeftUpLeg' -> ['mixamorig', 'left', 'up', 'leg']"""
     return [w.lower() for w in re.findall(r'[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+', name)]
@@ -67,7 +76,7 @@ class Skeleton:
                     self.pos[c['bone']] = c['xlink'][3, :3] @ A
         self.skinned = {n for n, k in self.nv.items() if k > 0}
         if not self.skinned:
-            raise ValueError('the FBX has no skinned mesh (no bone moves any vertex)')
+            raise ModelError('no_skin', 'the FBX has no skinned mesh (no bone moves any vertex)')
         y = np.array([self.pos[n][1] for n in self.skinned])
         self.height = float(y.max() - y.min())
         self._count = {}
@@ -89,14 +98,18 @@ class Skeleton:
 
     def lca(self, a, b):
         up = set(self.ancestors(a))
-        return next(n for n in self.ancestors(b) if n in up)
+        common = next((n for n in self.ancestors(b) if n in up), None)
+        if common is None:                              # two separate skeletons (or bones left without a parent)
+            raise ModelError('split_skeleton', '%s and %s are in separate skeletons: no bone holds both' % (a, b),
+                             a=a, b=b, roots=sorted({self.ancestors(a)[-1], self.ancestors(b)[-1]}))
+        return common
 
     def path(self, top, n):
         """bones from below top down to n"""
         out, start = [], n
         while n != top:
             if n is None:
-                raise ValueError('%s is not below %s in the skeleton' % (start, top))
+                raise ModelError('not_humanoid', '%s is not below %s in the skeleton' % (start, top))
             out.append(n); n = self.parent[n]
         return out[::-1]
 
@@ -141,14 +154,14 @@ def find_body(sk, log, ov=None):
             return auto
         v = ov[role] or None
         if v is not None and v not in sk.parent:
-            raise ValueError('the model has no bone %r (given for %s)' % (v, role))
+            raise ModelError('bad_choice', 'the model has no bone %r (given for %s)' % (v, role), bone=v, role=role)
         if v is not None and v not in P:
-            raise ValueError('%s (given for %s) moves no vertex' % (v, role))
+            raise ModelError('bad_choice', '%s (given for %s) moves no vertex' % (v, role), bone=v, role=role)
         return v
     for sd, side in SIDES:
         on_side = [n for n in sk.skinned if P[n][0] * sd > 0.03 * H]
         if not on_side:
-            raise ValueError('no bones on the %s side: is the model in a T or A pose, facing forward?' % side.lower())
+            raise ModelError('pose', 'no bones on the %s side: is the model in a T or A pose, facing forward?' % side.lower())
         foot = min(on_side, key=lambda n: (round(P[n][1] / (0.01 * H)), -P[n][2]))
         tip = max(on_side, key=lambda n: P[n][0] * sd)
         hand = tip
@@ -167,7 +180,7 @@ def find_body(sk, log, ov=None):
     root = sk.lca(pelvis, chest)
     body.update(pelvis=pelvis, chest=chest, root=root)
     if chest in sk.ancestors(pelvis) and chest != root:
-        raise ValueError('the hands branch off below the hips (%s, %s)' % (chest, pelvis))
+        raise ModelError('not_humanoid', 'the hands branch off below the hips (%s, %s)' % (chest, pelvis))
 
     # legs
     for sd, side in SIDES:
@@ -181,15 +194,15 @@ def find_body(sk, log, ov=None):
             foot, toe = low, None
         foot, toe = pick('foot' + side, foot), pick('toe' + side, toe)
         if toe and foot not in sk.ancestors(toe):
-            raise ValueError('the %s toes (%s) are not below the foot (%s)' % (side.lower(), toe, foot))
+            raise ModelError('leg', 'the %s toes (%s) are not below the foot (%s)' % (side.lower(), toe, foot))
         mid = [n for n in sk.path(hip, foot)[:-1] if n in P]
         if not mid:
-            raise ValueError('the %s leg has no knee between %s and %s' % (side.lower(), hip, foot))
+            raise ModelError('leg', 'the %s leg has no knee between %s and %s' % (side.lower(), hip, foot))
         half = (P[hip][1] + P[foot][1]) / 2
         knee = pick('knee' + side, min((n for n in mid if n in sk.skinned), key=lambda n: abs(P[n][1] - half),
                                        default=mid[0]))
         if knee not in mid:
-            raise ValueError('the %s knee (%s) is not between %s and %s' % (side.lower(), knee, hip, foot))
+            raise ModelError('leg', 'the %s knee (%s) is not between %s and %s' % (side.lower(), knee, hip, foot))
         body.update({'hip' + side: hip, 'knee' + side: knee, 'foot' + side: foot, 'toe' + side: toe})
 
     # arms
@@ -197,23 +210,23 @@ def find_body(sk, log, ov=None):
         hand = body['hand' + side]
         arm = [n for n in sk.path(chest, hand) if n in P]
         if len(arm) < 3:
-            raise ValueError('the %s arm is too short (%s)' % (side.lower(), ' > '.join(arm)))
+            raise ModelError('arm', 'the %s arm is too short (%s)' % (side.lower(), ' > '.join(arm)))
         # a clavicle is short next to the rest of the arm (Buzz's armour makes it long, so not next to the chest)
         clav = arm[0] if len(arm) >= 4 and \
             np.linalg.norm(P[arm[1]] - P[arm[0]]) < np.linalg.norm(P[hand] - P[arm[1]]) / 2.5 else None
         clav = pick('clavicle' + side, clav)
         shoulder = pick('shoulder' + side, arm[1] if clav else arm[0])
         if shoulder not in arm or clav and clav not in arm[:arm.index(shoulder)]:
-            raise ValueError('the %s shoulder (%s) must be on the way from the chest to the hand, below the clavicle'
+            raise ModelError('arm', 'the %s shoulder (%s) must be on the way from the chest to the hand, below the clavicle'
                              % (side.lower(), shoulder))
         mid = arm[arm.index(shoulder) + 1:-1]
         if not mid:
-            raise ValueError('the %s arm has no elbow between %s and %s' % (side.lower(), shoulder, hand))
+            raise ModelError('arm', 'the %s arm has no elbow between %s and %s' % (side.lower(), shoulder, hand))
         half = (P[shoulder] + P[hand]) / 2
         elbow = pick('elbow' + side, min((n for n in mid if n in sk.skinned), key=lambda n: np.linalg.norm(P[n] - half),
                                          default=mid[0]))
         if elbow not in mid:
-            raise ValueError('the %s elbow (%s) is not between %s and %s' % (side.lower(), elbow, shoulder, hand))
+            raise ModelError('arm', 'the %s elbow (%s) is not between %s and %s' % (side.lower(), elbow, shoulder, hand))
         body.update({'clavicle' + side: clav, 'shoulder' + side: shoulder, 'elbow' + side: elbow})
 
         # fingers
@@ -243,7 +256,7 @@ def find_body(sk, log, ov=None):
     arms = {sk.path(chest, body['hand' + s])[0] for _, s in SIDES}
     top = [k for k in sk.branches(chest) if k not in arms]
     if not top:
-        raise ValueError('nothing above the chest (%s) but the arms' % chest)
+        raise ModelError('no_head', 'nothing above the chest (%s) but the arms' % chest)
     cur = max(top, key=lambda k: (sk.count(k), P.get(k, np.zeros(3))[1]))
     neck = []
     while True:
@@ -376,7 +389,12 @@ def automap(fbx, ts3dir, base, log=print, overrides=None, adjust=None):
     adjust = adjust or {}
     dy = float(adjust.get('head_cm') or 0) / 100      # game units are metres
     objlib.use_game(ts3dir, base)                      # an OBJ gets this character's skeleton
-    sk = Skeleton(fbx)
+    try:
+        sk = Skeleton(fbx)
+    except ModelError:
+        raise
+    except (ValueError, OSError, KeyError, IndexError) as e:     # not a file this tool can read
+        raise ModelError('bad_file', '%s: %s' % (os.path.basename(fbx), e)) from e
     moved = {}                                         # an FBX's joints the user moved (an OBJ's: objlib.py)
     if not fbx.lower().endswith('.obj'):
         for n, v in objlib.JOINTS.items():

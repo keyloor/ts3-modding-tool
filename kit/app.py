@@ -191,6 +191,40 @@ TEXT = {
                         'La primera vez se guarda una copia del original junto al juego.',
         installed='Instalado. Abre el juego y juega con %s. «Restaurar original» lo deshace.',
         restored='Restaurado el %s original.', error='Error',
+        model_title='Modelo no válido',
+        model_errors=dict(
+            split_skeleton='Los huesos de tu modelo no forman un solo esqueleto: «%(a)s» y «%(b)s» cuelgan de raíces '
+                           'distintas (%(roots)s).\n\nCómo arreglarlo: todos los huesos tienen que colgar de una sola '
+                           'raíz: cadera → columna → cuello → cabeza, con los brazos saliendo del pecho y las piernas de '
+                           'la cadera. En Blender: deja un solo Armature (une varios con Ctrl+J), emparenta los huesos '
+                           'sueltos al que les toca (modo Edición, Ctrl+P → Mantener desplazamiento) y exporta el '
+                           'Armature junto con la malla.',
+            no_skin='Ningún hueso mueve la malla: el modelo no está unido (skinned) a su esqueleto.\n\nCómo '
+                    'arreglarlo: en Blender, selecciona la malla y después el Armature, Ctrl+P → Con pesos automáticos, '
+                    'y exporta con «Armature» y «Mesh» marcados. O exporta el modelo como OBJ, sin esqueleto, y la '
+                    'herramienta le pone uno.',
+            pose='No se encontraron huesos a un lado del modelo.\n\nCómo arreglarlo: el modelo tiene que estar de '
+                 'pie, en pose T o A, mirando al frente, con los brazos y las piernas separados. Gíralo en Blender, '
+                 'aplica la rotación (Ctrl+A → Rotación) y vuelve a exportarlo.',
+            not_humanoid='El esqueleto no tiene forma de persona: los brazos salen por debajo de la cadera, o una '
+                         'cadena de huesos no sigue el orden del cuerpo.\n\nCómo arreglarlo: revisa la jerarquía (los '
+                         'brazos cuelgan del pecho y las piernas de la cadera), o elige la cadera y el pecho en la '
+                         'pestaña Huesos.',
+            leg='A una pierna le falta una articulación.\n\nCómo arreglarlo: cada pierna necesita cadera → rodilla → '
+                'pie (los dedos son opcionales), un hueso cada uno, en una sola cadena. Si tu esqueleto los tiene con '
+                'otros nombres, elígelos en la pestaña Huesos.',
+            arm='A un brazo le falta una articulación.\n\nCómo arreglarlo: cada brazo necesita (clavícula) → hombro → '
+                'codo → mano, en una sola cadena que sale del pecho. Si tu esqueleto los tiene con otros nombres, '
+                'elígelos en la pestaña Huesos.',
+            no_head='Encima del pecho solo están los brazos.\n\nCómo arreglarlo: el esqueleto necesita un hueso de '
+                    'cuello y uno de cabeza encima del pecho.',
+            bad_choice='Un hueso elegido en la pestaña Huesos («%(bone)s», para %(role)s) no está en el modelo o no '
+                       'mueve ninguna parte.\n\nCómo arreglarlo: elige otro en la pestaña Huesos, o «Volver al '
+                       'automático».',
+            bad_file='Este archivo no se puede leer.\n\nCómo arreglarlo: exporta un FBX binario (FBX 2014 o '
+                     'posterior; el FBX en texto ASCII no se lee) o un OBJ con sus caras.'),
+        model_footer='\n\nCuando lo arregles, vuelve a exportar el modelo y pulsa «Convertir». La guía '
+                     '(docs\\GUIA_MANUAL.md, sección 1) explica cómo preparar el modelo.\n\nDetalle técnico: %s',
         preview_empty='Aún no hay vista previa: pulsa «Convertir».',
         drawing='Convirtiendo y dibujando la vista previa…\n(tarda unos segundos)',
         see_log='Los detalles están en la pestaña Registro.',
@@ -378,6 +412,34 @@ TEXT = {
                         'The first time, a copy of the original is kept next to the game.',
         installed='Installed. Start the game and play as %s. "Restore original" undoes it.',
         restored='Restored the original %s.', error='Error',
+        model_title='Invalid model',
+        model_errors=dict(
+            split_skeleton="Your model's bones are not one skeleton: \"%(a)s\" and \"%(b)s\" hang from different "
+                           'roots (%(roots)s).\n\nHow to fix it: every bone must hang from one root: hips > spine > '
+                           'neck > head, with the arms off the chest and the legs off the hips. In Blender: keep one '
+                           'Armature (join them with Ctrl+J), parent the loose bones to the right one (Edit Mode, '
+                           'Ctrl+P > Keep Offset) and export the Armature with the mesh.',
+            no_skin='No bone moves the mesh: the model is not skinned to its skeleton.\n\nHow to fix it: in Blender, '
+                    'select the mesh, then the Armature, Ctrl+P > With Automatic Weights, and export with "Armature" '
+                    'and "Mesh" ticked. Or export the model as OBJ, without a skeleton, and the tool gives it one.',
+            pose='No bones were found on one side of the model.\n\nHow to fix it: the model must stand upright in a '
+                 'T or A pose, facing forward, with arms and legs apart. Turn it in Blender, apply the rotation '
+                 '(Ctrl+A > Rotation) and export it again.',
+            not_humanoid="The skeleton isn't shaped like a person: the arms branch off below the hips, or a chain of "
+                         "bones doesn't follow the body's order.\n\nHow to fix it: check the hierarchy (the arms "
+                         'hang from the chest, the legs from the hips), or pick the hips and chest in the Bones tab.',
+            leg='A leg is missing a joint.\n\nHow to fix it: each leg needs hip > knee > foot (toes are optional), '
+                'one bone each, in one chain. If your skeleton has them under other names, pick them in the Bones tab.',
+            arm='An arm is missing a joint.\n\nHow to fix it: each arm needs (clavicle) > shoulder > elbow > hand, in '
+                'one chain from the chest. If your skeleton has them under other names, pick them in the Bones tab.',
+            no_head='Nothing above the chest but the arms.\n\nHow to fix it: the skeleton needs a neck bone and a head '
+                    'bone above the chest.',
+            bad_choice='A bone chosen in the Bones tab ("%(bone)s", for %(role)s) is not in the model or moves no part '
+                       'of it.\n\nHow to fix it: pick another one in the Bones tab, or "Back to automatic".',
+            bad_file="This file can't be read.\n\nHow to fix it: export a binary FBX (FBX 2014 or later; ASCII FBX "
+                     "isn't read) or an OBJ with its faces."),
+        model_footer='\n\nWhen it is fixed, export the model again and press "Convert". The guide '
+                     '(docs\\GUIA_MANUAL.md, section 1) shows how to prepare the model.\n\nTechnical detail: %s',
         preview_empty='No preview yet: press "Convert".',
         drawing='Converting and drawing the preview…\n(it takes a few seconds)',
         see_log='The details are in the Log tab.',
@@ -2244,7 +2306,8 @@ class App:
             try:
                 self.q.put(('done', (done, fn())))
             except K.KitError as e:
-                self.q.put(('kiterror', (str(e), retry, quiet, on_error)))
+                model = hasattr(e, 'problem')                # the model can't be used: say why and how to fix it
+                self.q.put(('kiterror', (self.model_text(e) if model else str(e), retry, quiet, on_error, model)))
             except BaseException as e:            # SystemExit too: the converter stops with one
                 self.q.put(('error', (str(e) or type(e).__name__, traceback.format_exc(), quiet, on_error)))
         threading.Thread(target=work, daemon=True).start()
@@ -2272,8 +2335,10 @@ class App:
                 if kind == 'done':
                     val[0](val[1])
                 elif kind == 'kiterror':
-                    msg, retry, quiet, on_error = val
-                    self.status.set(msg)
+                    msg, retry, quiet, on_error, model = val
+                    self.status.set(msg.split('\n')[0])
+                    if model:
+                        print('\n' + msg)                        # the Log tab keeps it too
                     if on_error:
                         on_error(msg)
                     elif quiet:
@@ -2283,7 +2348,7 @@ class App:
                             self.force = True
                             retry()
                     else:
-                        messagebox.showerror(self.t('error'), msg)
+                        messagebox.showerror(self.t('model_title') if model else self.t('error'), msg)
                 else:
                     msg, tb, quiet, on_error = val
                     print('\n' + tb)                      # the whole story goes to the Log tab
@@ -2304,6 +2369,21 @@ class App:
     def open_path(self, p):
         if os.path.exists(p):
             os.startfile(p)
+
+    def model_text(self, e):
+        """a model problem (kit.model_error) in the window's language: what is wrong, how to fix it, the detail"""
+        info = {k: ', '.join(v) if isinstance(v, (list, tuple)) else v for k, v in e.info.items()}
+        if 'role' in info:
+            try:
+                info['role'] = self.role_label(info['role'])
+            except (KeyError, TypeError):
+                pass
+        text = self.t('model_errors').get(e.problem)
+        try:
+            text = text % info if text else str(e)
+        except (KeyError, TypeError, ValueError):
+            text = str(e)
+        return text + self.t('model_footer') % e.detail
 
     def about(self):
         messagebox.showinfo(self.t('about'), self.t('about_text') % (CREDIT, AUTHOR, AUTHOR))

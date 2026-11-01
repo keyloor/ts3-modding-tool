@@ -22,4 +22,5 @@ jobs:
       - run: python -m compileall -q kit tools tests
       - run: python -I tests/test_mods.py
       - run: python -I tests/test_adjust.py
+      - run: python -I tests/test_model_errors.py
       - run: python -I tests/test_cli.py

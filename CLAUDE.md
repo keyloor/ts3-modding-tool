@@ -95,6 +95,11 @@ Finds the body by shape, in the game frame, from skinned bind positions:
   new: the map stays byte-identical (checked on 7 rigs). `kit.ADJUST_KEYS` documents them; `kit.py adjust`
   edits them and `--info` reports the choices.
 
+- A model it can't use raises `ModelError(problem, detail, **info)` (never a bare exception): `kit.model_error()`
+  turns it into `KitError` code `invalid_model` with `kit.MODEL_HELP`'s English fix, and the window shows its own
+  words (`TEXT[...]['model_errors']`, title "Invalid model"). A new failure in the body search gets a problem id
+  and text in all three (`tests/test_model_errors.py` checks they match).
+
 Regression check after changing it: generate maps for a few different rigs and diff the reports before/after.
 
 ## Textures (`kit/autotex.py`)

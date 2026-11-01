@@ -81,6 +81,9 @@ Every `kit.py` command takes `--json` (anywhere on the line): one JSON object on
 command: 'kit.<command>', data, error: {code, message}}`, the same shape as the `mods` commands; progress goes to
 stderr; exit 0 ok, 2 bad arguments, 3 refused (codes in `docs/CLI.md`), 5 internal error. `make --json` returns the
 previews' paths, the materials to check and the diagnosis, so read those instead of parsing `report.txt`.
+`error.code` `invalid_model` means the model itself can't be used (`error.problem`: a skeleton in pieces, no skin,
+not in a T/A pose, a missing joint, an unreadable file...); its message says how to fix the model. Tell the user
+that in plain words; only a wrong Bones-tab choice (`bad_choice`) is fixed in the project.
 
 **`kit.py adjust work/<name>`** reads and changes all of this without editing JSON by hand, then
 `kit.py make work/<name> --remap` converts with it:

@@ -73,6 +73,44 @@ class KitError(Exception):
         self.code = code or next((c for k, c in self.CODES if k in message), 'rejected')
 
 
+# what to do about each kind of model problem (automap.ModelError.problem); the window has its own words for them
+MODEL_HELP = {
+    'split_skeleton': 'The model\'s bones are not one skeleton: %(a)s and %(b)s hang from different roots (%(roots)s). '
+                      'Every bone must hang from one root: hips > spine > neck > head, with the arms off the chest and '
+                      'the legs off the hips. In Blender: one Armature only; join armatures (Ctrl+J), parent loose '
+                      'bones to the right one (Edit Mode, Ctrl+P > Keep Offset), and export the Armature with the mesh.',
+    'no_skin': 'No bone moves the mesh: the model is not skinned to its skeleton. In Blender: select the mesh, then the '
+               'Armature, Ctrl+P > With Automatic Weights; export with "Armature" and "Mesh" ticked. Or export the '
+               'model as OBJ without a skeleton and the tool gives it one.',
+    'pose': 'No bones were found on one side of the model: it must stand upright in a T or A pose, facing forward, '
+            'with arms and legs apart. Turn it in Blender (Y forward, Z up), apply the rotation (Ctrl+A) and export again.',
+    'not_humanoid': 'The skeleton is not shaped like a person: the arms branch off below the hips. Check the bone '
+                    'hierarchy (the arms hang from the chest, the legs from the hips), or pick the hips and chest in '
+                    'the Bones tab.',
+    'leg': 'A leg is missing a joint: each leg needs hip > knee > foot (toes optional), one bone each, in one chain. '
+           'If the bones are there with other names, pick them in the Bones tab.',
+    'arm': 'An arm is missing a joint: each arm needs (clavicle) > shoulder > elbow > hand, in one chain from the chest. '
+           'If the bones are there with other names, pick them in the Bones tab.',
+    'no_head': 'Nothing above the chest but the arms: the skeleton needs a neck and a head bone above the chest.',
+    'bad_choice': 'A bone chosen in the Bones tab (%(bone)s, for %(role)s) is not in the model or moves no part of it: '
+                  'pick another one there, or "Back to automatic".',
+    'bad_file': 'This file can\'t be read. Export a binary FBX (FBX 2014 or later; ASCII FBX is not read) or an OBJ '
+                'with its faces.'}
+
+
+def model_error(e):
+    """a KitError (code invalid_model) that says what is wrong with the model and how to fix it"""
+    help_ = MODEL_HELP.get(e.problem, '')
+    try:
+        help_ = help_ % {k: ', '.join(v) if isinstance(v, (list, tuple)) else v for k, v in e.info.items()}
+    except (KeyError, TypeError, ValueError):
+        pass
+    err = KitError('Invalid model: %s (%s). Fix the model and convert again; docs/GUIA_MANUAL.md section 1 shows how '
+                   'to prepare it.' % (help_, e), 'invalid_model')
+    err.problem, err.info, err.detail = e.problem, e.info, str(e)
+    return err
+
+
 class Parser(argparse.ArgumentParser):
     """argument errors as KitError, so --json reports them too"""
     def error(self, message):
@@ -601,7 +639,11 @@ def detect(work, proj, force=False, log=print):
     without writing anything but the project file: (tables, automap info)"""
     game_dir = prepare(work, proj, force, log)
     objlib.use_joints(proj.get('joints'))
-    tables, info = AM.automap(proj['fbx'], game_dir, proj['character'], log, proj.get('bones'), proj.get('adjust'))
+    try:
+        tables, info = AM.automap(proj['fbx'], game_dir, proj['character'], log, proj.get('bones'),
+                                  proj.get('adjust'))
+    except AM.ModelError as e:
+        raise model_error(e) from None
     AM.add_textures(tables, proj['fbx'], proj['textures'], log, proj.get('materials'))
     return tables, info
 
@@ -623,7 +665,10 @@ def build(work, proj, remap=False, force=False):
             print('\n== map: using your map.py as it is (--remap writes a new one)')
         else:
             print('\n== map: bones')
-            tables, info = AM.automap(fbx, game_dir, c, print, proj.get('bones'), proj.get('adjust'))
+            try:
+                tables, info = AM.automap(fbx, game_dir, c, print, proj.get('bones'), proj.get('adjust'))
+            except AM.ModelError as e:
+                raise model_error(e) from None
             AM.report(info)
             print('\n== map: textures')
             check = AM.add_textures(tables, fbx, tex, print, proj.get('materials'))
@@ -954,6 +999,8 @@ def main(argv=None):
     except KitError as e:
         status = 2 if e.code == 'invalid_arguments' else 3
         error = {'code': e.code, 'message': str(e)}
+        if hasattr(e, 'problem'):
+            error.update(problem=e.problem, detail=e.detail)
     except modfile.ModError as e:
         status, error = 3, {'code': 'invalid_value', 'message': str(e)}
     except SystemExit as e:                              # --help, or the converter stopping with its reason
