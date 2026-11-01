@@ -183,3 +183,43 @@ Usan paquetes sintéticos, carpetas temporales y ajustes aislados. La última or
 el ejecutable distribuido como un programa externo: argumentos, JSON, códigos de salida,
 planes, instalación, verificación, conflictos y restauración. No requieren archivos del
 juego. Estas pruebas no demuestran cómo se ve o se anima un mod dentro de Toy Story 3.
+# Game explorer
+
+`explore` reads the current game files, including installed mods. It does not alter the game, mod registry,
+backups, or settings. The index cache lives in `%LOCALAPPDATA%/TS3 Modding Tool/explorer/` (next to the settings
+file when `TS3TOOL_SETTINGS` is set). Every command accepts `--game PATH` and `--json`.
+
+```text
+python -I kit/cli.py explore index --game "D:/Games/Toy Story 3" --json
+python -I kit/cli.py explore list --game "D:/Games/Toy Story 3" --query woody --kind oct --json
+python -I kit/cli.py explore inspect assets/characters/woody/woody.zip --member woody.oct --game "D:/Games/Toy Story 3" --json
+python -I kit/cli.py explore extract assets/characters/woody/woody.zip --out work/extracted-woody --game "D:/Games/Toy Story 3" --json
+python -I kit/cli.py explore preview assets/characters/woody/woody.zip --member woody.oct --out work/woody-preview --game "D:/Games/Toy Story 3" --json
+```
+
+Without Python, replace `python -I kit/cli.py` with `"TS3 Modding CLI.exe"`. `kit/kit.py explore` also works.
+
+| Command | Result / options |
+|---|---|
+| `index` | Number of assets and physical files, reused cache entries, per-file errors. `--refresh` bypasses cache. |
+| `list` | `items`, `total`, `offset`, `next_offset`; default limit 200. Use `--limit 1..10000`, `--offset N`, `--query TEXT`, `--kind archive/oct/texture/sound/mesh/text/other`. `--refresh` rebuilds the index. |
+| `inspect PATH [--member NAME]` | ZIP entries, OCT pools/textures and bounded record dump (with `model`: vertices, triangles, pieces, pieces left out, materials, bones, size, for an OCT with geometry), image dimensions, FMOD track metadata, or a bounded text/hex preview. |
+| `extract PATH [--member NAME] --out NEW_DIRECTORY` | One asset, or all members of a ZIP when member is omitted. Preserves member paths. |
+| `preview PATH [--member NAME] --out NEW_DIRECTORY` | PNG image, texture sheets, and `model.png` (wide scenes also `model-top.png`). Without `--member`, a ZIP previews its main `<name>.oct`. Works without OpenGL. |
+
+Paths are relative to the game, under `assets/` or `data_dx/`. Member names come from `list` or `inspect`.
+`--out` must not exist and must be outside the game. Extraction is staged before the new folder is published;
+it rejects traversal, links in source paths, conflicting member names, changed sources and oversized files
+(512 MiB per asset, 2 GiB per archive). Each read checks the live directory; cached metadata cannot authorize extraction.
+Old front-directory archives sometimes omit CRCs (zero); size is still checked and nonzero CRCs are verified.
+
+JSON uses `{schema_version: 1, ok, command: "explore.<action>", data, error}`. Exit 0 = success,
+2 = invalid arguments, 3 = invalid source/operation, 5 = unexpected error, 130 = interrupted.
+Expected error codes include `game_not_found`, `not_found`, `invalid_path`, `invalid_mod` (shared path validator),
+`invalid_data`, `unsupported_format`, `destination_exists`, `size_limit`, `source_changed`, and `io_error`.
+An index can succeed with partial results: always read `data.errors`. `list.next_offset` is null at the end.
+
+3D and PNG previews read any model's vertex layout: characters, objects, vehicles and whole levels, framed on the
+bulk of the model (a level's sky and clouds stay out of the PNGs). They use each material's diffuse map only:
+no game lighting, effects or animation.
+Sound inspection lists tracks, rates, channels and durations; it does not play or export decoded audio.

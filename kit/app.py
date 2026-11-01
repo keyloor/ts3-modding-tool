@@ -34,6 +34,8 @@ TEXT = {
         mod_music='Música y sonidos', mod_music_desc='Cambia canciones y sonidos del juego.',
         mod_tex='Texturas', mod_tex_desc='Cambia texturas de personajes y niveles.', soon='Próximamente',
         mods_title='Mods instalados', mods_desc='Instala paquetes, revisa lo que cambian y quítalos con su copia de seguridad.',
+        explorer_title='Explorador del juego', explorer_desc='Busca archivos, mira modelos y texturas, y extrae contenido.',
+        explorer_open='Explorar archivos',
         mods_open='Gestionar mods', mods_zip='Instalar mod…', mods_folder='Instalar desde carpeta…',
         mods_refresh='Actualizar lista', mods_remove='Quitar mod', mods_recover='Recuperar operación',
         mods_drop='Arrastra aquí un ZIP o una carpeta de mod, o usa los botones para elegirlo.',
@@ -258,6 +260,8 @@ TEXT = {
         mod_music='Music and sounds', mod_music_desc="Change the game's songs and sounds.",
         mod_tex='Textures', mod_tex_desc='Change textures of characters and levels.', soon='Coming soon',
         mods_title='Installed mods', mods_desc='Install packages, review their changes and remove them using backups.',
+        explorer_title='Game explorer', explorer_desc='Find files, preview models and textures, and extract assets.',
+        explorer_open='Browse files',
         mods_open='Manage mods', mods_zip='Install mod…', mods_folder='Install from folder…',
         mods_refresh='Refresh list', mods_remove='Remove mod', mods_recover='Recover operation',
         mods_drop='Drop a mod ZIP or folder here, or use the buttons to choose one.',
@@ -581,6 +585,7 @@ class App:
         fm.add_command(label=self.t('new_project'), command=self.new_project)
         fm.add_command(label=self.t('open_other'), command=self.open_other)
         fm.add_command(label=self.t('mods_title'), command=self.show_mods)
+        fm.add_command(label=self.t('explorer_title'), command=self.show_explorer)
         fm.add_separator(); fm.add_command(label=self.t('quit'), command=self.close)
         m.add_cascade(label=self.t('file'), menu=fm)
         lm = tk.Menu(m, tearoff=0)
@@ -603,6 +608,8 @@ class App:
         self.buttons = []
         if self.screen == 'mods':
             self.build_mods()
+        elif self.screen == 'explorer':
+            self.build_explorer()
         else:
             (self.build_project if self.screen == 'project' and self.work else self.build_home)()
         self.root.after_idle(self.setup_drop)
@@ -651,7 +658,7 @@ class App:
         cards = ttk.Frame(f); cards.pack(fill='both', expand=True, pady=(18, 0))
         cards.columnconfigure(0, weight=3); cards.columnconfigure(1, weight=2)
         c = ttk.Frame(cards, style='Card.TFrame', padding=16)
-        c.grid(row=0, column=0, rowspan=3, sticky='nsew', padx=(0, 12))
+        c.grid(row=0, column=0, rowspan=4, sticky='nsew', padx=(0, 12))
         ttk.Label(c, text=self.t('mod_chars'), style='Head.TLabel').pack(anchor='w')
         ttk.Label(c, text=self.t('mod_chars_desc')).pack(anchor='w', pady=(2, 10))
         b = ttk.Frame(c); b.pack(fill='x')
@@ -675,12 +682,36 @@ class App:
         ttk.Label(s, text=self.t('mods_title'), style='Head.TLabel').pack(anchor='w')
         ttk.Label(s, text=self.t('mods_desc'), wraplength=350).pack(anchor='w', pady=(2, 10))
         ttk.Button(s, text=self.t('mods_open'), style='Big.TButton', command=self.show_mods).pack(anchor='w')
-        for r, (k, d) in enumerate((('mod_music', 'mod_music_desc'), ('mod_tex', 'mod_tex_desc')), start=1):
+        s = ttk.Frame(cards, style='Card.TFrame', padding=16)
+        s.grid(row=1, column=1, sticky='nsew', pady=(0, 12))
+        ttk.Label(s, text=self.t('explorer_title'), style='Head.TLabel').pack(anchor='w')
+        ttk.Label(s, text=self.t('explorer_desc'), wraplength=350).pack(anchor='w', pady=(2, 10))
+        ttk.Button(s, text=self.t('explorer_open'), command=self.show_explorer).pack(anchor='w')
+        for r, (k, d) in enumerate((('mod_music', 'mod_music_desc'), ('mod_tex', 'mod_tex_desc')), start=2):
             s = ttk.Frame(cards, style='Card.TFrame', padding=16)
-            s.grid(row=r, column=1, sticky='nsew', pady=(0, 12) if r == 1 else 0)
+            s.grid(row=r, column=1, sticky='nsew', pady=(0, 12) if r == 2 else 0)
             ttk.Label(s, text=self.t(k), style='Head.TLabel', foreground='#888888').pack(anchor='w')
             ttk.Label(s, text=self.t(d), style='Muted.TLabel').pack(anchor='w', pady=(2, 6))
             ttk.Label(s, text=self.t('soon'), style='Muted.TLabel').pack(anchor='w')
+
+    # ------------------------------------------------------------------ explorer
+    def show_explorer(self):
+        if self.busy:
+            return
+        if not self.settings.get('game'):
+            messagebox.showinfo(self.t('explorer_title'), self.t('no_game_first'), parent=self.root)
+            return
+        self.screen = 'explorer'
+        self.clear_body()
+        self.build_explorer()
+
+    def build_explorer(self):
+        from explorerui import ExplorerPane
+        try:
+            self.explorer_panel = ExplorerPane(self)
+        except Exception as e:
+            self.show_home()
+            messagebox.showerror(self.t('explorer_title'), str(e), parent=self.root)
 
     # ------------------------------------------------------------------ installed mods
     def setup_drop(self):
@@ -1308,6 +1339,10 @@ class App:
         return [v for v in (getattr(self, 'view', None), getattr(self, 'adj_view', None)) if v is not None]
 
     def release_views(self):
+        panel = getattr(self, 'explorer_panel', None)
+        if panel:
+            panel.close()
+            self.explorer_panel = None
         for v in self.views():
             try:
                 v.release()
@@ -1901,6 +1936,9 @@ class App:
 
     def refresh(self):
         """labels, buttons and the next-step hint from the project's state"""
+        if self.screen == 'explorer' and getattr(self, 'explorer_panel', None):
+            self.explorer_panel.selected()
+            return
         self.refresh_mod_controls()
         if not hasattr(self, 'hint') or not self.hint.winfo_exists():
             return
@@ -2390,7 +2428,7 @@ class App:
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] in ('characters', 'doctor', 'make', 'install', 'restore', 'export', 'mods'):
+    if len(sys.argv) > 1 and sys.argv[1] in ('characters', 'doctor', 'make', 'adjust', 'diagnose', 'install', 'restore', 'export', 'mods', 'explore'):
         # '<tool>.exe make <project> ...': kit.py's commands without Python. The .exe has no console, so what they print
         # goes to %TEMP%\<tool>.log (make also writes <project>\report.txt)
         if sys.stdout is None:

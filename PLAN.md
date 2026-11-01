@@ -9,6 +9,7 @@ general de modding del juego, con secciones:
 | Personajes: tu modelo (FBX u OBJ) en lugar de Woody, Buzz o Jessie | Hecha (fases 1–5) | `kit/`, `tools/convert.py` |
 | Música y sonidos | Próximamente (en la ventana, marcada así) | `tools/fmodbank.py`, el mod `mods/restored/` |
 | Texturas (personajes, decals, niveles) | Próximamente | `tools/add_decals.py`, el mod `mods/buzz_original_decals/` |
+| Explorador del juego | Búsqueda, inspección, extracción, texturas y vista 3D de modelos y niveles; falta el sonido | `kit/explorer.py`, `kit/explorerui.py`, `kit/explorercli.py` |
 
 La carpeta es `mods/ts3_modding_tool/` (antes `mods/character_kit/`, renombrada el 30/10/2026).
 
@@ -352,7 +353,8 @@ no hay combinación por prioridades. Después: CLI con salida JSON (`TS3 Modding
 pantalla «Mods instalados» con revisión antes de instalar y arrastrar/soltar (`kit/dropfiles.py`), y
 **consulta de actualizaciones** (`kit/modupdate.py`: botón en la pantalla, columna, `mods updates`).
 A y B hechos. Desde el 31/10/2026 también los comandos de personajes (`make`, `adjust`, `diagnose`, `install`...)
-tienen `--json` con la misma forma. C–E no empezados. La verificación en el juego sigue pendiente.
+tienen `--json` con la misma forma. C tiene una primera versión (ver abajo); D–E no empezados.
+La verificación de mods dentro del juego sigue pendiente.
 
 Orden recomendado, porque cada paso usa el anterior: **A** formato común → **B** arrastrar y soltar → **C** explorador
 → **D** volcado de texturas → **E** exportar / reimportar glTF. Reglas de siempre (ver `CLAUDE.md`): código propio,
@@ -384,6 +386,24 @@ pruebas con `TS3TOOL_SETTINGS` temporal, commits sin `Co-Authored-By`, **toda fu
 - Pantalla «Mods instalados» en el inicio: lista, versión, quitar, y aviso de conflicto si dos tocan el mismo archivo.
 
 **C. Explorador del juego** (`kit/explorer.py` + una sección nueva en el inicio)
+
+**Implementado (31/10/2026):** pantalla bilingüe, índice en caché por tamaño y fechas, árbol ZIP → contenido,
+búsqueda por ruta y tipo, inspección OCT y listas de sonidos FMOD, hojas de texturas, vista 3D de mallas con
+buffers externos compatibles y PNG sin GPU. La CLI `explore index/list/inspect/extract/preview --json` ofrece
+las mismas operaciones y paginación. El índice lee solo directorios ZIP; también admite archivos antiguos con
+el directorio únicamente al principio. Las extracciones se preparan en una carpeta temporal y se publican en
+una carpeta nueva fuera del juego, sin sobrescribir destinos. Pruebas sintéticas en `tests/test_explorer.py`.
+
+**Hecho (01/11/2026): vista 3D de todo el juego.** `viewer.GameModel` lee cualquier modelo: cada stream describe su
+formato en `Elements` y las piezas rígidas se colocan con los `LocalToParentMatrix` de sus nodos. Antes, solo se veía
+el formato de los personajes; en una muestra de 517 modelos del juego (cada 7.º y todos los mundos) se veían 147 y
+ahora 517, con el cuarto de Andy entero (358 mil triángulos) en unos 2 segundos. `snapshot()` hace las PNG sin GPU; el
+encuadre ignora el cielo y las nubes (20 veces más grandes que el nivel) y las texturas con recorte (árboles, vallas)
+se recortan. Lo que no se ve: efectos y luces del juego (solo el mapa de color), animaciones. Extraer un ZIP entero
+ya no relee el directorio por archivo (1405 archivos: de 41 s a 2,5 s).
+
+Pendiente dentro de C: reproducción de sonido.
+
 - Índice: recorrer `<juego>/assets/**/*.zip` y `data_dx/` leyendo solo el directorio de cada zip (`install.read_zip`),
   guardado en caché (`index.json` con fecha de cada archivo); árbol archivo → contenido con buscador.
 - Vistas por tipo: `.oct` con malla → la vista 3D (`viewer.Character`; hay que aceptar modelos sin huesos: todos los

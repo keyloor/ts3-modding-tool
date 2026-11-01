@@ -7,6 +7,12 @@ gives it a skeleton). The tool fits it to the game's skeleton, matches its textu
 into your game (and takes it out again), and exports a pack for other players. Music, sounds and
 textures are next.
 
+**Game explorer**: start screen → Browse files. Search the game's archives and loose files, inspect OCT pools
+and sound-bank track lists, view models and levels in 3D and textures in sheets, and extract assets or save PNG
+previews to a new folder outside the game. Reads the currently installed content, including mods. Also available
+as `kit.py explore ... --json`; see [docs/CLI.md](docs/CLI.md). The 3D view shows characters, objects and whole
+levels with their colour textures; the game's lighting, effects and animations aren't reproduced.
+
 > Work in progress (version 0.1). Fan-made, not affiliated with Disney, Pixar or Avalanche Software. No game files are
 > included: the tool reads them from your own copy of the game.
 
@@ -108,6 +114,11 @@ previa, instálalo en tu juego y exporta un pack para Nexus. Después vendrán m
 
 Para usarla con Python: `pip install numpy pillow` y `python -I kit/app.py`. La guía para hacerlo todo a mano está en
 `docs/GUIA_MANUAL.md`.
+
+**Explorador del juego**: Inicio → Explorar archivos. Busca en los ZIP y archivos sueltos, inspecciona texturas,
+modelos y listas de sonidos, y extrae contenido a una carpeta nueva. Puedes guardar vistas previas PNG o usar
+`kit.py explore` con salida JSON. Lee lo que tienes instalado; no modifica el juego. La vista 3D muestra personajes,
+objetos y niveles enteros con sus texturas de color, sin las luces, efectos ni animaciones del juego.
 
 **Con un agente de IA** (Claude Code, Codex, Cursor…): con Claude Code, copia `skill/ts3-modding-tool/` a
 `%USERPROFILE%\.claude\skills\`; con otros agentes, ábrelos en la carpeta de la herramienta y que lean `AGENTS.md`

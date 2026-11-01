@@ -29,6 +29,14 @@ INSTALL OTHER MODS
   with this tool, keyloor's mods, and mods that are copied into the game folder. "Check for updates" tells you
   when a mod has a newer version (it never downloads anything).
 
+BROWSE THE GAME
+  "Browse files" on the start screen opens the game explorer. Search by name and type, expand a ZIP, then
+  inspect an asset or preview it: characters, objects and whole levels in 3D, textures in sheets. Sound banks
+  show their track lists.
+  "Extract" and "Save preview" create a new folder outside the game; existing output is never overwritten.
+  Reads your installed content, including mods. The 3D view has colour textures, not the game's lights or effects.
+  Command line: "TS3 Modding CLI.exe" explore --help (JSON output supported; see docs/CLI.md).
+
 WITH AN AI AGENT (Claude Code, Codex, Cursor...)
   The agent runs the tool for you; you just tell it what you want.
   1. Claude Code: copy the "skill\ts3-modding-tool" folder into %USERPROFILE%\.claude\skills\ . Other agents: open

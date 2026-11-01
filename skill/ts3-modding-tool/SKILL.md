@@ -16,6 +16,12 @@ rules. For any map table or manual fix, read `<KIT>/docs/GUIA_MANUAL.md` (Spanis
 
 ## Quick path (Python 3.12 with numpy and Pillow; always `python -I`)
 
+To explore game assets, use `kit/cli.py explore list --game GAME --query TEXT --json` and follow
+`next_offset`. `explore inspect PATH --member NAME` describes an asset. `explore preview` saves PNGs;
+`explore extract` saves a member or a whole ZIP. Both require `--out NEW_DIRECTORY` outside the game.
+See `docs/CLI.md` for all options. Read index/list errors. Previews draw any model or level as `model.png`.
+The explorer reads installed content (possibly modded), never changes it, and extracted game files must not be shared.
+
 For existing mod packages, use the CLI instead of the model-conversion steps below.
 Read `<KIT>/docs/CLI.md` for the JSON contract, errors and command arguments. Discover with
 `python -I <KIT>/kit/cli.py mods capabilities --json`, or `<KIT>/TS3 Modding CLI.exe mods capabilities --json`

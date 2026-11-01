@@ -6,6 +6,15 @@ are `docs/GUIA_MANUAL.md` (manual, every map table explained) and the skill in `
 
 ## What you are doing
 
+For read-only game exploration, use `kit/cli.py explore list --game GAME --query TEXT --kind oct --json`.
+Follow `data.next_offset` for more results. `explore inspect PATH --member NAME` describes an asset;
+`explore preview PATH --member NAME --out NEW_DIRECTORY` writes PNG previews;
+`explore extract PATH [--member NAME] --out NEW_DIRECTORY` extracts one asset or a whole ZIP.
+Use a new output folder outside the game. Read `data.errors` from index/list for skipped files.
+`inspect` gives a model's numbers (`data.model`: vertices, triangles, pieces, size); `preview` draws it as
+`model.png` (levels also `model-top.png`), so look at those. See `docs/CLI.md` for limits. These commands read the currently installed
+content, including mods; do not assume extracted files are the shipped originals. Never redistribute them.
+
 For installing, inspecting, verifying or removing an existing mod package, prefer the
 non-interactive CLI over driving the window. Read `docs/CLI.md` for the protocol and
 `docs/MOD_FORMAT.md` for package constraints. Start with:

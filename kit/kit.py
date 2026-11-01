@@ -943,6 +943,10 @@ def to_json(o):
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if next((a for a in argv if a != '--json'), None) == 'explore':
+        import explorercli
+        argv.remove('explore')
+        return explorercli.main(argv)
     if argv and argv[0] == 'mods':
         import modcli
         return modcli.main(argv[1:], game_resolver=find_game)
@@ -953,6 +957,7 @@ def main(argv=None):
     s = sub.add_parser('characters'); s.add_argument('--game'); s.set_defaults(fn=list_characters)
     s = sub.add_parser('doctor'); s.add_argument('--game'); s.set_defaults(fn=doctor)
     sub.add_parser('mods', help='non-interactive mod manager; mods --help for commands')
+    sub.add_parser('explore', help='read-only game explorer; explore --help for commands')
     s = sub.add_parser('make')
     s.add_argument('project'); s.add_argument('--character'); s.add_argument('--fbx'); s.add_argument('--textures')
     s.add_argument('--game'); s.add_argument('--remap', action='store_true'); s.add_argument('--install', action='store_true')

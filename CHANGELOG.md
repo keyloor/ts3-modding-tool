@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Game explorer in Spanish and English: cached ZIP directory index, search by name/type, archive contents tree,
+  OCT inspection, texture sheets, FMOD sound lists, and a 3D view of the game's models: characters, objects,
+  vehicles and whole levels, with their textures (cut-out trees and fences too).
+- Extract files or complete archives into a new folder outside the game; export PNG previews. Existing output
+  is never overwritten. Supports both duplicate-directory and older front-directory game ZIPs.
+- `explore index/list/inspect/extract/preview` in the console CLI, with JSON output and paginated search.
+- No animations, audio playback, texture editing or glTF export in this update. Materials are shown with their
+  diffuse map only, so the game's lighting and effects look different.
+
 ## 0.1 (first public version)
 
 Toy Story 3 Modding Tool by keyloor, for Toy Story 3 Complete Edition on PC (Steam).

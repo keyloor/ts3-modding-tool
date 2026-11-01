@@ -19,6 +19,7 @@ Users talk to the tool in Spanish or English; the maintainer works in Spanish.
 | `kit/kit.py` | The commands (`characters`, `make`, `install`, `restore`, `export`) and the functions the window calls |
 | `kit/app.py` | The window (tkinter; texts in `TEXT`, `es` and `en`) |
 | `kit/viewer.py` | Live 3D preview: reads a converted character, skins it on the CPU (poses, live adjustments), draws it with moderngl offscreen into a tkinter label |
+| `kit/explorer.py`, `kit/explorercli.py`, `kit/explorerui.py` | Read-only asset index, inspection, extraction and previews; CLI and bilingual screen |
 | `kit/build_kit.py` | PyInstaller build: `release/<TOOL> v<VERSION>/` + zip, or `--desktop` (a copy on the Desktop + shortcut) |
 | `kit/pack/` | Templates of the exported Nexus pack: `README_tool.txt` (installed with the tool), or with `--installer` `installer.ps1`, `action.bat`, `README.txt` |
 | `tools/` | Game formats and the converter (below) |
@@ -206,7 +207,22 @@ Done since: the console CLI (`kit/cli.py`, `kit/modcli.py`, `TS3 Modding CLI.exe
 screen with review and drag-and-drop (`kit/dropfiles.py`: `WM_DROPFILES` through a window subclass, no extra
 dependency), and update checks (`kit/modupdate.py`: GitHub's latest release for `update.github`, once a day per
 repository, cached in `<game>/TS3 Modding Tool/updates.json`; the window's list reads only the cache, its
-button and `mods updates` ask GitHub; never downloads). A and B are done; C–E not started.
+button and `mods updates` ask GitHub; never downloads). A and B are done. C now has a working first version;
+D–E are not started.
+
+Explorer: `Browser.index()` reads directories with `zipfile`, falling back to `FrontZip` for older TS3 archives
+with a leading directory only. Cache in LocalAppData (beside `TS3TOOL_SETTINGS` when set), keyed by game and file
+size/mtime/ctime. Never use cached offsets for reads. `export()` stages into a temporary sibling and publishes a
+new destination folder outside the game; limits 512 MiB per asset, 2 GiB per archive. The window uses App.run;
+OpenGL stays on the Tk thread. `viewer.GameModel(data, read)` reads any model of the game (it reads each stream's
+`Elements`, places rigid pieces with their nodes' `LocalToParentMatrix`, row vectors; a skinned piece is in model
+space); position-only and hidden pieces only show when a file has nothing else; `bounds()` frames the bulk of the
+vertices when sky and clouds are far bigger (`full_bounds()` is everything). `snapshot()` draws PNGs with no GPU:
+a lattice finer than a pixel per triangle, in numpy. `Character` stays for skinned characters and the project's
+Preview. Textures are reduced when a model has many (256 px over 120 materials); alpha counts as a cut-out only
+when many pixels are clear and many solid (others keep gloss in it). `View` redraws on `<Configure>` only when the
+size really changed: showing the image fires it again, which otherwise draws for ever. `explore list` paginates; new commands use the standard JSON envelope. Test with
+`python -I tests/test_explorer.py` (also accepts `--exe`). No game files in fixtures.
 
 `PLAN.md` §10, "Cómo hacerlo": the plan (in order A–E) for a common mod format, drag-and-drop install and
 removal, a game explorer, texture dumps / folder texture packs, and glTF export / re-import. Read it before starting.
