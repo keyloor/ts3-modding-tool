@@ -829,9 +829,9 @@ def list_characters(a):
     found = []
     for c in characters(game):
         live = os.path.join(game, *archive(c).split('/'))
-        state = 'changed_by_tool' if os.path.isfile(backup_path(game, c)) else \
-            'changed_by_another_mod' if c in ORIGINAL and md5(live) != ORIGINAL[c] else \
-            'original' if c in ORIGINAL else 'unknown'
+        bak, now = backup_path(game, c), md5(live)          # restored = the same as the tool's backup
+        state = 'original' if (c in ORIGINAL and now == ORIGINAL[c]) or (os.path.isfile(bak) and md5(bak) == now) \
+            else 'changed_by_tool' if os.path.isfile(bak) else 'changed_by_another_mod' if c in ORIGINAL else 'unknown'
         found.append(dict(name=c, state=state, archive=live))
     if not a.json:
         print('game:', game)
