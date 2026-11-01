@@ -313,6 +313,11 @@ actualiza o verifica los archivos.
 Pruebas automáticas con modelos libres (CC0) y GitHub Actions: `rt.py` byte a byte, los mapas de referencia, el
 `.exe` compilado en cada versión y publicado en *Releases*.
 
+**Hecho en parte (01/11/2026), para la 0.1**: `.github/workflows/tests.yml` pasa las pruebas sintéticas en cada push
+y pull request; `release.yml`, con una etiqueta `v<versión>`, comprueba que coincide con `kit/about.py`, prueba,
+compila el zip, prueba su `TS3 Modding CLI.exe` y lo adjunta a la release de GitHub con su parte de `CHANGELOG.md`.
+Versiones fijadas en `requirements.txt`. Falta: pruebas con modelos libres (CC0) que conviertan de verdad.
+
 ### 10. Ideas sacadas de las herramientas de modding de otros juegos (investigado el 31/10/2026)
 
 Elegidas de lo que hacen otras herramientas; nada de esto está hecho todavía.
