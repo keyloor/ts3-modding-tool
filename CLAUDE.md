@@ -352,7 +352,8 @@ GUI performs fresh source reads in App.run, shows whole/partial export choices a
 partial workspaces preselect replace mode/node. Texture dialogs still return three fields. Mesh dialogs
 return name/author/version/topology/piece. Old workspaces supported. Tests: test_meshselect.py [--exe CLI].
 Real three-piece planter checked with exact isolated restoration and other two pieces unchanged.
-PLAN's next functional slice is D per-texture composition inside one OCT, then texture resolution; E remains partially complete.
+PLAN's next phase: fix the sound decoder errors (40 of 71 real samples tried fail), then a more intuitive interface.
+After it, D per-texture composition inside one OCT, then texture resolution; E remains partially complete.
 
 Explorer: `Browser.index()` reads directories with `zipfile`, falling back to `FrontZip` for older TS3 archives
 with a leading directory only. Cache in LocalAppData (beside `TS3TOOL_SETTINGS` when set), keyed by game and file

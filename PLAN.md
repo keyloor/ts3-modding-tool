@@ -24,6 +24,28 @@ dos packs del mismo OCT sin `--layer` daban `external_change` en vez de `file_co
 salían en inglés en la ventana. Sin comprobar dentro del juego: texturas editadas, reinserción GLB, objetos rígidos
 editados y prioridades.
 
+## Próxima fase (pedida por keyloor el 03/11/2026)
+
+**1. Arreglar los errores del decodificador de sonido.** En Explorador → Sonidos, muchas muestras no se pueden
+reproducir ni guardar: `Decoder returned incomplete audio (13)`, y en algunas `(16)` (visto primero en `cane_impact`
+de `wt_characters_wt_characters.assets.bank`). No es un caso raro: medido con el código de la 0.2, en ese banco fallan
+11 de 17 muestras, y en otros 14 bancos al azar, 29 de 54 (en total 40 de 71). Falla igual con un límite de 0,1 s en una
+muestra de 0,31 s, así que no es por llegar al final de la muestra. Causa sin encontrar; el aviso sale de
+`kit/audio_worker.py` (`Sound_ReadData` devuelve menos bytes de los pedidos). Hecho cuando:
+- se decodifiquen todas las muestras de todos los bancos con audio, comprobado con un recorrido completo, no una muestra;
+- si alguna no se puede decodificar, el mensaje lo diga en el idioma de la ventana, sin códigos internos;
+- quede una prueba que no permita volver atrás (la CLI `explore audio` usa el mismo código).
+
+**2. Hacer la interfaz más intuitiva.** Empezar por el Explorador, donde más se nota:
+- demasiados botones juntos (11, varios desactivados sin explicar por qué): mostrar solo lo que sirve para lo
+  seleccionado, o agruparlo por tarea (ver, extraer, editar texturas, editar malla);
+- palabras técnicas para quien no conoce el formato: OCT, malla, topología, «índice», KiB;
+- la lista son rutas largas de archivos, sin agrupar: en Sonidos cada banco sale dos veces (`.assets.bank` con el
+  audio y `.bank` con los eventos, sin muestras), y conviene mostrar nombres claros y solo los que tienen audio;
+- errores y textos sin pulir: códigos internos, «1 channels», «1 resultados»;
+- después, repasar con el mismo criterio el resto de pantallas de la Tool y el Loader.
+Se revisa con capturas en el monitor secundario, en español y en inglés.
+
 ## Continuación del roadmap (03/11/2026)
 
 «Continúa» significa avanzar por los hitos funcionales pendientes de ambas aplicaciones.
@@ -32,7 +54,8 @@ sonidos con exportación WAV. D tiene texturas multiarchivo y prioridades por en
 texturas dentro del mismo OCT y cambio de resolución.
 E tiene exportación/lectura glTF, esqueleto original y reemplazo de una pieza rígida seleccionada de un
 objeto compuesto; siguen pendientes cambios simultáneos de piezas/materiales, colisiones y niveles libres.
-El siguiente bloque es **D: combinar texturas de distintos packs dentro del mismo OCT**; después, cambio de resolución.
+Después de la próxima fase (arriba), el siguiente bloque es **D: combinar texturas de distintos packs dentro del mismo
+OCT**; después, cambio de resolución.
 La base de prioridades ya es compartida por Tool y Loader. Las comprobaciones visuales Blender/juego
 siguen aparte y no se consideran completadas por pruebas de archivos.
 
