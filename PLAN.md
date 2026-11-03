@@ -36,6 +36,16 @@ muestra de 0,31 s, así que no es por llegar al final de la muestra. Causa sin e
 - si alguna no se puede decodificar, el mensaje lo diga en el idioma de la ventana, sin códigos internos;
 - quede una prueba que no permita volver atrás (la CLI `explore audio` usa el mismo código).
 
+Para el agente que lo arregle (pendiente, nadie lo está haciendo; es lo primero de esta fase):
+- Reproducirlo, desde `mods/ts3_modding_tool/`, solo lee el juego:
+  `python -I kit/cli.py explore audio data_dx/sound/wt_characters_wt_characters.assets.bank --track 8 --seconds 30 --out <carpeta nueva> --game "D:/steam/steamapps/common/Toy Story 3 Complete Edition" --json`
+  (la 8 es `cane_impact`; usar `TS3TOOL_SETTINGS` temporal). Las muestras 0, 6 y 7 de ese banco sí funcionan: comparar.
+- Las pruebas de `tests/test_audio.py` pasan con el error presente: son sintéticas y no usan el FMOD real. Probar con
+  bancos reales, y no dar por bueno el arreglo con unas pocas muestras (así se escapó en la 0.2: se probaron seis y una).
+- Las notas de la release v0.2 no avisan de este error. La siguiente versión debe decir que se corrigió.
+- Luego, compilar con `python -I kit/build_kit.py --local`. Commits sin atribución de IA, y sin etiquetas ni release si
+  keyloor no lo pide.
+
 **2. Hacer la interfaz más intuitiva.** Empezar por el Explorador, donde más se nota:
 - demasiados botones juntos (11, varios desactivados sin explicar por qué): mostrar solo lo que sirve para lo
   seleccionado, o agruparlo por tarea (ver, extraer, editar texturas, editar malla);
