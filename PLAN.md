@@ -6,14 +6,60 @@ general de modding del juego, con secciones:
 
 | Sección | Estado | Base que ya tenemos |
 |---|---|---|
-| Personajes: tu modelo (FBX u OBJ) en lugar de Woody, Buzz o Jessie | Hecha (fases 1–5) | `kit/`, `tools/convert.py` |
-| Música y sonidos | Próximamente (en la ventana, marcada así) | `tools/fmodbank.py`, el mod `mods/restored/` |
-| Texturas (personajes, decals, niveles) | Próximamente | `tools/add_decals.py`, el mod `mods/buzz_original_decals/` |
-| Explorador del juego | Búsqueda, inspección, extracción, texturas y vista 3D de modelos y niveles; falta el sonido | `kit/explorer.py`, `kit/explorerui.py`, `kit/explorercli.py` |
+| Personajes: FBX/OBJ/GLB/glTF; ajuste normal o esqueleto original verificado | Hecha; reinserción identidad sin verificar aún en juego | `kit/`, `tools/convert.py`, `tools/identityfit.py` |
+| Música y sonidos | Escucha y exportación WAV en el explorador; edición de bancos pendiente | `kit/audiobank.py`, `kit/audio_worker.py`, `tools/fmodbank.py` |
+| Texturas (personajes, decals, niveles) | Workspaces multiarchivo, PNG compartido y prioridades por entrada ZIP; mezcla interna OCT/resolución pendientes | `kit/texpack.py`, `kit/ddsedit.py`, `kit/modlayers.py` |
+| Explorador del juego | Búsqueda, 3D, GLB, edición de piezas rígidas y escucha de sonidos | `kit/explorer.py`, `kit/explorerui.py`, `kit/meshpack.py`, `kit/audiobank.py` |
 
 La carpeta es `mods/ts3_modding_tool/` (antes `mods/character_kit/`, renombrada el 30/10/2026).
 
 Autor de la herramienta: **keyloor** (se cambia en un solo sitio: `kit/about.py`).
+
+## Versión 0.2 (03/11/2026)
+
+Publicada en GitHub con dos descargas (Tool y Loader). Auditoría antes de publicar: convertidor y mapas idénticos byte
+a byte (TS5, CJ, 7 modelos); estado real del usuario (Restored Songs, registro 1) simulado en una copia con dos packs
+de texturas reales: migración a registro 2, capas, reordenar, quitar y restauración exacta. Arreglados en la auditoría:
+dos packs del mismo OCT sin `--layer` daban `external_change` en vez de `file_conflict`, y los mensajes del registro 2
+salían en inglés en la ventana. Sin comprobar dentro del juego: texturas editadas, reinserción GLB, objetos rígidos
+editados y prioridades.
+
+## Continuación del roadmap (03/11/2026)
+
+«Continúa» significa avanzar por los hitos funcionales pendientes de ambas aplicaciones.
+A/B (formato/gestión/instalación) están implementados. C tiene explorador, vistas y reproducción de
+sonidos con exportación WAV. D tiene texturas multiarchivo y prioridades por entrada ZIP; quedan mezcla de
+texturas dentro del mismo OCT y cambio de resolución.
+E tiene exportación/lectura glTF, esqueleto original y reemplazo de una pieza rígida seleccionada de un
+objeto compuesto; siguen pendientes cambios simultáneos de piezas/materiales, colisiones y niveles libres.
+El siguiente bloque es **D: combinar texturas de distintos packs dentro del mismo OCT**; después, cambio de resolución.
+La base de prioridades ya es compartida por Tool y Loader. Las comprobaciones visuales Blender/juego
+siguen aparte y no se consideran completadas por pruebas de archivos.
+
+C cerrado (03/11): pestaña Sonidos con muestras, Reproducir/Detener, progreso, límite de escucha y Guardar WAV;
+acceso desde Música y sonidos. CLI `explore audio --track N --seconds N --out NEW_DIRECTORY [--play]`.
+RIFF/FSB5 acotado; Vorbis con FMOD 2.03 de la copia del juego, en proceso separado con cancelación/timeout,
+sin distribuir DLL. PCM16 sin runtime. Exportación nueva fuera del juego, PCM16 mono/estéreo, hasta 120 s;
+multicanal reducido para inspección. 61 bancos/2786 muestras inspeccionados y seis fragmentos reales decodificados,
+con los bancos intactos. No simula eventos ni mezcla espacial; edición/reinserción de audio sigue pendiente.
+
+D, capas por archivo/entrada ZIP (03/11): registro 2 con snapshots independientes y copia original común,
+migración desde 1 solo al confirmar; `mods plan/install --layer`, `mods order` consulta y `mods order ID...`
+con revisión/ticket. Entradas distintas se combinan; coincidencias y archivos completos ganan según el orden.
+El mismo OCT gana completo: la composición por textura es el siguiente paso. Actualizar conserva posición;
+quitar/reordenar reconstruye sin el paquete descargado y quitar el último restaura bytes originales. Diarios,
+rollback, recuperación, dependencias, conflictos declarados y protección de cambios externos conservados.
+Ambas interfaces tienen prioridades numeradas, mover con botones/teclado y revisión antes de aplicar.
+
+## Dos aplicaciones (02/11/2026)
+
+**Toy Story 3 Mod Loader** para jugadores: interfaz de una sola pantalla, lista/búsqueda de mods, instalar ZIP
+o carpeta con revisión, quitar/restaurar, verificar, recuperar y consultar actualizaciones. **Toy Story 3 Modding
+Tool** para creadores: conversión, explorador, texturas y exportación, conservando el gestor integrado.
+Mismo repositorio y núcleo: no se duplica modstore, modfile, modupdate ni el registro/copias del juego.
+`gamepaths.py` separa la detección de Steam de las dependencias de conversión. El Loader usa solo stdlib/Tk.
+`build_kit.py --local` prepara las dos carpetas y accesos en Menú Inicio/Programs; una release solicitada genera
+dos ZIP separados. Publicación y etiqueta de versión siguen requiriendo petición del usuario.
 
 ## Qué recibe la gente en Nexus
 
@@ -294,6 +340,11 @@ Con `tools/fmodbank.py` y el mod `restored` como base: lista de canciones y soni
 cambiar uno por un archivo propio (WAV/MP3/OGG, conversión automática), packs de sonido de la comunidad, exportar pack.
 
 ### 6. Gestor de mods
+**Avance (02/11/2026):** ambas aplicaciones reemplazan un mod del mismo ID en una transacción, incluidas
+reconstrucciones de la misma versión. Revisión de versiones y destinos retirados, conservación de los
+respaldos originales, validación de dependientes y recuperación de la versión instalada tras interrupción.
+También desde `mods plan/install --replace`; pruebas sintéticas de parches, archivos, errores y recuperación.
+
 Ver qué hay instalado en cada archivo del juego (de la herramienta y de otros instaladores), activar/desactivar,
 combinar varios a la vez (personaje + texturas + música), perfiles, «volver todo al original» y avisar cuando Steam
 actualiza o verifica los archivos.
@@ -353,14 +404,18 @@ no hay combinación por prioridades. Después: CLI con salida JSON (`TS3 Modding
 pantalla «Mods instalados» con revisión antes de instalar y arrastrar/soltar (`kit/dropfiles.py`), y
 **consulta de actualizaciones** (`kit/modupdate.py`: botón en la pantalla, columna, `mods updates`).
 A y B hechos. Desde el 31/10/2026 también los comandos de personajes (`make`, `adjust`, `diagnose`, `install`...)
-tienen `--json` con la misma forma. C tiene una primera versión (ver abajo); D–E no empezados.
+tienen `--json` con la misma forma. C tiene una primera versión (ver abajo); D permite exportar PNG y crear
+packs de texturas desde el 02/11/2026, con prioridades pendientes; E exporta/lee glTF y permite reinserción
+de personajes sobre su esqueleto original desde el 03/11/2026. Objetos/niveles aún pendientes.
 La verificación de mods dentro del juego sigue pendiente.
 
 Orden recomendado, porque cada paso usa el anterior: **A** formato común → **B** arrastrar y soltar → **C** explorador
 → **D** volcado de texturas → **E** exportar / reimportar glTF. Reglas de siempre (ver `CLAUDE.md`): código propio,
 nada de archivos del juego en el repo, `tools/` sin cambiar lo que ya produce, textos de la ventana en `es` y `en`,
 pruebas con `TS3TOOL_SETTINGS` temporal, commits sin `Co-Authored-By`, **toda función nueva también desde la CLI**
-(para quien la use con un agente de IA), y al terminar cada cosa `python -I kit/build_kit.py --desktop`.
+(para quien la use con un agente de IA), y al terminar cada cosa `python -I kit/build_kit.py --local`.
+Desde el 02/11/2026 la copia de prueba va a Menú Inicio/Programs/Toy Story 3 Modding Tool, como pidió el usuario;
+`--desktop` es un alias antiguo del mismo destino. Las pruebas visuales van en el monitor secundario.
 
 **A. Formato de mod común** (`kit/modfile.py`)
 - Un `mod.json` dentro de cada mod: `id` (único, p. ej. `keyloor.ts5-characters`), `name`, `version` (x.y.z),
@@ -402,7 +457,7 @@ encuadre ignora el cielo y las nubes (20 veces más grandes que el nivel) y las 
 se recortan. Lo que no se ve: efectos y luces del juego (solo el mapa de color), animaciones. Extraer un ZIP entero
 ya no relee el directorio por archivo (1405 archivos: de 41 s a 2,5 s).
 
-Pendiente dentro de C: reproducción de sonido.
+Reproducción de sonido implementada el 03/11/2026; detalle y límites en la continuación al inicio.
 
 - Índice: recorrer `<juego>/assets/**/*.zip` y `data_dx/` leyendo solo el directorio de cada zip (`install.read_zip`),
   guardado en caché (`index.json` con fecha de cada archivo); árbol archivo → contenido con buscador.
@@ -413,6 +468,29 @@ Pendiente dentro de C: reproducción de sonido.
   DisneyInfinityTools): primero personajes y objetos, niveles después.
 
 **D. Volcado de texturas y packs como carpeta** (`kit/texpack.py`)
+
+**Primera versión implementada (02/11/2026):** `textures dump/build`, también desde la ventana. Un ZIP o un OCT
+exporta cada textura a una ruta estable con `index.json`; se editan los PNG conservando tamaño y se crea un pack
+con los OCT modificados, `DataCRC` actualizado y comprobación byte a byte. DDS DXT1/3/5 y RGB(A) de 32 bits,
+rectangulares, transparencia y mipmaps originales. Rechaza si cambió el archivo fuente; las exportaciones y los
+packs se crean fuera del juego, sin sobrescribir. Pruebas sintéticas en `tests/test_textures.py`, incluido instalar
+y quitar con restauración exacta; también comprobado sobre una copia temporal del archivo real de Woody.
+**Avance multiarchivo (02/11/2026):** `textures dump A.zip B.zip [--shared]` y «Exportar varios ZIP» crean un
+workspace con varios archivos. El modo compartido opcional usa un PNG por DDS idéntico, nombrado por CRC32
+y SHA-256: una edición cambia todas sus apariciones en los archivos seleccionados. No agrupa por nombre ni
+solo CRC y no busca fuera de la selección. Por defecto las apariciones se editan por separado. El esquema 2
+guarda las fuentes de cada textura; el esquema 1 anterior sigue funcionando sin reescribirse. Al crear el pack
+se comprueban todas las fuentes y se publican juntos solo los archivos con cambios. Pruebas de instalación,
+restauración exacta, reemplazo, colisiones CRC, índices manipulados y fallo en un archivo posterior.
+Comprobado además sobre copias locales de los cuatro mundos `westerntown`, `wt_trendy`, `wt_trendynoai`
+y `wt_trendynobldg`: 1875 apariciones → 562 PNG únicos; editar un PNG de `sand_rocky_d` creó cuatro
+parches, que se instalaron/verificaron/quitaron restaurando las cuatro copias byte a byte. Se comprobaron
+los hashes del juego real antes y después: sin cambios. Esto no verifica su apariencia dentro del juego.
+
+Prioridades por archivo/entrada ZIP implementadas el 03/11/2026. Quedan composición de texturas dentro del
+mismo OCT y cambio de resolución. La reinserción de objetos rígidos está parcialmente implementada (E),
+con colisiones originales; niveles libres siguen pendientes. No se ha verificado el cambio de textura dentro del juego.
+
 - Volcar: por cada `.oct` de cada archivo, cada entrada de `TexturePool` → PNG en
   `volcado/<archivo>/<oct>/<nombre de la textura>.png`, más un `index.json` con su formato (DXT1/DXT5/BGRX), tamaño,
   mipmaps y `DataCRC`.
@@ -424,6 +502,73 @@ Pendiente dentro de C: reproducción de sonido.
   mipmaps actualizados).
 
 **E. Exportar a glTF y volver a meterlo** (`kit/gltf.py`)
+**Primer paso implementado (02/11/2026):** «Exportar modelo GLB» y `explore glb` escriben un GLB autocontenido
+con geometría, UV, texturas difusas a resolución fuente, jerarquía de pivotes y pesos. Las piezas rígidas se
+separan de la piel. El esqueleto conserva posiciones/jerarquía e IDs; no reconstruye rotaciones/roll originales.
+Carpeta nueva fuera del juego, fuentes verificadas (también buffers sueltos), informe de piezas/materiales
+omitidos. Sin animaciones ni shaders del juego. Pruebas sintéticas de matrices, pesos, mallas mixtas,
+texturas y fallos/races; comprobación con el validador oficial de Khronos. Woody (70 huesos) y westerntown
+(1,7 millones de triángulos) exportados localmente sin errores/advertencias del validador. La revisión en
+Blender y la reinserción exacta siguen pendientes; no hay un roundtrip idéntico todavía.
+
+**Lectura e integración (02/11/2026):** `gltflib.Scene` lee GLB y glTF 2.0 con recursos locales/base64,
+transformaciones, pieles, accesores sparse/intercalados y texturas PNG/JPEG. El selector y `make --model`
+aceptan personajes con rig, con las texturas en una caché del proyecto por contenido. `model-info` inspecciona
+sin juego ni extracción. Solo personajes humanoides con todas las mallas skinned se convierten; estáticos o
+mixtos fallan antes de perder piezas. Sigue usando el ajuste normal (con diagnóstico), no un mapa identidad.
+Woody exportado a GLB, leído, convertido y empaquetado; pack instalado/verificado/quitado sobre un juego falso
+con restauración exacta de ese archivo. El juego real no se modificó. Pruebas sintéticas de recursos,
+transformaciones, pesos, UV, accesores, caché y CLI. Pendiente: mapa identidad sobre el esqueleto original,
+revisión visual en Blender y soporte de reinserción de objetos/niveles.
+
+**Reinserción sobre esqueleto original (03/11/2026):** el paso 3 ofrece «Conservar esqueleto original» y
+`make --fit identity` lo guarda como `fit_mode`. Verifica IDs (o nombres exactos si el editor perdió los IDs),
+pivotes a 0,00001 m, jerarquía e influencias; rechaza cambios incompatibles antes de mover el último `out/`.
+No usa la búsqueda humanoide ni deforma proporciones; ajustes/articulaciones/remapeo quedan inactivos y sus
+valores guardados se conservan. Mantiene geometría/UV/pesos a precisión TS3 y matrices/IDs/jerarquía del
+esqueleto destino. Reconstruye tangentes, piezas y materiales/texturas: no conserva el archivo completo byte
+a byte. El ajuste normal continúa por defecto y un map.py de otro modo exige `--remap`.
+Woody (70 huesos, 2304 triángulos) convertido con geometría/UV/pesos comprobados y esqueleto original sin
+cambios; pack instalado/verificado/quitado sobre copia aislada con restauración exacta, juego real intacto.
+Pruebas sintéticas para correspondencia, pivotes, jerarquía, pesos, geometría editada y rechazo previo a
+rotar la salida. Pendientes: revisión visual en Blender, comprobación en juego y reinserción estática.
+
+**Objetos rígidos, primer alcance (03/11/2026):** «Exportar malla editable» / «Crear pack de malla» y
+`meshes dump/build` crean un workspace GLB con correspondencia `_TS3_VERTEX`, separado de la exportación
+de lectura `explore glb`. Permite retocar posiciones/normales/primeras UV sin cambiar triángulos ni añadir
+vértices. Reutiliza el formato y los offsets de buffers; índices, materiales, datos desconocidos, piezas
+omitidas y colisiones se conservan. Las colisiones no siguen la forma editada. Reconstruye tangentes en
+caras afectadas y amplía BoundingBox de los ancestros; rechaza esferas, alias ocultos y ediciones locales
+incompatibles entre instancias compartidas. Fuentes verificadas antes de publicar un pack nuevo.
+Un OCT por ZIP, hasta 250000 vértices. El pack se instala/quita con cualquiera de las dos aplicaciones.
+Prueba local con `CST_AR_YardObjTrunks` (278 vértices, 150 triángulos): editar un vértice cambió solo el
+vbuf; instalación/verificación/retirada sobre copia aislada con restauración exacta y juego real intacto.
+GLB editable sin errores/advertencias del validador oficial. Pruebas sintéticas de matrices, alias,
+normal/UV, topología, fuentes, límites y CLI. Pendientes: prueba visual en Blender/juego, cambios de
+topología, colisiones y reinserción libre de niveles completos; los OCT rígidos pequeños pueden calificar.
+
+**Topología rígida reemplazable (03/11/2026):** «Reemplazar topología» en el diálogo del pack y
+`meshes build --topology replace`. Sigue conservando topología por defecto. El modo nuevo acepta una
+pieza visible rígida iluminada por OCT y un material; permite añadir/quitar geometría sin _TS3_VERTEX.
+Hasta 65535 vértices y un millón de triángulos (limitados también por el ancho del índice original).
+Reutiliza el layout soportado y añade regiones de buffers/streams separados, sin cambiar los bytes
+originales ni las referencias de las piezas ocultas. Rechaza atributos desconocidos/padding variable.
+Mantiene materiales, texturas, colisiones y datos de juego. Amplía caja, esfera y OBB conservadoramente;
+este ajuste de volúmenes también se aplica al modo de conservar topología.
+Objeto real Toy Box subdividido: 278 → 279 vértices y 150 → 152 triángulos, con materiales/texturas y
+prefijos originales de buffers intactos. Pack instalado/verificado/retirado en copia aislada, restauración
+exacta y juego real sin cambios; GLB nuevo sin errores/advertencias del validador. Pendiente revisión
+visual Blender/juego, múltiples piezas/materiales, colisiones y creación/reinserción libre de niveles.
+
+**Selección en objetos compuestos (03/11/2026):** `meshes pieces` enumera nodos visibles y su layout,
+`meshes dump --piece NODE` exporta solo la pieza y guarda su destino, y `meshes build --topology replace
+--piece NODE` permite elegirla en un workspace completo. La ventana ofrece selección en exportación/pack;
+el modo automático solo sirve si hay una pieza. Reemplaza una por build, conserva las otras visibles,
+ocultas y compartidas, con verificación posterior de geometría/UV/material de las no seleccionadas.
+Probado sobre `CST_ST_PlanterBox`, tres piezas: tierra de 4 → 5 vértices y 2 → 4 triángulos, otras dos
+intactas. Pack instalado/verificado/retirado en copia aislada con restauración exacta; juego real intacto.
+Este subhito de E queda implementado; no representa edición libre ni reemplazo simultáneo de varias piezas.
+
 - Exportar: de `viewer.Character` (vértices, normales, uv, huesos e influencias, pivotes, texturas) escribir un `.glb`
   propio (JSON + binario, unas 200 líneas, sin dependencias): un nodo por hueso con su jerarquía (traslación = pivote
   menos el del padre), una `skin` con `inverseBindMatrices` (traslación −pivote), primitivas por material con

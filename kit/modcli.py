@@ -20,6 +20,7 @@ COMMANDS = {
     'show': 'Show a registered mod and its tracked files.',
     'verify': 'Check installed files and backups; do not repair them.',
     'remove': 'Remove a registered mod, or preview removal with --dry-run.',
+    'order': 'Read or apply all installed IDs from lowest to highest priority; last wins.',
     'recover': 'Restore the state before an interrupted manager operation.',
     'updates': 'Check installed mods with update.github for a newer GitHub release (never downloads).'}
 EXIT_CODES = {'success': 0, 'invalid_arguments': 2, 'operation_failed': 3, 'verification_failed': 4,
@@ -50,13 +51,19 @@ def parser():
             sub.add_argument('package', help='package folder or ZIP')
         if action in ('show', 'verify', 'remove'):
             sub.add_argument('id', help='installed mod id from list')
+        if action == 'order':
+            sub.add_argument('ids', nargs='*', help='all installed IDs once, from lowest to highest priority')
         if action not in ('capabilities', 'inspect'):
             sub.add_argument('--game', help='game folder; agents should pass it explicitly')
         if action == 'updates':
             sub.add_argument('--force', action='store_true', help='ask GitHub now, not the once-a-day cache')
-        if action in ('install', 'remove'):
+        if action in ('install', 'remove', 'order'):
             sub.add_argument('--dry-run', action='store_true', help='validate and describe changes without applying them')
             sub.add_argument('--expect', type=ticket, help='require the ticket returned by plan / remove --dry-run')
+        if action in ('plan', 'install'):
+            sub.add_argument('--layer', action='store_true', help='explicitly share target files; new layers have highest priority')
+            sub.add_argument('--replace', action='store_true',
+                             help='replace the installed mod with the same id, preserving its original backups')
     return p
 
 
@@ -64,10 +71,14 @@ def capabilities():
     return {'protocol_version': 1, 'commands': COMMANDS, 'exit_codes': EXIT_CODES,
             'json_flag': '--json (before or after the command)', 'non_interactive': True,
             'game_scope': 'ts3-pc', 'package_schema_versions': [1],
+            'replacement': {'flag': '--replace', 'commands': ['plan', 'install'],
+                            'same_id': True, 'preserves_original_backups': True},
+            'layers': {'flag': '--layer', 'order': 'lowest to highest; last wins', 'registry_schema': 2,
+                       'archives': 'distinct members compose; same member is replaced as a whole'},
             'workflow': ['inspect PACKAGE', 'plan PACKAGE --game GAME',
                          'install PACKAGE --game GAME --expect TICKET', 'verify MOD_ID --game GAME',
                          'remove MOD_ID --game GAME --dry-run', 'remove MOD_ID --game GAME --expect TICKET'],
-            'limits': ['One registered mod per game file; no force overwrite.',
+            'limits': ['Shared files require --layer; no force overwrite of external changes.',
                        'Game must be closed for mutations.', 'No automatic downloads or GUI interaction.',
                        'plan and verify can create the manager lock file, but do not change game content.']}
 
@@ -88,7 +99,7 @@ def dispatch(a, game_resolver=None):
     game = a.game
     if not game:
         if game_resolver is None:
-            from kit import find_game
+            from gamepaths import find_game
             game_resolver = find_game
         try:
             game = game_resolver()
@@ -98,6 +109,12 @@ def dispatch(a, game_resolver=None):
     game = str(store.game)
     if a.action == 'list':
         return {'game': game, 'mods': store.list()}, 0
+    if a.action == 'order':
+        if not a.ids:
+            if a.dry_run or a.expect: raise ModError('Supply all installed IDs to change their order.', 'invalid_arguments')
+            return dict(store.order_info(), game=game), 0
+        if a.dry_run: return plan_data(store.preview_order(a.ids), game, 'order'), 0
+        return dict(store.order(a.ids, expected=a.expect), game=game, status='ordered'), 0
     if a.action == 'updates':
         import modupdate
         return {'game': game, 'updates': modupdate.check(store.list(), str(store.path(modupdate.CACHE)),
@@ -111,11 +128,13 @@ def dispatch(a, game_resolver=None):
         result = dict(store.verify(a.id), game=game)
         return result, 0 if result['valid'] else 4
     if a.action == 'plan' or (a.action == 'install' and a.dry_run):
-        return plan_data(store.preview(a.package), game, 'install'), 0
+        plan = store.preview(a.package, replace=a.replace, layer=a.layer)
+        return plan_data(plan, game, 'replace' if plan.get('replaces') else 'install'), 0
     if a.action == 'remove' and a.dry_run:
         return plan_data(store.preview_remove(a.id), game, 'remove'), 0
     if a.action == 'install':
-        return {'game': game, 'status': 'installed', 'metadata': store.install(a.package, expected=a.expect)}, 0
+        return {'game': game, 'status': 'installed',
+                'metadata': store.install(a.package, expected=a.expect, replace=a.replace, layer=a.layer)}, 0
     if a.action == 'remove':
         return {'game': game, 'status': 'removed', 'metadata': store.remove(a.id, expected=a.expect)}, 0
     return {'game': game, 'recovered': store.recover()}, 0

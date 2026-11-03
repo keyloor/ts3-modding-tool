@@ -267,17 +267,14 @@ class Browser:
             result['text'] = '\n'.join(f.describe(i) for i in range(min(len(f.recs), 400)))
             result['truncated'] = len(f.recs) > 400
         elif result['kind'] == 'sound':
-            import fmodbank
-            with tempfile.TemporaryDirectory(prefix='ts3-bank-') as tmp:
-                p = Path(tmp) / 'sound.bank'
-                p.write_bytes(data)
-                try:
-                    bank = fmodbank.read(str(p))
-                    result['sounds'] = [dict(index=i, name=s['name'], rate=s['rate'], channels=s['channels'],
-                                              samples=s['samples'], seconds=s['samples'] / (s['rate'] or 1))
-                                        for i, s in enumerate(bank['sounds'])]
-                except (AssertionError, KeyError, ValueError, struct.error, IndexError):
-                    result['note'] = 'No supported FSB5 sound list (this may be an events bank).'
+            import audiobank
+            try:
+                parsed = audiobank.bank(data)
+                result.update(sounds=audiobank.describe(parsed), audio_mode=parsed['mode'])
+            except ModError as e:
+                if e.code != 'no_audio': raise
+                result['sounds'] = []
+                result['note'] = str(e)
         elif result['kind'] == 'texture':
             from PIL import Image
             with Image.open(io.BytesIO(data)) as image:
@@ -331,7 +328,61 @@ class Browser:
             stage.rename(output)
         return dict(output=str(output), files=written)
 
-    def character(self, path, member, data=None, textures=True):
+    def export_glb(self, path, member, output):
+        """Export bind-pose geometry and diffuse maps into one GLB in a new folder."""
+        import gltf
+        import viewer
+        import ts3model as T
+        from octlib import Oct
+        output = Path(output).absolute()
+        if output.exists() or output.is_symlink():
+            raise ModError('Choose a new output folder: ' + str(output), 'destination_exists')
+        if output.resolve().is_relative_to(self.game):
+            raise ModError('Export outside the game folder.', 'invalid_path')
+        source = self.source(path)
+        sources = {source: signature(source)}
+        if member is None and kind(path) == 'archive':
+            main = Path(path).stem + '.oct'
+            member = next((e['member'] for e in directory(source) if e['member'].casefold() == main.casefold()), None)
+            if member is None:
+                raise ModError('Select an OCT model inside this archive.', 'not_found')
+        if kind(member or path) != 'oct':
+            raise ModError('Choose an OCT model or its game archive.', 'unsupported_format')
+        data = self.read(path, member)
+        model = self.character(path, member, data, textures=False, sources=sources)
+        if model is None:
+            raise ModError('No supported model geometry in this OCT.', 'unsupported_format')
+        f = Oct.parse(data)
+        texs = T.pool(f, 'TexturePool') if f.find('TexturePool') else []
+        mats = T.pool(f, 'MaterialPool') if f.find('MaterialPool') else []
+        def texture(material):
+            # Decode one original-resolution diffuse map at a time; preview thumbnails are never exported.
+            return viewer._texture(f, texs, mats[material], None, {}) if 0 <= material < len(mats) else None
+        payload, report = gltf.encode(model, Path(member or path).stem, texture_provider=texture)
+        report.update(path=path, member=member, credit=gltf.CREDIT)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='.ts3-glb-', dir=output.parent) as temp:
+            stage = Path(temp) / 'result'; stage.mkdir()
+            (stage / 'model.glb').write_bytes(payload)
+            (stage / 'report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+            (stage / 'README.txt').write_text(
+                gltf.CREDIT + '\n\nOpen model.glb in Blender or a glTF 2.0 editor.\n'
+                'Geometry is in bind pose, Y up, metres. Textures are embedded PNG diffuse maps.\n'
+                'Bone pivots and weights are exported; original bone roll/rotation is not reconstructed.\n'
+                'No game animations, lighting or shaders. Unsupported/hidden pieces may be omitted; see report.json.\n'
+                'Rigged characters may use normal fitting or verified original-skeleton mode in a project.\n'
+                'For rigid same-topology edits, export a separate meshes dump workspace with vertex correspondence.\n'
+                'This regular GLB export has no rigid reinsertion correspondence and does not change the game.\n'
+                'These are game assets from your local copy; keep them local.\n', encoding='utf-8')
+            for file, before in sources.items():
+                if signature(file) != before:
+                    raise ModError('Source changed during GLB export.', 'source_changed')
+            if output.exists() or output.is_symlink():
+                raise ModError('Output folder appeared during export.', 'destination_exists')
+            stage.rename(output)
+        return dict(output=str(output), files=['model.glb', 'report.json', 'README.txt'], **report)
+
+    def character(self, path, member, data=None, textures=True, sources=None):
         """the model in that .oct (viewer.GameModel: characters, objects, levels), or None if it holds no geometry that
         can be drawn; its buffers are the files it names, next to it"""
         from viewer import GameModel
@@ -349,7 +400,11 @@ class Browser:
                     entry = next((e['member'] for e in directory(self.source(path))
                                   if e['member'].casefold() == wanted.casefold()), None)
                     return self.read(path, entry) if entry else None
-                return self.read(path.rpartition('/')[0] + '/' + file_name)
+                buffer_path = path.rpartition('/')[0] + '/' + file_name
+                if sources is not None:
+                    source = self.source(buffer_path)
+                    sources.setdefault(source, signature(source))
+                return self.read(buffer_path)
             except ModError as e:
                 if e.code == 'not_found':
                     return None

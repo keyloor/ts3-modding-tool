@@ -703,6 +703,10 @@ def write_map(tables, info, path, fbx, base):
          'TORSO = %r' % tables['TORSO'], 'LANDMARKS = [']
     L += ['    %r,' % (p,) for p in tables['LANDMARKS']] + [']', '# joints that set the overall size', 'SCALE_JOINTS = [']
     L += ['    %r,' % (p,) for p in tables['SCALE_JOINTS']] + [']']
+    if tables.get('IDENTITY'):
+        L[2] = 'Made by %s. Original-skeleton mode: pivots, hierarchy and weights are verified.' % CREDIT
+        L += ['# preserve source geometry on the original skeleton; proportion adjustments are inactive',
+              'IDENTITY = True']
     L += ['# face features -> game face bones, to place the head by the face instead of by the head pivot',
           'FACE_ALIGN = %r' % tables['FACE_ALIGN'], '',
           '# model bone: (model bone it aims at, game bone, game bone it aims at, options)', 'DRIVE = {']

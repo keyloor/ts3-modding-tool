@@ -13,6 +13,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 ENTRY = [sys.executable, '-I', str(ROOT / 'kit/cli.py')]
+if '--loader' in sys.argv:
+    ENTRY = [sys.executable, '-I', str(ROOT / 'kit/loadercli.py')]
+    sys.argv.remove('--loader')
 if '--exe' in sys.argv:
     pos = sys.argv.index('--exe')
     ENTRY = [str(Path(sys.argv[pos + 1]).resolve())]
@@ -104,6 +107,34 @@ class Console(unittest.TestCase):
         rejected = self.call('remove', 'test.music', '--game', self.game, code=3)
         self.assertEqual(rejected['error']['code'], 'external_change')
         self.assertEqual(self.live.read_bytes(), b'external change')
+
+    def test_review_replace_and_remove_preserve_original_baseline(self):
+        self.install()
+        self.assertEqual(self.call('capabilities')['data']['replacement']['flag'], '--replace')
+        self.meta['version'] = '2.0.0'; self.write_meta()
+        (self.pkg / 'payload').write_bytes(b'version two')
+        rejected = self.call('install', self.pkg, '--game', self.game, code=3)
+        self.assertEqual(rejected['error']['code'], 'already_installed')
+        plan = self.call('plan', self.pkg, '--replace', '--game', self.game)['data']
+        self.assertEqual(plan['action'], 'replace')
+        self.assertEqual(plan['replaces']['version'], '1.0.0')
+        self.assertEqual(plan['metadata']['version'], '2.0.0')
+        dry = self.call('install', self.pkg, '--replace', '--dry-run', '--game', self.game)['data']
+        self.assertEqual(dry['ticket'], plan['ticket'])
+        self.assertEqual(self.live.read_bytes(), b'modified music\x00')
+        self.call('install', self.pkg, '--replace', '--expect', plan['ticket'], '--game', self.game)
+        self.assertEqual(self.live.read_bytes(), b'version two')
+        self.assertTrue(self.call('verify', 'test.music', '--game', self.game)['data']['valid'])
+        self.call('remove', 'test.music', '--game', self.game)
+        self.assertEqual(self.live.read_bytes(), b'original music\x00')
+
+    def test_replace_cannot_overwrite_external_changes(self):
+        self.install()
+        plan = self.call('plan', self.pkg, '--replace', '--game', self.game)['data']
+        self.live.write_bytes(b'external edit after review')
+        refused = self.call('install', self.pkg, '--replace', '--expect', plan['ticket'], '--game', self.game, code=3)
+        self.assertEqual(refused['error']['code'], 'external_change')
+        self.assertEqual(self.live.read_bytes(), b'external edit after review')
 
     def test_missing_backup_is_reported(self):
         self.install()

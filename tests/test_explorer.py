@@ -274,6 +274,34 @@ class Explorer(unittest.TestCase):
         self.assertEqual(model.pieces, 1)
         np.testing.assert_allclose(np.linalg.norm(model.N0, axis=1), 1)    # normals from its triangles
 
+    def test_nonuniform_scale_keeps_normals_perpendicular_to_faces(self):
+        piece = rigid_piece()
+        vertices = np.zeros(3, [('p', '<f4', 3), ('uv', '<f2', 2)])
+        vertices['p'] = [[0, 0, 0], [0, 0, 1], [1, -1, 0]]
+        normals = np.zeros(3, [('n', '<f2', 4)])
+        normals['n'][:, :3] = [2 ** -.5, 2 ** -.5, 0]
+        piece['streams'][0] = (piece['streams'][0][0], 16, vertices.tobytes(), 3)
+        piece['streams'][1] = (piece['streams'][1][0], 8, normals.tobytes(), 3)
+        files, tree = scene([piece])
+        for name, value in tree[0][1][1][1]:
+            if name == 'LocalToParentMatrix':
+                value[0] = 2.0
+        model = V.GameModel(build_oct(tree), files.get)
+        a, b = model.P0[1] - model.P0[0], model.P0[2] - model.P0[0]
+        face = np.cross(a, b); face /= np.linalg.norm(face)
+        np.testing.assert_allclose(model.N0, np.tile(face, (3, 1)), atol=1e-6)
+
+    def test_skipped_piece_cannot_change_bounds_or_snapshot(self):
+        bad = rigid_piece(geometry_at=(5000, 0, 0))
+        bad['tri'] = np.array([10, 11, 12], dtype='<u2')
+        files, _ = scene([rigid_piece(), bad])
+        model = V.GameModel(files['scene.oct'], files.get)
+        self.assertEqual((model.pieces, model.skipped, len(model.P0)), (1, 1, 3))
+        np.testing.assert_allclose(model.bounds(), [[0, 0, 0], [1, 1, 0]])
+        valid, _ = scene([rigid_piece()])
+        np.testing.assert_array_equal(np.asarray(V.snapshot(model, size=100)),
+                                      np.asarray(V.snapshot(V.GameModel(valid['scene.oct'], valid.get), size=100)))
+
     def test_skinned_piece_keeps_its_bones(self):
         files, _ = scene([skinned_piece()], bones=[('Hips', 10, None), ('Arm', 20, 1)], remaps=[[20, 10]])
         model = V.GameModel(files['scene.oct'], files.get)

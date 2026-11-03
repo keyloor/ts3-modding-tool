@@ -107,14 +107,15 @@ def autotex(fbx, texdir, log=print, overrides=None):
         if not any(len(c['idx']) for c in m['skin'] or []):
             continue
         names = [m['matnames'][k] if k < len(m['matnames']) else '' for k in m['mat']]
-        sig = np.sort(m['pos'], 0)                      # the same points in any order (KH3 Woody's hat is there twice)
-        if any(len(sig) == len(p) and len(m['tri']) == t and np.allclose(sig, p) for p, t in seen):
-            for n in set(names):
-                if n not in skip:
-                    skip.append(n)
-            log('  mesh %s repeats another one: its materials are left out (%s)' % (m['name'], ', '.join(sorted(set(names)))))
-            continue
-        seen.append((sig, len(m['tri'])))
+        if getattr(scene, 'deduplicate_meshes', True):
+            sig = np.sort(m['pos'], 0)                  # legacy FBX/OBJ duplicate heuristic stays unchanged
+            if any(len(sig) == len(p) and len(m['tri']) == t and np.allclose(sig, p) for p, t in seen):
+                for n in set(names):
+                    if n not in skip:
+                        skip.append(n)
+                log('  mesh %s repeats another one: its materials are left out (%s)' % (m['name'], ', '.join(sorted(set(names)))))
+                continue
+            seen.append((sig, len(m['tri'])))
         for n in names:
             tris[n] = tris.get(n, 0) + 1
     tris = {n: k for n, k in tris.items() if n not in skip}

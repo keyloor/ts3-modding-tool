@@ -2,16 +2,83 @@
 
 **by keyloor** — mod *Toy Story 3 Complete Edition* (PC, Steam) without programming.
 
+## Two applications, one shared mod manager
+
+| Application | For | What it does |
+|---|---|---|
+| **Toy Story 3 Mod Loader** | Players | A simple installed-mod list: install ZIPs/folders, review changes, remove/restore, verify files, recover interrupted operations and check updates. |
+| **Toy Story 3 Modding Tool** | Creators | Character conversion, game exploration, texture editing, previews and pack export, plus its integrated manager for testing. |
+
+They are built from this repository as separate downloads. Both use the same `mod.json`, game detection,
+registry and backups. Existing managed mods appear in both apps; there is no migration or second copy of the registry.
+The Loader does not carry NumPy, Pillow, model conversion or the 3D runtime.
+
+Both apps can replace an installed mod with a newer or rebuilt package of the same ID after review,
+preserving original backups and restoring files retired from the pack. The CLI uses `mods plan/install --replace`.
+Dependency mismatches, external edits and damaged backups block replacement; interrupted changes recover the old version.
+
+Player guide: [docs/LOADER.md](docs/LOADER.md). Run from source with `python -I kit/loader.py` (standard library
+and Tk only). Its console is `kit/loadercli.py`, or `TS3 Mod Loader CLI.exe`, with the existing `mods ... --json`
+protocol. `python -I kit/build_kit.py --local` updates both test copies in Start Menu/Programs; without flags,
+the builder produces two separate release ZIPs. Public releases are published only when the maintainer requests one.
+
+## Modding Tool
+
 Right now: **put your own 3D model in place of Woody, Buzz Lightyear or Jessie.** A rigged FBX, or an OBJ (the tool
 gives it a skeleton). The tool fits it to the game's skeleton, matches its textures, shows you a preview, installs it
-into your game (and takes it out again), and exports a pack for other players. Music, sounds and
-textures are next.
+into your game (and takes it out again), and exports a pack for other players. Audio editing is still planned.
+
+**Texture editing**: start screen → Textures. Select a ZIP or OCT, export its individual PNGs, edit them in an
+image editor at the same size, then Build texture pack from that workspace. Only edited textures are encoded,
+keeping the DDS format and mipmaps. Install/remove the resulting folder with Manage mods. Supports DXT1/3/5
+and 32-bit RGB(A). Shared archives support reviewed priorities; distinct ZIP members combine, while a
+matching OCT is replaced as a whole by the higher priority pack. See [docs/CLI.md](docs/CLI.md).
+Use **Export multiple ZIPs** for one workspace covering several archives. The optional **Share one PNG**
+mode groups only identical DDS textures: one edit updates their occurrences in the selected archives.
+Separate edits remain the default. Existing workspaces still open; packs install with either application.
 
 **Game explorer**: start screen → Browse files. Search the game's archives and loose files, inspect OCT pools
 and sound-bank track lists, view models and levels in 3D and textures in sheets, and extract assets or save PNG
 previews to a new folder outside the game. Reads the currently installed content, including mods. Also available
 as `kit.py explore ... --json`; see [docs/CLI.md](docs/CLI.md). The 3D view shows characters, objects and whole
 levels with their colour textures; the game's lighting, effects and animations aren't reproduced.
+
+**Sound previews**: inspect a `.assets.bank` in the explorer, select a sample in Sounds, then Play/Stop
+or Save WAV. Choose an excerpt of up to 120 seconds. Compressed audio uses the game's existing FMOD runtime
+on Windows; no game DLL is included in the download. CLI: `explore audio ... --track 0 --seconds 30 --out NEW_FOLDER`.
+Bank editing/reinsertion and event simulation remain planned.
+
+**Mod priorities** in both applications: order all installed mods from lowest to highest priority, review,
+then apply. New mods go last; same-ID updates keep their place. Removing a mod reconstructs remaining layers
+from stored snapshots, even without the downloaded package. The last removal restores original bytes.
+CLI: `mods plan/install --layer`, `mods order ID... --dry-run/--expect TICKET`. Matching whole files or ZIP
+members use the last layer; per-texture merging inside the same OCT remains pending. External changes,
+declared conflicts and dependencies remain protected. Layered records need current versions of both apps.
+
+**Export to Blender (first step)**: select a ZIP/OCT in the explorer → Export GLB model. It exports supported
+geometry, UVs, diffuse textures and a pivot-based rest skeleton/weights, with a report of omissions. Static
+pieces remain separate from skins. Also available as `explore glb ... --json`. Original bone rotations/roll,
+game shaders and animations are not reconstructed. Rigged character GLB/glTF files can be used as project
+inputs with normal fitting or verified original-skeleton reinsertion. Rigid edits use the separate workspace below.
+
+**Edit rigid objects**: select an OCT inside a ZIP in the explorer → **Export editable mesh**. Reshape the
+GLB without changing its triangles, preserve `_TS3_VERTEX`, then **Build mesh pack** and install through
+the Loader. Positions/normals/first UVs are editable; original materials, indices and collisions stay.
+Collisions do not follow shape edits. Shared-buffer conflicts and missing IDs are refused. Limited to
+250000 vertices per OCT in preserve mode. Optional **Replace topology** allows adding/removing geometry
+for a selected visible lit piece with one material, up to 65535 vertices. It retains original
+buffers/hidden pieces and switches only that piece's streams. No vertex IDs required in that mode.
+Collisions remain original. Compound objects can select one target piece: export that piece from the
+explorer, or list `meshes pieces` and use `--piece NODE`. Other visible, hidden and shared pieces stay.
+Simultaneous multi-piece replacement and unrestricted level editing remain pending.
+CLI: `meshes dump/build`; details in [docs/CLI.md](docs/CLI.md).
+
+**GLB/glTF character input**: choose the file as your project model, or use `make PROJECT --model FILE`.
+Embedded/local PNG/JPEG textures are prepared inside the project. Every mesh must be skinned to a humanoid
+rig. `model-info FILE --json` inspects a GLB/glTF without a game or extraction. See [docs/CLI.md](docs/CLI.md)
+for the supported subset. In step 3, **Preserve original skeleton** (CLI `--fit identity`) verifies the same
+character's bones/pivots and keeps edited geometry without changing proportions. Normal fitting remains
+the default. Materials/textures are rebuilt; this does not preserve a whole character archive byte for byte.
 
 > Work in progress (version 0.1). Fan-made, not affiliated with Disney, Pixar or Avalanche Software. No game files are
 > included: the tool reads them from your own copy of the game.
@@ -110,7 +177,8 @@ a mod made with the tool, please credit it: *"Made with TS3 Modding Tool by keyl
 
 **Toy Story 3 Modding Tool, de keyloor**: modifica *Toy Story 3 Complete Edition* (PC, Steam) sin programar. Por ahora:
 pon tu propio modelo 3D (FBX con esqueleto, u OBJ) en lugar de Woody, Buzz Lightyear o Jessie, míralo en una vista
-previa, instálalo en tu juego y exporta un pack para Nexus. Después vendrán música, sonidos y texturas.
+previa, instálalo en tu juego y exporta un pack para Nexus. También puedes exportar texturas PNG, editarlas
+conservando su tamaño y crear un pack desde la sección Texturas. Música y sonidos vendrán después.
 
 Para usarla con Python: `pip install numpy pillow` y `python -I kit/app.py`. La guía para hacerlo todo a mano está en
 `docs/GUIA_MANUAL.md`.

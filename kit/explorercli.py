@@ -14,7 +14,7 @@ from modfile import ModError
 def parser():
     p = Parser(prog='ts3 explore', description='Browse game assets without modifying them.')
     sub = p.add_subparsers(dest='action', required=True)
-    for action in ('index', 'list', 'inspect', 'extract', 'preview'):
+    for action in ('index', 'list', 'inspect', 'extract', 'preview', 'glb', 'audio'):
         s = sub.add_parser(action)
         s.add_argument('--game', help='game directory (otherwise Steam detection)')
         if action in ('index', 'list'):
@@ -24,11 +24,15 @@ def parser():
             s.add_argument('--kind', choices=KINDS)
             s.add_argument('--limit', type=int, default=200)
             s.add_argument('--offset', type=int, default=0)
-        if action in ('inspect', 'extract', 'preview'):
+        if action in ('inspect', 'extract', 'preview', 'glb', 'audio'):
             s.add_argument('path', help='relative game path, e.g. assets/characters/woody/woody.zip')
             s.add_argument('--member', help='member inside a ZIP; omit to inspect/extract the whole archive')
-        if action in ('extract', 'preview'):
+        if action in ('extract', 'preview', 'glb', 'audio'):
             s.add_argument('--out', required=True, help='new directory outside the game (must not exist)')
+        if action == 'audio':
+            s.add_argument('--track', type=int, default=0, help='sample index from explore inspect')
+            s.add_argument('--seconds', type=float, default=30, help='decode from start, at most 120 seconds')
+            s.add_argument('--play', action='store_true', help='play exported WAV; Ctrl+C stops playback')
     return p
 
 
@@ -61,6 +65,19 @@ def main(argv=None):
                             next_offset=a.offset + a.limit if a.offset + a.limit < len(rows) else None)
         elif a.action == 'inspect':
             data = b.inspect(a.path, a.member)
+        elif a.action == 'glb':
+            data = b.export_glb(a.path, a.member, a.out)
+        elif a.action == 'audio':
+            import audiobank
+            data = audiobank.export(b, a.path, a.member, a.out, a.track, a.seconds)
+            if a.play:
+                import time
+                from pathlib import Path
+                player = audiobank.Player()
+                try:
+                    player.play((Path(data['output'])/'sample.wav').read_bytes())
+                    time.sleep(data['decoded_seconds'])
+                finally: player.stop()
         else:
             data = b.export(a.path, a.member, a.out, preview=a.action == 'preview')
     except ModError as e:

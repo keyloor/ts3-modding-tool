@@ -1,4 +1,4 @@
-"""Toy Story 3 Modding Tool, characters: from a rigged FBX (or an OBJ) to Toy Story 3, in one command.
+"""Character conversion: rigged FBX/GLB/glTF, or automatically rigged OBJ, to Toy Story 3.
 
   python kit.py characters [--game <dir>]
       the characters that can be replaced, and where the game is
@@ -39,12 +39,14 @@ sys.dont_write_bytecode = True                         # loading map.py would le
 import paths  # noqa: F401  (puts the shared tools on sys.path)
 import modfile
 import modstore
+import gamepaths as GP
 from about import CREDIT
 import automap as AM
 import objlib
+import identity as ID
 import install as INS
 import convert as CV
-CV.Scene = objlib.open_scene                           # the converter reads OBJ models too (given a skeleton)
+CV.Scene = objlib.open_scene                           # FBX/OBJ/glTF share the converter's existing Scene contract
 import ts3model as T
 import render as RD
 from octlib import Oct
@@ -94,8 +96,8 @@ MODEL_HELP = {
     'no_head': 'Nothing above the chest but the arms: the skeleton needs a neck and a head bone above the chest.',
     'bad_choice': 'A bone chosen in the Bones tab (%(bone)s, for %(role)s) is not in the model or moves no part of it: '
                   'pick another one there, or "Back to automatic".',
-    'bad_file': 'This file can\'t be read. Export a binary FBX (FBX 2014 or later; ASCII FBX is not read) or an OBJ '
-                'with its faces.'}
+    'bad_file': 'This file can\'t be read. Re-export a supported FBX, OBJ, or glTF 2.0 model. '
+                'For GLB/glTF, remove unsupported extensions or morph targets; see docs/CLI.md.'}
 
 
 def model_error(e):
@@ -119,34 +121,14 @@ class Parser(argparse.ArgumentParser):
 
 # ------------------------------------------------------------------------------------------- the game
 def steam_libraries():
-    roots = []
-    try:
-        import winreg
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Valve\Steam') as k:
-            roots.append(winreg.QueryValueEx(k, 'SteamPath')[0])
-    except Exception:
-        pass
-    roots += [r'C:\Program Files (x86)\Steam', r'C:\Program Files\Steam']
-    libs = []
-    for r in roots:
-        libs.append(r)
-        vdf = os.path.join(r, 'steamapps', 'libraryfolders.vdf')
-        if os.path.isfile(vdf):
-            for line in open(vdf, encoding='utf-8', errors='replace'):
-                parts = line.strip().split('"')
-                if len(parts) >= 4 and parts[1] == 'path':
-                    libs.append(parts[3].replace('\\\\', '\\'))
-    return libs
+    return GP.steam_libraries()
 
 
 def find_game(given=None):
-    cands = [given] if given else [os.path.join(lib, 'steamapps', 'common', GAME_DIR) for lib in steam_libraries()]
-    for c in cands:
-        if c and os.path.isdir(os.path.join(c, 'assets', 'characters')):
-            return os.path.normpath(c)
-    if given:
-        raise KitError('%s is not the game folder (it has no assets/characters)' % given)
-    raise KitError('the game was not found in Steam\'s folders: give it with --game "<folder of %s>"' % GAME_DIR)
+    try:
+        return GP.find_game(given)
+    except GP.GameNotFound as e:
+        raise KitError(str(e), 'game_not_found') from e
 
 
 def archive(character):
@@ -371,7 +353,7 @@ def diagnose(work, proj, tables=None, info=None):
                 'To reach the character\'s shoulders and hips the torso is made %(pct)s%% as %(dim)s as the model\'s.',
                 {'pct': p, 'dim': 'wide' if ax == 0 else 'tall'},
                 [{'label': 'torso_own', 'set': {'torso': keep}}], 'adjust')
-    st = strain(work)
+    st = {} if info.get('identity') else strain(work)
     for part, prefixes in LIMIT_PARTS.items():
         lim = float(lim_now.get(part, 1.25))
         hit = {n: k for n, k in st.items() if n.startswith(prefixes) and (k >= lim - 0.005 or k <= 1 / lim + 0.005)}
@@ -450,7 +432,8 @@ def adjust_info(work, proj):
                 eyes={s: dict(eye=e, top=t, bottom=b) for s, (e, t, b) in info['eyes'].items()},
                 face=info['face'], weights=tables['WEIGHTS'], model_bones=sorted(sk.skinned),
                 game_bones=[b['name'] for b in bones3], joints=dict(info['body'], moved=list(info['moved'])),
-                stretch=strain(work))
+                stretch={} if info.get('identity') else strain(work),
+                fit_mode='identity' if info.get('identity') else 'normal', identity=info.get('identity'))
 
 
 def adjust(a):
@@ -620,10 +603,28 @@ def prepare(work, proj, force=False, log=print):
         raise KitError('the first make needs --character and --fbx')
     if not os.path.isfile(proj['fbx']):
         raise KitError('no model at %s' % proj['fbx'])
-    if not proj['fbx'].lower().endswith(('.fbx', '.obj')):
-        raise KitError('the model must be an .fbx or an .obj file')
+    if not proj['fbx'].lower().endswith(('.fbx', '.obj', '.glb', '.gltf')):
+        raise KitError('the model must be an .fbx, .obj, .glb or .gltf file')
+    try:
+        ID.mode(proj)
+    except ID.IdentityError as e:
+        raise KitError(str(e), 'invalid_model') from e
     proj['game'] = find_game(proj.get('game'))
-    if not proj.get('textures'):
+    if proj['fbx'].lower().endswith(('.glb', '.gltf')):
+        try:
+            source = objlib.open_scene(proj['fbx'])
+            info = source.summary()
+            if not info['joints'] or info['static_meshes']:
+                raise KitError('glTF character conversion needs every mesh skinned to a skeleton. '
+                               'Rig static pieces in Blender or use OBJ for automatic rigging.', 'invalid_model')
+            if not proj.get('textures') or proj.get('textures') == proj.get('gltf_textures'):
+                texture_out = modfile.inside(os.path.abspath(work), 'model-textures/' + source.fingerprint)
+                proj['textures'] = source.extract_textures(texture_out)
+                proj['gltf_textures'] = proj['textures']
+            for warning in info['warnings']: log('glTF: ' + warning)
+        except modfile.ModError as e:
+            raise KitError(str(e), e.code) from e
+    elif not proj.get('textures'):
         proj['textures'] = guess_textures(proj['fbx'])
     os.makedirs(work, exist_ok=True)
     save_project(work, proj)
@@ -640,10 +641,15 @@ def detect(work, proj, force=False, log=print):
     game_dir = prepare(work, proj, force, log)
     objlib.use_joints(proj.get('joints'))
     try:
-        tables, info = AM.automap(proj['fbx'], game_dir, proj['character'], log, proj.get('bones'),
-                                  proj.get('adjust'))
+        if ID.mode(proj):
+            tables, info = ID.detect(proj, game_dir, log)
+        else:
+            tables, info = AM.automap(proj['fbx'], game_dir, proj['character'], log, proj.get('bones'),
+                                      proj.get('adjust'))
     except AM.ModelError as e:
         raise model_error(e) from None
+    except ID.IdentityError as e:
+        raise KitError(str(e), 'invalid_model') from e
     AM.add_textures(tables, proj['fbx'], proj['textures'], log, proj.get('materials'))
     return tables, info
 
@@ -652,6 +658,7 @@ def build(work, proj, remap=False, force=False):
     """map (unless the project has one and remap is False), convert, check, previews; everything printed also goes to
     report.txt. Returns the materials to check."""
     game_dir = prepare(work, proj, force)
+    original_fit = ID.mode(proj)
     c, fbx, tex = proj['character'], proj['fbx'], proj['textures']
     objlib.use_game(game_dir, c)
     objlib.use_joints(proj.get('joints'))               # an OBJ's joints the user moved by hand
@@ -662,20 +669,39 @@ def build(work, proj, remap=False, force=False):
         mpath = os.path.join(work, 'map.py')
         check = []
         if os.path.isfile(mpath) and not remap:
+            try:
+                ID.check_map(mpath, original_fit)
+            except ID.IdentityError as e:
+                raise KitError(str(e), 'map_mode_mismatch') from e
             print('\n== map: using your map.py as it is (--remap writes a new one)')
         else:
             print('\n== map: bones')
             try:
-                tables, info = AM.automap(fbx, game_dir, c, print, proj.get('bones'), proj.get('adjust'))
+                if original_fit:
+                    tables, info = ID.detect(proj, game_dir)
+                else:
+                    tables, info = AM.automap(fbx, game_dir, c, print, proj.get('bones'), proj.get('adjust'))
             except AM.ModelError as e:
                 raise model_error(e) from None
-            AM.report(info)
+            except ID.IdentityError as e:
+                raise KitError(str(e), 'invalid_model') from e
+            if not original_fit: AM.report(info)
             print('\n== map: textures')
             check = AM.add_textures(tables, fbx, tex, print, proj.get('materials'))
             AM.write_map(tables, info, mpath, fbx, c)
             print('wrote', mpath)
 
         print('\n== convert')
+        if original_fit:
+            # Validate source weights and any advanced-map edits before moving a previous successful output.
+            source, options = objlib.open_scene(fbx), CV.load_map(mpath)
+            if getattr(options, 'IDENTITY', None) is not True:
+                raise KitError('Map fitting mode differs from the project. Use --remap.', 'map_mode_mismatch')
+            _, bones, *_ = T.load(os.path.join(game_dir, c + '.oct'))
+            try:
+                CV.fit(source, CV.merge_meshes(source, options, print), bones, options, print)
+            except ID.IdentityError as e:
+                raise KitError(str(e), 'invalid_model') from e
         out = os.path.join(work, 'out', c)
         prev = os.path.join(work, 'out_prev', c)         # the conversion before this one, for comparing
         if os.path.isdir(out):
@@ -683,7 +709,7 @@ def build(work, proj, remap=False, force=False):
                 shutil.rmtree(prev)
             os.makedirs(os.path.dirname(prev), exist_ok=True)
             shutil.move(out, prev)
-        CV.run(game_dir, c, fbx, tex or work, mpath, out)
+        CV.run(game_dir, c, fbx, tex or work, mpath, out, expected_identity=original_fit)
         b = open(os.path.join(out, c + '.oct'), 'rb').read()
         if Oct.parse(b).to_bytes() != b:
             raise KitError('the converted %s.oct does not read back the same: do not install it' % c)
@@ -702,6 +728,18 @@ def build(work, proj, remap=False, force=False):
     return check
 
 
+def model_info(a):
+    """Read GLB/glTF source properties without a game, conversion or extraction."""
+    if not a.model.lower().endswith(('.glb', '.gltf')):
+        raise KitError('model-info currently accepts GLB/glTF sources.', 'unsupported_format')
+    try:
+        result = objlib.open_scene(a.model).summary()
+    except modfile.ModError as e:
+        raise KitError(str(e), e.code) from e
+    if not a.json: print(json.dumps(result, ensure_ascii=False, indent=2))
+    return result
+
+
 def make(a):
     work = os.path.abspath(a.project)
     proj = load_project(work)
@@ -709,9 +747,14 @@ def make(a):
         v = getattr(a, k)
         if v:
             proj[k] = os.path.abspath(v) if k != 'character' else v
+    if a.textures:
+        proj.pop('gltf_textures', None)                 # explicitly selecting the cache itself permits user edits
+    if getattr(a, 'fit', None):
+        proj['fit_mode'] = a.fit
     check = build(work, proj, a.remap, a.force)
     c = proj['character']
-    data = dict(project=work, character=c, map=os.path.join(work, 'map.py'), out=os.path.join(work, 'out', c),
+    data = dict(project=work, character=c, fit_mode=proj.get('fit_mode', 'normal'),
+                map=os.path.join(work, 'map.py'), out=os.path.join(work, 'out', c),
                 report=os.path.join(work, 'report.txt'), check_materials=check, installed=None,
                 previews=[os.path.join(work, 'previews', n) for n in ('body.png', 'face.png', 'compare.png')
                           if os.path.isfile(os.path.join(work, 'previews', n))])
@@ -943,6 +986,14 @@ def to_json(o):
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if next((a for a in argv if a != '--json'), None) == 'meshes':
+        import meshcli
+        argv.remove('meshes')
+        return meshcli.main(argv)
+    if next((a for a in argv if a != '--json'), None) == 'textures':
+        import texturecli
+        argv.remove('textures')
+        return texturecli.main(argv)
     if next((a for a in argv if a != '--json'), None) == 'explore':
         import explorercli
         argv.remove('explore')
@@ -956,10 +1007,15 @@ def main(argv=None):
     sub = p.add_subparsers(dest='cmd', required=True)
     s = sub.add_parser('characters'); s.add_argument('--game'); s.set_defaults(fn=list_characters)
     s = sub.add_parser('doctor'); s.add_argument('--game'); s.set_defaults(fn=doctor)
+    s = sub.add_parser('model-info', help='inspect a GLB/glTF source without converting or extracting')
+    s.add_argument('model'); s.set_defaults(fn=model_info)
     sub.add_parser('mods', help='non-interactive mod manager; mods --help for commands')
     sub.add_parser('explore', help='read-only game explorer; explore --help for commands')
+    sub.add_parser('textures', help='PNG texture workspaces and mod packs; textures --help')
+    sub.add_parser('meshes', help='rigid mesh workspaces and packs; meshes --help')
     s = sub.add_parser('make')
-    s.add_argument('project'); s.add_argument('--character'); s.add_argument('--fbx'); s.add_argument('--textures')
+    s.add_argument('project'); s.add_argument('--character'); s.add_argument('--fbx', '--model', dest='fbx'); s.add_argument('--textures')
+    s.add_argument('--fit', choices=('normal', 'identity'), help='normal character fitting, or verified original-skeleton reinsertion (GLB/glTF)')
     s.add_argument('--game'); s.add_argument('--remap', action='store_true'); s.add_argument('--install', action='store_true')
     s.add_argument('--force', action='store_true'); s.set_defaults(fn=make)
     s = sub.add_parser('adjust', help='show / change the fine-tuning (kit_project.json adjust), then make --remap')

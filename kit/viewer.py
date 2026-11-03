@@ -21,6 +21,7 @@ from PIL import Image                                  # ImageTk only when drawi
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paths  # noqa: F401  (puts the shared tools on sys.path)
+from modfile import ModError
 from octlib import Oct
 import ts3model as T
 import render as RD
@@ -159,7 +160,7 @@ PIECES = ('SubGeometryLit', 'SubGeometry', 'SubGeometryAmbient')
 
 
 def _texture(f, texs, material, limit, cache):
-    """a material's diffuse map as an RGB array no bigger than limit, or None"""
+    """A diffuse map for preview, or original resolution when limit is None (GLB export)."""
     found = {}
     for j in range(material, f.end_of(material) - 2):
         if f.nm(f.recs[j].name) == 'TextureEntry':
@@ -178,14 +179,19 @@ def _texture(f, texs, material, limit, cache):
         if data is not None:
             try:
                 with Image.open(io.BytesIO(bytes(f.recs[data].items()[1]))) as im:
+                    if limit is None and max(im.size) > 8192:
+                        raise ModError('Diffuse image exceeds the 8192 pixel GLB export limit.', 'size_limit')
                     im = im.convert('RGBA')
-                    im.thumbnail((limit, limit))
+                    if limit is not None:
+                        im.thumbnail((limit, limit))
                     rgba = np.asarray(im)
                     # alpha as a cut-out (trees, fences): many clear and many solid pixels. Others hold other things
                     # in it (gloss...), and showing those as holes would be wrong
                     a = rgba[:, :, 3]
                     cut = (a < 32).mean() > 0.1 and (a > 224).mean() > 0.2
                     cache[ref] = rgba if cut else rgba[:, :, :3]
+            except ModError:
+                raise
             except (OSError, ValueError):
                 pass
     return cache[ref]
@@ -200,7 +206,7 @@ class GameModel(Character):
     textures=False skips decoding them (just the numbers, for 'inspect'). bounds() frames where most of the model is
     (a level's sky and clouds are 20 times its size); full_bounds() is all of it."""
 
-    def __init__(self, data, read, textures=True):
+    def __init__(self, data, read, textures=True, provenance=False):
         f = Oct.parse(data)
         for need in ('SceneTreeNodePool', 'VertexStreamPool', 'IndexStreamPool', 'VertexBufferPool', 'IndexBufferPool'):
             if not f.find(need):
@@ -213,6 +219,7 @@ class GameModel(Character):
                                   id=T.field(f, i, 'BoneID', [k])[0], parent=T.field(f, i, 'ParentNodeReferences', [-1])[0],
                                   pivot=T.field(f, i, 'PivotPoint', [0.0, 0.0, 0.0])))
         self.names = [b['name'] for b in bones] or ['Root']
+        self.bone_ids = [int(b['id']) for b in bones]
         self.index = {n: k for k, n in enumerate(self.names)}
         self.pivots = np.array([b['pivot'] for b in bones], float).reshape(-1, 3) if bones else np.zeros((1, 3))
         bynode = {b['node']: k for k, b in enumerate(bones)}
@@ -270,8 +277,8 @@ class GameModel(Character):
         # first what the game draws normally; a file with nothing else (foliage with only positions, hidden
         # placeholders) shows those instead of no view at all
         for bare in (False, True):
-            P, N, UV, BI, BW, need = [], [], [], [], [], []
-            groups, blocks = {}, {}
+            P, N, UV, BI, BW, need, skin = [], [], [], [], [], [], []
+            groups, blocks, origins, piece_sources = {}, {}, {}, {}
             n0 = self.pieces = self.skipped = 0
             for k, i in enumerate(nodes):
                 if T.field(f, i, 'Type', [''])[0] not in PIECES:
@@ -310,13 +317,20 @@ class GameModel(Character):
                         else:
                             pos = pos @ m[:3, :3] + m[3, :3]
                             if nrm is not None:
-                                nrm = nrm @ m[:3, :3]
+                                try:
+                                    nrm = nrm @ np.linalg.inv(m[:3, :3]).T
+                                except np.linalg.LinAlgError:
+                                    nrm = None      # collapsed transform: rebuild from the surviving faces
                             bi, bw = np.zeros((n, 4), int), np.zeros((n, 4), np.float32)
                             bw[:, 0] = 1
                         P.append(pos.astype(np.float32)); UV.append(uv); BI.append(bi); BW.append(bw)
+                        skin.append(np.full(n, skinned, dtype=bool))
                         need.append(np.full(n, nrm is None))
                         N.append(nrm.astype(np.float32) if nrm is not None else np.zeros((n, 3), np.float32))
                         blocks[key] = (n0, n)
+                        if provenance:
+                            origins[key] = dict(start=n0, count=n, matrix=m, have=have, nodes=[],
+                                                skinned=skinned, bare=bare)
                         n0 += n
                     base, count = blocks[key]
                     tri = np.frombuffer(ib, {1: 'u1', 2: '<u2', 4: '<u4'}[width], st['len'] - st['len'] % 3, st['off']).astype(np.int64)
@@ -329,6 +343,10 @@ class GameModel(Character):
                     self.skipped += 1
                     continue
                 groups.setdefault(T.field(f, i, 'MaterialReference', [-1])[0], []).append(tri + base)
+                if provenance:
+                    origins[key]['nodes'].append(k)
+                    piece_sources[k] = dict(tri=tri+base, material=T.field(f,i,'MaterialReference',[-1])[0],
+                                            name=T.field(f,i,'NodeName',['piece%d'%k])[0])
                 self.pieces += 1
             if groups:
                 break
@@ -337,8 +355,19 @@ class GameModel(Character):
         self.P0, self.N0, self.UV = np.concatenate(P), np.concatenate(N), np.concatenate(UV)
         self.BI, self.BW = np.concatenate(BI), np.concatenate(BW)
         self.groups = {m: np.concatenate(t).astype(np.uint32).ravel() for m, t in groups.items()}
+        # Failed pieces and unused buffer vertices must not change bounds, statistics or framing.
+        used = np.unique(np.concatenate(list(self.groups.values())))
+        lookup = np.full(len(self.P0), -1, np.int64)
+        lookup[used] = np.arange(len(used))
+        self.groups = {m: lookup[t].astype(np.uint32) for m, t in self.groups.items()}
+        self.P0, self.N0, self.UV = self.P0[used], self.N0[used], self.UV[used]
+        self.BI, self.BW = self.BI[used], self.BW[used]
+        self.skin_mask = np.concatenate(skin)[used]
+        if provenance:
+            self.source_vertices, self.source_blocks = used, list(origins.values())
+            self.source_pieces = {k:dict(info,tri=lookup[info['tri']]) for k,info in piece_sources.items()}
         self.triangles = sum(len(t) for t in self.groups.values()) // 3
-        missing = np.concatenate(need)                   # pieces with no normals: from their triangles
+        missing = np.concatenate(need)[used]             # pieces with no normals: from their triangles
         length = np.linalg.norm(self.N0, axis=1)
         if missing.any() or (length < 1e-6).any():
             all_tri = np.concatenate(list(self.groups.values())).astype(np.int64).reshape(-1, 3)
@@ -498,9 +527,9 @@ class SourceFBX:
               'elbow': 'shoulder', 'hand': 'elbow', 'hip': 'pelvis', 'knee': 'hip', 'foot': 'knee', 'toe': 'foot'}
 
     def __init__(self, path, body, joints, texdir=None, materials=None):
-        import fbxlib
+        from objlib import open_scene
         import convert as CV
-        scene = fbxlib.Scene(path)
+        scene = open_scene(path)
         A = scene.to_yup()
 
         class Keep:                                           # every skinned mesh, nothing left out

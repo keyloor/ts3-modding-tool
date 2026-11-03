@@ -6,7 +6,97 @@ are `docs/GUIA_MANUAL.md` (manual, every map table explained) and the skill in `
 
 ## What you are doing
 
+Audio inspection: `explore inspect PATH --game GAME --json` lists `sounds[].index` from `.assets.bank`.
+`explore audio PATH [--member NAME] --track INDEX --seconds 30 --out NEW_DIRECTORY --game GAME --json`
+exports `sample.wav` (PCM16 mono/stereo) plus `audio.json` without changing the game. Maximum 120 seconds;
+read `truncated` and `decoded_seconds`. Add `--play` only when listening is wanted; Ctrl+C stops playback.
+Compressed samples require the selected game's existing Windows FMOD 2.03 DLL and matching architecture;
+it is not redistributed. Event-only banks return no samples: use their `.assets.bank` companion.
+These are sample excerpts, not simulated events/spatial mixing or audio replacement packs.
+
+For players, prefer the separate Toy Story 3 Mod Loader. Its `TS3 Mod Loader CLI.exe mods ...` and
+`kit/loadercli.py mods ...` use the same protocol, registry and backups as this Tool. Never migrate or clear
+the registry when switching apps. The Loader has no character/texture/explorer commands; use the Tool for those.
+
+Texture editing: `kit/cli.py textures dump ARCHIVE [--member OCT] --out NEW_WORKSPACE --game GAME --json`
+exports individual PNGs and `index.json`. Edit only the requested PNGs at their original size, then
+`textures build WORKSPACE --out NEW_PACK --id ID --name NAME --author AUTHOR --game GAME --json`.
+Use the user's mod name/credit and keep the ID for later versions. Building does not install; use the existing
+manager's plan/install workflow within the user's authorized scope. Read `data.errors` and the workspace's
+`editable` flags. A changed source requires a fresh export. Keep exported game images local; share only the
+resulting mod pack when the user has authorized publication and has rights to any included modded source.
+
+For repeated textures, `textures dump ARCHIVE [ARCHIVE ...] --shared --out NEW_WORKSPACE` exports one PNG
+for each byte-identical DDS across the selected archives. Editing that PNG updates all matching occurrences
+listed in index.json; this scope is explicit and does not search unselected archives. Without `--shared`,
+each occurrence remains independent. `--member` requires a single archive. Both schema-1 and schema-2
+workspaces build with the same command; reports distinguish PNG images, texture occurrences and archives.
+See `docs/CLI.md` for formats, limits and shared-archive priority behavior.
+
+Shared targets: review/install with `mods plan/install PACKAGE --layer` (combine with `--replace` for a
+same-ID update). `mods order` reads the installed order; `mods order ID... --dry-run` reviews all IDs once,
+lowest to highest priority, and `mods order ID... --expect TICKET` applies it. Last wins on matching ZIP
+members or whole files. Distinct patched members combine; a matching OCT is replaced whole, without
+per-texture merging. New mods go last; replacements keep position; removal rebuilds remaining layers.
+Packages/JSON protocol stay schema 1. Installed registries migrate to schema 2 on confirmed layered changes,
+keeping originals and layer payload snapshots; use current Tool/Loader versions. Never reset/migrate manually.
+Inspect `shared`, `order`, and `files` before applying. External edits, dependencies, declared conflicts,
+backup validation and recovery remain enforced. Keep plans bound to tickets; hidden-layer changes invalidate them.
+
 For read-only game exploration, use `kit/cli.py explore list --game GAME --query TEXT --kind oct --json`.
+For an export to Blender, use `explore glb PATH [--member OCT] --out NEW_DIRECTORY --game GAME --json`.
+Read `report.json`/`data.warnings`: the GLB exports supported geometry, UVs, diffuse maps, pivot-based rest
+skeleton and skin weights, while keeping rigid pieces outside the skin. Original bone rotations/roll,
+game shaders and animations are not reconstructed. Rigged character GLB/glTF files can use normal fitting
+or explicit original-skeleton reinsertion (`--fit identity`). Bounded rigid object editing uses a separate workspace below.
+Keep game exports local; do not publish them or treat export/validator success as in-game verification.
+
+GLB/glTF input: `model-info FILE --json` validates/inspects the selected scene without a game or extraction.
+Use `make PROJECT --model FILE --character CHARACTER --game GAME --json` to convert a rigged humanoid with
+every mesh skinned. Normal fitting is applied; do not describe it as an identity roundtrip. Static/mixed
+meshes are refused before conversion. Textures are prepared under project/model-textures/<content-hash>;
+source changes refresh generated textures, and edited generated files are preserved/refused until their
+folder is explicitly selected with --textures. Read warnings/diagnosis. Only local resources inside the
+model directory or base64 are supported; see docs/CLI.md for extension, skin, image and accessor limits.
+
+For an edited export of the same TS3 character, use `make PROJECT --model FILE --character CHARACTER
+--fit identity --game GAME --json` (window: Preserve original skeleton). It verifies unique BoneIDs or exact
+names, rest pivots within 0.00001 m, hierarchy and at most four distinct skin influences per vertex.
+Keep the rest pose/armature; new or moved bones are refused. It preserves edited geometry at the game's
+float32/float16/byte-weight precision while retaining the original target skeleton/animation network.
+Saved proportion/joint/bone adjustments are inactive; materials/textures are still rebuilt. Do not call
+this a byte-identical archive or full material roundtrip. `fit_mode` persists; default/`--fit normal` uses
+the existing humanoid fitting. Switching mode with an existing map requires `--remap`; preserve hand edits
+first. Read `make.data.fit_mode`, previews and `adjust --info`'s verification report. See docs/CLI.md.
+
+Rigid objects: `meshes dump ARCHIVE --member OCT --out NEW_WORKSPACE --game GAME --json` creates an editable
+GLB plus mesh.json. `explore glb` exports do not contain its correspondence. Edit positions/normals/first UVs
+without changing triangles or dropping `_TS3_VERTEX` (Blender export: Mesh > Attributes). Build with
+`meshes build WORKSPACE [--model EDITED_GLB] --out NEW_PACK --id ID --name NAME --author AUTHOR --game GAME
+--json`. The default model is workspace/model.glb. Keep ID stable; install via the existing manager when
+authorized. Retains materials/textures, indices, unknown data and collisions; **collisions do not follow
+shape edits**. Bounds expand; shared/hidden buffer conflicts, changed topology and missing IDs are refused.
+Only rigid visible geometry, one OCT/ZIP, <=250000 vertices; no arbitrary new objects/levels or collision
+editing. Read report.json/README and docs/CLI.md. Treat editor and in-game checks as still separate.
+
+To add/remove rigid geometry explicitly, use `meshes build WORKSPACE --model FILE --topology replace`
+with the usual output/ID/name/author/game arguments. Select one visible lit rigid piece; compound sources
+require an explicit node. Replacement must be unskinned and use one material. No `_TS3_VERTEX` is needed. This appends separate
+buffers/streams and switches only that piece's references, preserving original data, hidden aliases,
+material/texture pools and collisions. Source attributes must be supported (no unknown per-vertex values
+or variable padding). Limits 65535 vertices/1000000 triangles and original index width. Bounding AABB,
+sphere and OBB extents expand conservatively. CLI/GUI default remains preserve. Read before/after counts
+and use the normal manager review. This does not add source pieces/materials or update collisions/levels.
+
+Compound rigid sources now support explicit selection: `meshes pieces ARCHIVE --member OCT --game GAME
+--json` (or `meshes pieces WORKSPACE`). Select its `node`, not the displayed row number/name. Use
+`meshes dump ARCHIVE --member OCT --piece NODE --out NEW_WORKSPACE` for a piece-only GLB, then build with
+`--topology replace`; the workspace stores the target. Or pass `--piece NODE` on a whole-workspace build.
+The replacement file must hold only the selected piece. Other visible/hidden/shared pieces, original
+materials and collisions stay. Builds verify unselected visible geometry/UV/materials. `supported_layout`
+is preliminary; padding/input checks still run. No selection on a compound source is `ambiguous_target`.
+One selected piece per build, with original source-wide limits. See docs/CLI.md for JSON counts and UI flow.
+
 Follow `data.next_offset` for more results. `explore inspect PATH --member NAME` describes an asset;
 `explore preview PATH --member NAME --out NEW_DIRECTORY` writes PNG previews;
 `explore extract PATH [--member NAME] --out NEW_DIRECTORY` extracts one asset or a whole ZIP.
@@ -30,6 +120,11 @@ within the user's authorized scope. `mods verify ID` checks installed files and 
 `mods remove ID --dry-run` prepares removal. Tickets are bound to the operation and game
 folder. A failed verification returns exit code 4 and includes its report in `data`.
 `mods updates` says which installed mods have a newer GitHub release (`url` = its page); it never downloads.
+For a newer or rebuilt package with the same ID, use `mods plan PACKAGE --replace` and
+`mods install PACKAGE --replace --expect TICKET` with the same explicit `--game` and `--json`.
+Review `replaces`, `restores` and all `files`. This preserves the first installation's backups, restores
+retired targets and checks dependent versions. A failed replacement recovers the previously installed mod.
+Do not uninstall first to bypass external-change, damaged-backup or dependency failures.
 Do not treat successful checks as proof of appearance or behavior in the game. The
 character-conversion workflow below applies when creating or fixing a model, not merely
 installing a package.

@@ -30,9 +30,11 @@ TEXT = {
         by='de %s  ·  versión %s', game_found='Juego: %s', game_missing='No encontré Toy Story 3 Complete Edition.',
         game_looking='Buscando el juego…', change='Cambiar…', find_game='Buscar el juego…',
         workspace='Carpeta de trabajo: %s',
-        mod_chars='Personajes', mod_chars_desc='Pon tu propio modelo (FBX u OBJ) en lugar de Woody, Buzz o Jessie.',
-        mod_music='Música y sonidos', mod_music_desc='Cambia canciones y sonidos del juego.',
-        mod_tex='Texturas', mod_tex_desc='Cambia texturas de personajes y niveles.', soon='Próximamente',
+        mod_chars='Personajes', mod_chars_desc='Pon tu propio modelo (FBX, OBJ o GLB) en lugar de Woody, Buzz o Jessie.',
+        mod_music='Música y sonidos', mod_music_desc='Escucha muestras y guarda fragmentos WAV. Edición de bancos próximamente.',
+        sounds_open='Escuchar sonidos',
+        mod_tex='Texturas', mod_tex_desc='Exporta PNG, edítalos y crea un pack para el gestor.', soon='Próximamente',
+        textures_open='Editar texturas',
         mods_title='Mods instalados', mods_desc='Instala paquetes, revisa lo que cambian y quítalos con su copia de seguridad.',
         explorer_title='Explorador del juego', explorer_desc='Busca archivos, mira modelos y texturas, y extrae contenido.',
         explorer_open='Explorar archivos',
@@ -45,9 +47,14 @@ TEXT = {
         mods_select='Selecciona un mod para ver su descripción y los archivos que cambia.',
         mods_files='Archivos del juego', mods_author='Autor', mods_unknown='Sin indicar',
         mods_review='Revisar instalación', mods_confirm='Instalar este mod',
+        mods_replace_review='Revisar reemplazo', mods_replace_confirm='Reemplazar este mod',
+        mods_replace_note='Reemplaza la versión %s por la %s. Se conservarán las copias anteriores a la primera instalación.',
+        mods_replaced='«%s» se ha reemplazado.', mods_restore_file='Restaurar estado anterior: %s',
+        mods_dependent_version='El reemplazo no cumple la versión que necesita este mod: %s',
+        mods_cycle='El reemplazo crearía un ciclo de dependencias que impediría quitar los mods: %s',
         mods_review_note='Cierra Toy Story 3 antes de instalar. Se guardará una copia de los archivos que se reemplacen.',
         mods_destination='Juego de destino: %s', mods_size='%d archivos · %.1f MiB',
-        mods_remove_confirm='¿Quitar «%s»?\n\nSe restaurarán los archivos anteriores a su instalación. Cierra el juego primero.',
+        mods_remove_confirm='¿Quitar «%s»?\n\nSe reconstruirán los mods restantes y se restaurarán los destinos sin capas. Cierra el juego primero.',
         mods_installed='«%s» está instalado.', mods_removed='«%s» se ha quitado.',
         mods_pending='Hay una operación interrumpida. Pulsa «Recuperar operación» antes de continuar.',
         mods_recovered='Recuperación terminada. Ya puedes gestionar tus mods.',
@@ -73,7 +80,10 @@ TEXT = {
         bad_name='Usa letras, números, espacios o guiones.', back='← Inicio', open_folder='Abrir carpeta',
         open_map='Abrir map.py', advanced='Modo avanzado: usar mi map.py tal como está',
         step1='1 · Personaje que reemplazas', other='Otro:', step2='2 · Tu modelo',
-        pick_model='Elegir modelo (FBX u OBJ)…', no_model='Ningún modelo elegido.', textures='Texturas: %s',
+        pick_model='Elegir modelo…', no_model='Ningún modelo elegido.', textures='Texturas: %s',
+        gltf_note='GLB/glTF: todas las mallas deben tener rig. Elige ajuste normal o conservar el esqueleto original en el paso 3.',
+        fit_normal='Ajustar al personaje', fit_identity='Conservar esqueleto original', verified='Verificado',
+        identity_note='Para un GLB/glTF del mismo personaje: verifica huesos y conserva la geometría editada. Los ajustes de proporciones y articulaciones quedan inactivos.',
         no_textures='ninguna (colores lisos)', change_textures='Cambiar texturas…',
         obj_note='OBJ: no trae esqueleto; la herramienta le pone uno (humanoides en pose T o A).',
         step3='3 · Convertir y revisar', convert='Convertir', analyze='Revisar huesos y materiales',
@@ -223,8 +233,8 @@ TEXT = {
             bad_choice='Un hueso elegido en la pestaña Huesos («%(bone)s», para %(role)s) no está en el modelo o no '
                        'mueve ninguna parte.\n\nCómo arreglarlo: elige otro en la pestaña Huesos, o «Volver al '
                        'automático».',
-            bad_file='Este archivo no se puede leer.\n\nCómo arreglarlo: exporta un FBX binario (FBX 2014 o '
-                     'posterior; el FBX en texto ASCII no se lee) o un OBJ con sus caras.'),
+            bad_file='Este archivo no se puede leer.\n\nCómo arreglarlo: vuelve a exportar un FBX, OBJ o glTF 2.0 '
+                     'compatible. Para GLB/glTF, quita extensiones no admitidas o morph targets; consulta docs/CLI.md.'),
         model_footer='\n\nCuando lo arregles, vuelve a exportar el modelo y pulsa «Convertir». La guía '
                      '(docs\\GUIA_MANUAL.md, sección 1) explica cómo preparar el modelo.\n\nDetalle técnico: %s',
         preview_empty='Aún no hay vista previa: pulsa «Convertir».',
@@ -256,9 +266,11 @@ TEXT = {
         by='by %s  ·  version %s', game_found='Game: %s', game_missing='Toy Story 3 Complete Edition was not found.',
         game_looking='Looking for the game…', change='Change…', find_game='Find the game…',
         workspace='Workspace folder: %s',
-        mod_chars='Characters', mod_chars_desc='Put your own model (FBX or OBJ) in place of Woody, Buzz or Jessie.',
-        mod_music='Music and sounds', mod_music_desc="Change the game's songs and sounds.",
-        mod_tex='Textures', mod_tex_desc='Change textures of characters and levels.', soon='Coming soon',
+        mod_chars='Characters', mod_chars_desc='Put your own model (FBX, OBJ or GLB) in place of Woody, Buzz or Jessie.',
+        mod_music='Music and sounds', mod_music_desc='Listen to samples and save WAV excerpts. Bank editing is planned.',
+        sounds_open='Listen to sounds',
+        mod_tex='Textures', mod_tex_desc='Export PNGs, edit them and build a pack for the mod manager.', soon='Coming soon',
+        textures_open='Edit textures',
         mods_title='Installed mods', mods_desc='Install packages, review their changes and remove them using backups.',
         explorer_title='Game explorer', explorer_desc='Find files, preview models and textures, and extract assets.',
         explorer_open='Browse files',
@@ -271,9 +283,14 @@ TEXT = {
         mods_select='Select a mod to see its description and the files it changes.',
         mods_files='Game files', mods_author='Author', mods_unknown='Not provided',
         mods_review='Review installation', mods_confirm='Install this mod',
+        mods_replace_review='Review replacement', mods_replace_confirm='Replace this mod',
+        mods_replace_note='Replaces version %s with %s. Backups from before the first installation will be preserved.',
+        mods_replaced='"%s" was replaced.', mods_restore_file='Restore previous state: %s',
+        mods_dependent_version='The replacement does not meet this mod’s version requirement: %s',
+        mods_cycle='The replacement would create a dependency cycle preventing removal: %s',
         mods_review_note='Close Toy Story 3 before installing. A backup of replaced files will be kept.',
         mods_destination='Target game: %s', mods_size='%d files · %.1f MiB',
-        mods_remove_confirm='Remove "%s"?\n\nFiles will return to their state before installation. Close the game first.',
+        mods_remove_confirm='Remove "%s"?\n\nRemaining mods will be rebuilt; targets with no layers return to their original state. Close the game first.',
         mods_installed='"%s" is installed.', mods_removed='"%s" has been removed.',
         mods_pending='An operation was interrupted. Press "Recover operation" before continuing.',
         mods_recovered='Recovery complete. You can manage your mods again.',
@@ -299,7 +316,10 @@ TEXT = {
         bad_name='Use letters, digits, spaces or dashes.', back='← Start', open_folder='Open folder',
         open_map='Open map.py', advanced='Advanced mode: use my map.py as it is',
         step1='1 · Character you replace', other='Other:', step2='2 · Your model',
-        pick_model='Choose model (FBX or OBJ)…', no_model='No model chosen.', textures='Textures: %s',
+        pick_model='Choose model…', no_model='No model chosen.', textures='Textures: %s',
+        gltf_note='GLB/glTF requires every mesh to be skinned. Choose normal fitting or preserve the original skeleton in step 3.',
+        fit_normal='Fit to character', fit_identity='Preserve original skeleton', verified='Verified',
+        identity_note='For a GLB/glTF of the same character: verifies joints and keeps edited geometry. Proportion and joint adjustments are inactive.',
         no_textures='none (solid colours)', change_textures='Change textures…',
         obj_note='OBJ: it has no skeleton; the tool gives it one (humanoids in a T or A pose).',
         step3='3 · Convert and check', convert='Convert', analyze='Check bones and materials',
@@ -440,8 +460,8 @@ TEXT = {
                     'bone above the chest.',
             bad_choice='A bone chosen in the Bones tab ("%(bone)s", for %(role)s) is not in the model or moves no part '
                        'of it.\n\nHow to fix it: pick another one in the Bones tab, or "Back to automatic".',
-            bad_file="This file can't be read.\n\nHow to fix it: export a binary FBX (FBX 2014 or later; ASCII FBX "
-                     "isn't read) or an OBJ with its faces."),
+            bad_file="This file can't be read.\n\nHow to fix it: re-export a supported FBX, OBJ or glTF 2.0 model. "
+                     "For GLB/glTF, remove unsupported extensions or morph targets; see docs/CLI.md."),
         model_footer='\n\nWhen it is fixed, export the model again and press "Convert". The guide '
                      '(docs\\GUIA_MANUAL.md, section 1) shows how to prepare the model.\n\nTechnical detail: %s',
         preview_empty='No preview yet: press "Convert".',
@@ -518,7 +538,7 @@ class App:
         self.photos = []
         self.game_state = 'looking'
         root.title('%s %s — %s' % (TOOL, VERSION, AUTHOR))
-        root.geometry('1180x860')
+        root.geometry(os.environ.get('TS3TOOL_GEOMETRY', '1180x860'))
         root.minsize(960, 700)
         root.protocol('WM_DELETE_WINDOW', self.close)
         root.bind('<Control-z>', lambda e: self.undo_key(-1))   # undo / redo in the Adjustments tab
@@ -690,11 +710,31 @@ class App:
         for r, (k, d) in enumerate((('mod_music', 'mod_music_desc'), ('mod_tex', 'mod_tex_desc')), start=2):
             s = ttk.Frame(cards, style='Card.TFrame', padding=16)
             s.grid(row=r, column=1, sticky='nsew', pady=(0, 12) if r == 2 else 0)
-            ttk.Label(s, text=self.t(k), style='Head.TLabel', foreground='#888888').pack(anchor='w')
-            ttk.Label(s, text=self.t(d), style='Muted.TLabel').pack(anchor='w', pady=(2, 6))
-            ttk.Label(s, text=self.t('soon'), style='Muted.TLabel').pack(anchor='w')
+            ttk.Label(s, text=self.t(k), style='Head.TLabel').pack(anchor='w')
+            ttk.Label(s, text=self.t(d), style='Muted.TLabel', wraplength=350).pack(anchor='w', pady=(2, 6))
+            if k == 'mod_tex':
+                ttk.Button(s, text=self.t('textures_open'), command=self.show_textures).pack(anchor='w')
+            else:
+                ttk.Button(s, text=self.t('sounds_open'), command=self.show_sounds).pack(anchor='w')
 
     # ------------------------------------------------------------------ explorer
+    def show_textures(self):
+        if self.busy:
+            return
+        self.show_explorer()
+        panel = getattr(self, 'explorer_panel', None)
+        if panel:
+            panel.category.current(2)
+            panel.filter()
+
+    def show_sounds(self):
+        if self.busy: return
+        self.show_explorer()
+        panel = getattr(self, 'explorer_panel', None)
+        if panel:
+            panel.category.current(4)
+            panel.filter()
+
     def show_explorer(self):
         if self.busy:
             return
@@ -759,6 +799,7 @@ class App:
         self.build_mods(load)
 
     def build_mods(self, load=True):
+        import modpriorityui
         f = ttk.Frame(self.body, padding=(28, 20)); f.pack(fill='both', expand=True)
         top = ttk.Frame(f); top.pack(fill='x')
         self.mods_back = ttk.Button(top, text=self.t('back'), command=self.show_home)
@@ -787,9 +828,13 @@ class App:
         self.buttons = [self.mods_back, self.game_btn, self.mods_zip_btn, self.mods_folder_btn,
                         self.mods_reload_btn, self.mods_remove_btn, self.mods_recover_btn,
                         self.mods_check_btn, self.mods_page_btn]
+        priority = ttk.Frame(f); priority.pack(fill='x', pady=(0, 10))
+        self.mods_priority_btn = ttk.Button(priority, text=modpriorityui.TEXT[self.lang]['title'], command=self.mod_priorities)
+        self.mods_priority_btn.pack(side='left'); self.buttons.append(self.mods_priority_btn)
+        ttk.Label(priority, text=modpriorityui.TEXT[self.lang]['hint'], wraplength=790).pack(side='left', padx=12)
         pane = ttk.Frame(f); pane.pack(fill='both', expand=True)
         pane.rowconfigure(0, weight=1); pane.columnconfigure(0, weight=1)
-        self.mods_tree = ttk.Treeview(pane, columns=('name', 'version', 'author', 'files', 'update'),
+        self.mods_tree = ttk.Treeview(pane, columns=('priority', 'name', 'version', 'author', 'files', 'update'),
                                      show='headings',
                                      selectmode='browse', height=8)
         for key, label, width in (('name', 'pack_name', 320), ('version', 'version', 100),
@@ -797,6 +842,8 @@ class App:
                                   ('update', 'mods_update', 140)):
             self.mods_tree.heading(key, text=self.t(label))
             self.mods_tree.column(key, width=width, minwidth=80, stretch=key in ('name', 'author'))
+        self.mods_tree.heading('priority', text=modpriorityui.TEXT[self.lang]['priority'])
+        self.mods_tree.column('priority', width=75, minwidth=60, stretch=False)
         self.mods_tree.grid(row=0, column=0, sticky='nsew')
         scroll = ttk.Scrollbar(pane, orient='vertical', command=self.mods_tree.yview)
         scroll.grid(row=0, column=1, sticky='ns'); self.mods_tree.config(yscrollcommand=scroll.set)
@@ -826,6 +873,7 @@ class App:
         self.mods_check_btn.state(['!disabled'] if enabled and self.mods_ready and self.mods_rows
                                   else ['disabled'])
         self.mods_page_btn.state(['!disabled'] if not self.busy and self.selected_update() else ['disabled'])
+        self.mods_priority_btn.state(['!disabled'] if enabled and self.mods_ready and len(self.mods_rows) > 1 else ['disabled'])
 
     def selected_update(self):
         sel = self.mods_tree.selection()
@@ -876,7 +924,7 @@ class App:
             self.mods_tree.delete(*self.mods_tree.get_children())
             for mid, r in self.mods_rows.items():
                 m = r['metadata']
-                self.mods_tree.insert('', 'end', iid=mid, values=(m['name'], m['version'],
+                self.mods_tree.insert('', 'end', iid=mid, values=(r.get('priority', 0), m['name'], m['version'],
                     m['author'] or self.t('mods_unknown'), len(r['files']), self.update_text(mid)))
             if selected and selected[0] in self.mods_rows:
                 self.mods_tree.selection_set(selected[0])
@@ -924,20 +972,30 @@ class App:
         if info and info['url'].startswith('https://github.com/'):
             webbrowser.open(info['url'])
 
-    def mods_failed(self, msg):
+    def mod_error_text(self, msg):
+        """a manager refusal in the window's language; the layered registry words some of them differently"""
         exact = {
             'mod is already installed; remove it before installing another version': 'mods_existing',
             'package or game changed since preview; review the package again': 'mods_changed',
+            'package, game or priority order changed since preview; review again.': 'mods_changed',
             'close Toy Story 3 before changing mods': 'mods_closed',
-            'interrupted operation: run mods recover first': 'mods_pending'}
+            'interrupted operation: run mods recover first': 'mods_pending',
+            'interrupted operation: run mods recover first.': 'mods_pending'}
         prefixes = {'file conflict: ': 'mods_conflict', 'missing dependency: ': 'mods_dependency',
+                    'replacement would break dependent mod: ': 'mods_dependent_version',
+                    'dependency cycle includes ': 'mods_cycle',
                     'declared conflict with ': 'mods_declared', 'remove dependent mod first: ': 'mods_dependent',
                     'file changed outside the manager; kept untouched: ': 'mods_external'}
-        translated = self.t(exact[msg]) if msg in exact else msg
+        low = msg.casefold()
+        if low in exact:
+            return self.t(exact[low])
         for prefix, key in prefixes.items():
-            if msg.startswith(prefix):
-                translated = self.t(key) % msg[len(prefix):]
-                break
+            if low.startswith(prefix):
+                return self.t(key) % msg[len(prefix):].replace('; review installation with --layer.', '')
+        return msg
+
+    def mods_failed(self, msg):
+        translated = self.mod_error_text(msg)
         self.status.set(self.t('error'))
         if self.screen == 'mods':
             try:
@@ -961,36 +1019,66 @@ class App:
         if not source:
             return
         source = os.path.abspath(source)
-        self.run(lambda: K.modstore.Store(game).preview(source),
+        self.run(lambda: K.modstore.Store(game).preview(source, replace=True, layer=True),
                  lambda result: self.review_package(source, game, result), on_error=self.mods_failed)
 
     def review_package(self, source, game, result):
         meta = result['metadata']
-        d, f = self.dialog(self.t('mods_review'))
+        replacing = bool(result.get('replaces'))
+        d, f = self.dialog(self.t('mods_replace_review' if replacing else 'mods_review'))
+        d.geometry('720x600'); d.minsize(620, 520)
+        bar = ttk.Frame(f); bar.pack(side='bottom', fill='x')
+        ttk.Label(f, text=self.t('mods_review_note'), wraplength=660).pack(side='bottom', anchor='w', pady=(10, 10))
         ttk.Label(f, text=meta['name'], style='Head.TLabel', wraplength=660).pack(anchor='w')
         ttk.Label(f, text='%s %s · %s: %s' % (self.t('version'), meta['version'], self.t('mods_author'),
             meta['author'] or self.t('mods_unknown')), wraplength=660).pack(anchor='w', pady=(3, 10))
-        ttk.Label(f, text=meta['description'], wraplength=660).pack(anchor='w')
+        description = tk.Text(f, height=3, wrap='word', font=('Segoe UI', 10), relief='flat')
+        description.insert('1.0', meta['description']); description.config(state='disabled'); description.pack(fill='x')
+        if replacing:
+            ttk.Label(f, text=self.t('mods_replace_note') % (result['replaces']['version'], meta['version']),
+                      wraplength=660).pack(anchor='w', pady=(10, 0))
+        if result.get('layered'):
+            import modpriorityui
+            ttk.Label(f, text=modpriorityui.TEXT[self.lang]['install'] % (result['order'].index(meta['id'])+1, len(result['order'])),
+                      wraplength=660).pack(anchor='w', pady=(8, 0))
         ttk.Label(f, text=self.t('mods_destination') % game, wraplength=660).pack(anchor='w', pady=(12, 4))
         ttk.Label(f, text=self.t('mods_size') % (len(result['files']), result['bytes'] / 1024**2)).pack(anchor='w')
-        items = tk.Text(f, width=80, height=min(8, len(result['files']) + 1), wrap='word')
-        items.insert('1.0', '\n'.join(r['path'] for r in result['files']))
-        items.config(state='disabled'); items.pack(fill='both', expand=True, pady=8)
-        ttk.Label(f, text=self.t('mods_review_note'), wraplength=660).pack(anchor='w', pady=(0, 10))
-        bar = ttk.Frame(f); bar.pack(fill='x')
+        file_frame = ttk.Frame(f); file_frame.pack(fill='both', expand=True, pady=8)
+        items = tk.Text(file_frame, width=80, height=min(8, len(result['files']) + 1), wrap='word')
+        scroll = ttk.Scrollbar(file_frame, command=items.yview); scroll.pack(side='right', fill='y')
+        items.config(yscrollcommand=scroll.set)
+        restored = set(result.get('restores', []))
+        items.insert('1.0', '\n'.join(self.t('mods_restore_file') % r['path'] if r['path'] in restored else r['path'] for r in result['files']))
+        if result.get('layered'):
+            import modpriorityui
+            items.insert('end', '\n\n'+modpriorityui.summary(result, self.lang, self.mods_rows.values()))
+        items.config(state='disabled'); items.pack(side='left', fill='both', expand=True)
         def dismiss():
             d.destroy()
             self.reload_mods()
         def install():
             d.destroy()
-            self.run(lambda: K.modstore.Store(game).install(source, expected=result['ticket']),
-                     lambda m: self.reload_mods(self.t('mods_installed') % m['name']), on_error=self.mods_failed)
-        ttk.Button(bar, text=self.t('mods_confirm'), command=install).pack(side='right')
+            self.run(lambda: K.modstore.Store(game).install(source, expected=result['ticket'], replace=replacing, layer=True),
+                     lambda m: self.reload_mods(self.t('mods_replaced' if replacing else 'mods_installed') % m['name']), on_error=self.mods_failed)
+        ttk.Button(bar, text=self.t('mods_replace_confirm' if replacing else 'mods_confirm'), command=install).pack(side='right')
         cancel = ttk.Button(bar, text=self.t('cancel'), command=dismiss)
         cancel.pack(side='right', padx=8)
+        d.after(0, cancel.focus_set)
         d.bind('<Escape>', lambda e: dismiss())
         d.protocol('WM_DELETE_WINDOW', dismiss)
         self.status.set(self.t('mods_review'))
+
+    def mod_priorities(self):
+        if self.busy or not self.mods_ready or len(self.mods_rows) < 2 or self.root.grab_current(): return
+        import modpriorityui
+        records, game = list(self.mods_rows.values()), self.settings['game']
+        ids = modpriorityui.OrderDialog(self.root, records, self.lang).result
+        if ids is None: return
+        def reviewed(plan):
+            if modpriorityui.ReviewDialog(self.root, plan, records, self.lang).result:
+                self.run(lambda: K.modstore.Store(game).order(ids, expected=plan['ticket']),
+                         lambda _: self.reload_mods(modpriorityui.TEXT[self.lang]['saved']), on_error=self.mods_failed)
+        self.run(lambda: K.modstore.Store(game).preview_order(ids), reviewed, on_error=self.mods_failed)
 
     def remove_mod(self):
         if self.busy:
@@ -1158,10 +1246,17 @@ class App:
 
         s3 = ttk.LabelFrame(steps, text=self.t('step3'), padding=10, style='Card.TLabelframe')
         s3.grid(row=0, column=2, sticky='nsew', padx=6)
+        self.fit_box = ttk.Combobox(s3, state='readonly', width=28,
+                                   values=[self.t('fit_normal'), self.t('fit_identity')])
+        self.fit_box.current(1 if self.proj.get('fit_mode') == 'identity' else 0)
+        self.fit_box.bind('<<ComboboxSelected>>', self.fit_changed)
+        self.fit_box.pack(fill='x', pady=(0, 8))
         self.btn_convert = ttk.Button(s3, text=self.t('convert'), style='Big.TButton', command=self.convert)
         self.btn_convert.pack(fill='x')
         self.btn_analyze = ttk.Button(s3, text=self.t('analyze'), command=self.analyze)
         self.btn_analyze.pack(fill='x', pady=(8, 0))
+        self.fit_note = ttk.Label(s3, wraplength=250, style='Muted.TLabel')
+        self.fit_note.pack(anchor='w', pady=(8, 0))
 
         s4 = ttk.LabelFrame(steps, text=self.t('step4'), padding=10, style='Card.TLabelframe')
         s4.grid(row=0, column=3, sticky='nsew', padx=(6, 0))
@@ -1171,7 +1266,7 @@ class App:
         self.btn_export.pack(fill='x', pady=(8, 0))
         self.btn_restore = ttk.Button(s4, text=self.t('restore'), command=self.restore)
         self.btn_restore.pack(fill='x', pady=(8, 0))
-        self.buttons = [self.btn_convert, self.btn_analyze, self.btn_install, self.btn_export, self.btn_restore]
+        self.buttons = [self.btn_convert, self.btn_analyze, self.btn_install, self.btn_export, self.btn_restore, self.fit_box]
 
         self.hint = ttk.Label(self.body, style='Hint.TLabel', padding=(14, 6), wraplength=1100)
         self.hint.pack(fill='x')
@@ -1288,13 +1383,13 @@ class App:
         """the joints mode: the model before converting with its skeleton (an OBJ's automatic one, an FBX's body
         joints as the Bones tab found them), the joints draggable"""
         c, model = self.proj.get('character'), self.proj.get('fbx') or ''
-        if self.view is None or not model.lower().endswith(('.obj', '.fbx')):
+        if self.proj.get('fit_mode') == 'identity' or self.view is None or not model.lower().endswith(('.obj', '.fbx', '.glb', '.gltf')):
             return False
         gdir = os.path.join(self.work, 'game', c or '-')
         if not c or not os.path.isfile(os.path.join(gdir, c + '.oct')):
             self.status.set(self.t('joints_need_convert'))
             return False
-        if model.lower().endswith('.fbx') and not self.info:
+        if not model.lower().endswith('.obj') and not self.info:
             self.status.set(self.t('adj_need_info'))
             return False
         try:
@@ -1367,7 +1462,7 @@ class App:
             prev = getattr(self, 'side_box', None) is not None and self.side_box.current() == 1
             gdir = os.path.join(self.work, 'out_prev' if prev else 'game', c)    # beside it: the original or the last
             self.ghost_ch = V.Character(gdir, c) if os.path.isfile(os.path.join(gdir, c + '.oct')) else None
-            self.strain = K.strain(self.work)
+            self.strain = {} if self.proj.get('fit_mode') == 'identity' else K.strain(self.work)
             if hasattr(self, 'wbone_box'):
                 self.wbone_box.config(values=self.ch.names)
         except Exception:
@@ -1709,7 +1804,7 @@ class App:
         self._live_job = None
         if getattr(self, 'ch', None) is None:
             return
-        turns, shapes = V.live_adjust(self.ch, self.applied, self.adjust_now())
+        turns, shapes = ({}, {}) if self.proj.get('fit_mode') == 'identity' else V.live_adjust(self.ch, self.applied, self.adjust_now())
         down = getattr(self, 'pose_var', None) is not None and self.pose_var.get() == 'down'
         if down:
             turns = dict(V.ARMS_DOWN, **turns)
@@ -1771,9 +1866,10 @@ class App:
         tf = self.info.get('torso') if self.info else None
         self.torso_info.config(text=self.t('adj_torso_info') % (tf.get('width_pct', 100), tf.get('height_pct', 100))
                                if tf else '')
-        self.adj_note.config(text=self.t('advanced_note') if self.proj.get('advanced') else '')
+        self.adj_note.config(text=self.t('identity_note') if self.proj.get('fit_mode') == 'identity' else
+                             self.t('advanced_note') if self.proj.get('advanced') else '')
         for w in (self.btn_natural, self.btn_apply):
-            w.state(['disabled'] if self.proj.get('advanced') or self.busy else ['!disabled'])
+            w.state(['disabled'] if self.proj.get('advanced') or self.proj.get('fit_mode') == 'identity' or self.busy else ['!disabled'])
         self.fill_adjust_lists()
         self.undo_buttons()
 
@@ -1917,6 +2013,7 @@ class App:
 
     def apply_adjust(self):
         """the tab's values into the project ('adjust'; only what isn't at its neutral value), then convert"""
+        if self.proj.get('fit_mode') == 'identity': return
         adj = self.adjust_now()
         if adj:
             self.proj['adjust'] = adj
@@ -1944,11 +2041,18 @@ class App:
             return
         p = self.proj
         model = p.get('fbx')
+        identity = p.get('fit_mode') == 'identity'
+        self.fit_note.config(text=self.t('identity_note') if identity else '')
+        self.fit_box.state(['disabled'] if self.busy else ['!disabled', 'readonly'])
+        if identity and self.nb.index('current') == TAB_ADJUST:
+            self.nb.select(TAB_BONES)
+        self.nb.tab(TAB_ADJUST, state='disabled' if identity else 'normal')
         self.model_lbl.config(text=os.path.basename(model) if model else self.t('no_model'))
         self.tex_lbl.config(text=self.t('textures') % (p.get('textures') or self.t('no_textures')))
-        self.obj_lbl.config(text=self.t('obj_note') if model and model.lower().endswith('.obj') else '')
+        self.obj_lbl.config(text=self.t('obj_note') if model and model.lower().endswith('.obj') else
+                            self.t('gltf_note') if model and model.lower().endswith(('.glb', '.gltf')) else '')
         if getattr(self, 'rb_joints', None) is not None and self.rb_joints.winfo_exists():
-            self.rb_joints.state(['!disabled'] if model and model.lower().endswith(('.obj', '.fbx')) and V.available()
+            self.rb_joints.state(['!disabled'] if not identity and model and model.lower().endswith(('.obj', '.fbx', '.glb', '.gltf')) and V.available()
                                  else ['disabled'])
         c = p.get('character')
         converted = bool(c) and os.path.isfile(os.path.join(self.work, 'out', c, c + '.oct'))
@@ -1973,10 +2077,14 @@ class App:
 
     def browse_model(self):
         f = filedialog.askopenfilename(title=self.t('pick_model'),
-                                       filetypes=[('FBX / OBJ', '*.fbx *.FBX *.obj *.OBJ'), ('*', '*.*')])
+                                       filetypes=[('FBX / OBJ / GLB / glTF', '*.fbx *.FBX *.obj *.OBJ *.glb *.GLB *.gltf *.GLTF'), ('*', '*.*')])
         if f:
             self.proj['fbx'] = os.path.abspath(f)
-            tex = K.guess_textures(f)
+            is_gltf = f.lower().endswith(('.glb', '.gltf'))
+            if is_gltf:
+                self.proj['textures'] = None
+                self.proj.pop('gltf_textures', None)
+            tex = None if is_gltf else K.guess_textures(f)
             if tex:
                 self.proj['textures'] = tex
             for k in ('bones', 'materials'):
@@ -1989,6 +2097,7 @@ class App:
         d = filedialog.askdirectory(title=self.t('change_textures'))
         if d:
             self.proj['textures'] = os.path.abspath(d)
+            self.proj.pop('gltf_textures', None)
             self.proj.pop('materials', None)
             self.tables = None
             self.save_project()
@@ -2003,6 +2112,16 @@ class App:
         self.save_project()
         if self.adv.get():
             self.status.set(self.t('advanced_note'))
+
+    def fit_changed(self, event=None):
+        self.proj['fit_mode'] = 'identity' if self.fit_box.current() == 1 else 'normal'
+        self.info = self.tables = None
+        self.save_project()
+        if getattr(self, 'pv_mode', None) is not None and self.pv_mode.get() == 'joints':
+            self.pv_mode.set('3d')
+            self.switch_preview()
+        self.refresh()
+        self.load_view()
 
     def ready(self):
         if not self.proj.get('game') and not self.settings.get('game'):
@@ -2198,12 +2317,16 @@ class App:
         if not self.info:
             return
         body, chosen = self.info['body'], self.proj.get('bones', {})
-        for role in AM.ROLES:
+        for role in (() if self.info.get('identity') else AM.ROLES):
             v = body.get(role)
             if role == 'neck':
                 v = v[0] if v else None
             self.bones_tv.insert('', 'end', iid=role, values=(self.role_label(role), v or self.t('none'),
                                                               self.t('chosen') if role in chosen else self.t('auto')))
+        if self.info.get('identity'):
+            for n, (source, target) in enumerate(self.tables['WEIGHTS'].items()):
+                self.bones_tv.insert('', 'end', iid='identity' + str(n),
+                                     values=(target, source, self.t('verified')))
         notes, tris = self.tables.get('_tex_notes', {}), self.tables.get('_tex_tris', {})
         sets = self.tables.get('TEXTURES', {})
         for mat in tris:
@@ -2230,7 +2353,7 @@ class App:
         return d, f
 
     def edit_bone(self, role):
-        if not role or not self.info:
+        if not role or not self.info or self.proj.get('fit_mode') == 'identity':
             return
         bones = sorted(self.info['skeleton'].skinned, key=str.lower)
         if role in OPTIONAL:
@@ -2428,7 +2551,7 @@ class App:
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] in ('characters', 'doctor', 'make', 'adjust', 'diagnose', 'install', 'restore', 'export', 'mods', 'explore'):
+    if len(sys.argv) > 1 and sys.argv[1] in ('characters', 'doctor', 'model-info', 'make', 'adjust', 'diagnose', 'install', 'restore', 'export', 'mods', 'explore', 'textures', 'meshes'):
         # '<tool>.exe make <project> ...': kit.py's commands without Python. The .exe has no console, so what they print
         # goes to %TEMP%\<tool>.log (make also writes <project>\report.txt)
         if sys.stdout is None:

@@ -59,6 +59,10 @@ def merge_meshes(scene, mp, log):
             continue
         c0 = [c for c in sk if len(c['idx'])][0]
         mg = c0['xf'] @ c0['xlink']
+        if getattr(mp, 'IDENTITY', False):
+            if not np.allclose(mg, np.eye(4), atol=1e-8):
+                raise ValueError('Identity geometry must already be in world space.')
+            mg = np.eye(4)
         R = mg[:3, :3] / np.linalg.norm(mg[:3, :3], axis=1, keepdims=True)
         nd, ns = m['normals']; ud, us = m['uv']
         pos.append((np.c_[m['pos'], np.ones(len(m['pos']))] @ mg)[:, :3])
@@ -97,6 +101,9 @@ def merge_meshes(scene, mp, log):
 
 
 def fit(scene, mesh, bones3, mp, log):
+    if getattr(mp, 'IDENTITY', False):
+        from identityfit import fit as original_fit
+        return original_fit(scene, mesh, bones3, mp, log)
     sk = mesh['skin']
     if 'mg' in mesh:
         mg = mesh['mg']
@@ -418,7 +425,7 @@ def fit(scene, mesh, bones3, mp, log):
 
 
 # ------------------------------------------------------------------------------------------- vertices
-def build_vertices(mesh, newP, Rsum, R0, w3, ids3):
+def build_vertices(mesh, newP, Rsum, R0, w3, ids3, identity=False):
     tri = mesh['tri']                                   # polygon-vertex (corner) indices, (n, 3)
     corners = tri.reshape(-1)
     cp = mesh['cp'][corners]
@@ -455,16 +462,19 @@ def build_vertices(mesh, newP, Rsum, R0, w3, ids3):
     # game bone weights: top 4, summing to 255
     names = sorted(w3, key=lambda k: ids3[k])
     Wm = np.stack([w3[k][V['cp']] for k in names], 1)
+    if identity and len(names) < 4:
+        Wm = np.pad(Wm, ((0, 0), (0, 4 - len(names))))
+        names += [names[0]] * (4 - len(names))
     order = np.argsort(-Wm, axis=1)[:, :4]
     top = np.take_along_axis(Wm, order, 1)
     top = top / top.sum(1, keepdims=True)
-    q = np.floor(top * 255).astype(int)
+    q = (np.rint(top * 255) if identity else np.floor(top * 255)).astype(int)
     q[:, 0] += 255 - q.sum(1)
     V['bid'] = np.array([ids3[k] for k in names])[order]   # game BoneIDs
     V['bw'] = q
     V['bid'][q == 0] = V['bid'][:, :1].repeat(4, 1)[q == 0]
     face = (np.cross(e1, e2) * (n[a] + n[b] + n[c])).sum(1)
-    if (face < 0).mean() > 0.5:                         # wind triangles the way the game does
+    if not identity and (face < 0).mean() > 0.5:        # identity keeps the edited source's winding
         idx = idx[:, [0, 2, 1]]
     return V, idx
 
@@ -642,13 +652,15 @@ def load_map(path):
     return mp
 
 
-def run(ts3dir, base, fbx, texdir, mappath, out):
+def run(ts3dir, base, fbx, texdir, mappath, out, expected_identity=None):
     os.makedirs(out, exist_ok=True)
     lines = []
 
     def log(s):
         print(s); lines.append(s)
     mp = load_map(mappath)
+    if expected_identity is not None and bool(getattr(mp, 'IDENTITY', False)) != expected_identity:
+        raise ValueError('Map fitting mode differs from the project. Regenerate the map with --remap.')
     f, bones3, subs, remaps, ist, vst = T.load(os.path.join(ts3dir, base + '.oct'))
     ids3 = {b['name']: b['id'] for b in bones3}
     prefix = getattr(mp, 'PREFIX', 'ts5')
@@ -657,7 +669,7 @@ def run(ts3dir, base, fbx, texdir, mappath, out):
     log('FBX mesh %s: %d points, %d triangles, %d bones' % (mesh['name'], len(mesh['pos']), len(mesh['tri']), len(mesh['skin'])))
     sets, tri_set = texture_sets(mp, mesh, texdir)
     newP, Rsum, R0, w3 = fit(scene, mesh, bones3, mp, log)
-    V, idx = build_vertices(mesh, newP, Rsum, R0, w3, ids3)
+    V, idx = build_vertices(mesh, newP, Rsum, R0, w3, ids3, identity=bool(getattr(mp, 'IDENTITY', False)))
     groups = []                                         # (triangles, bones, texture set)
     for k in range(len(sets)):
         sel = np.nonzero(tri_set == k)[0]

@@ -12,7 +12,7 @@ An OBJ has no skeleton and no skin. They are made here from the model's shape an
 automap.py then maps that skeleton like any other. Works for humanoids in a T or A pose; the hands and the face move
 in one piece (with the hand / the head).
 
-open_scene(path) is what the kit uses instead of fbxlib.Scene: an ObjScene for .obj files, an fbxlib.Scene otherwise.
+open_scene(path) routes OBJ to ObjScene, GLB/glTF to gltflib.Scene, and FBX to the original fbxlib.Scene.
 use_game(dir, base) says which game character the skeleton comes from (automap.automap sets it).
 """
 import os, sys
@@ -40,6 +40,9 @@ def use_joints(joints):
 
 
 def open_scene(path):
+    if str(path).lower().endswith(('.glb', '.gltf')):
+        from gltflib import Scene
+        return Scene(path)
     if not path.lower().endswith('.obj'):
         return fbxlib.Scene(path)
     key = (os.path.abspath(path), os.path.getmtime(path), GAME, tuple(sorted((k, tuple(v)) for k, v in JOINTS.items())))

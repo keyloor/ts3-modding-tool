@@ -27,10 +27,13 @@ the mod's page: **"Made with TS3 Modding Tool by keyloor"** (the packs it export
 ## Not included, not affiliated
 
 - No files of the game are included. The tool reads them from each user's own copy of Toy Story 3 Complete Edition.
+- Compressed sound previews use that copy's existing FMOD runtime in a separate process. FMOD is by
+  Firelight Technologies; its DLL is not included in this distribution.
 - Toy Story 3 and its characters belong to Disney / Pixar; the game is by Avalanche Software. This is a fan-made tool,
   not affiliated with or endorsed by them.
 - Models you convert belong to their authors: publish them only with their permission.
 - The compiled program carries Python, Tcl/Tk, numpy and Pillow; their licenses are in its `licenses/` folder.
+  The separate Mod Loader bundle carries only Python and Tcl/Tk, with their licenses in its own `licenses/` folder.
 - The Disney Infinity community projects [DisneyInfinityTools](https://github.com/Kokonotcu/DisneyInfinityTools) and
   [DisneyInfinityCreator](https://github.com/LucasLhomme/DisneyInfinityCreator) were read as documentation of the
   engine's formats; none of their code is used.

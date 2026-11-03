@@ -1,7 +1,7 @@
-"""Install data-only mods with exclusive file ownership and recoverable multi-file transactions.
+"""Install data-only mods with reviewed ownership/layers and recoverable multi-file transactions.
 
 Backups preserve the state immediately before installation, including pre-existing external mods.
-v1 refuses shared target files and external edits; it never guesses which version to restore.
+Shared targets require explicit layers. External edits are never overwritten.
 """
 import contextlib
 import copy
@@ -183,8 +183,11 @@ class Store:
         if raw is None:
             return {'schema_version': 1, 'mods': []}
         state = json.loads(raw)
-        if not isinstance(state, dict) or state.get('schema_version') != 1 or not isinstance(state.get('mods'), list):
+        if not isinstance(state, dict) or state.get('schema_version') not in (1, 2) or not isinstance(state.get('mods'), list):
             raise ModError('invalid installed.json; preserve the backups')
+        if state['schema_version'] == 2:
+            import modlayers
+            return modlayers.validate_state(state)
         ids, targets = set(), set()
         for mod in state['mods']:
             meta = validate(mod['metadata'])
@@ -277,7 +280,7 @@ class Store:
         with self.locked():
             if self.path(JOURNAL).exists():
                 raise ModError('interrupted operation: run mods recover first', 'recovery_required')
-            return copy.deepcopy(self._state()['mods'])
+            return [dict(copy.deepcopy(mod), priority=i+1) for i, mod in enumerate(self._state()['mods'])]
 
     def _dependencies(self, metadata, state):
         installed = {m['metadata']['id']: m['metadata'] for m in state['mods']}
@@ -291,20 +294,56 @@ class Store:
             for a, b in ((metadata, other), (other, metadata)):
                 if any(c['id'] == b['id'] and matches(b['version'], c['version']) for c in a['conflicts']):
                     raise ModError('declared conflict with ' + other['id'], 'declared_conflict')
+        # A replacement can introduce a cycle even though every dependency already exists.
+        pending, seen = [d['id'] for d in metadata['requires']], set()
+        while pending:
+            mid = pending.pop()
+            if mid == metadata['id']:
+                raise ModError('dependency cycle includes ' + mid, 'dependency_cycle')
+            if mid not in seen:
+                seen.add(mid)
+                pending.extend(d['id'] for d in installed.get(mid, {}).get('requires', []))
 
-    def _prepare(self, source, state):
-        owners = {f['path'].casefold(): m['metadata']['id'] for m in state['mods'] for f in m['files']}
+    def _prepare(self, source, state, replace=False):
         changes, records, total = {}, [], 0
         with Package(source) as package:
             meta = package.metadata
-            self._dependencies(meta, state)
+            old = next((m for m in state['mods'] if m['metadata']['id'] == meta['id']), None) if replace else None
+            others = {'mods': [m for m in state['mods'] if m is not old]}
+            self._dependencies(meta, others)
+            # Existing dependents must remain compatible, including during an explicit downgrade.
+            for mod in others['mods']:
+                if any(d['id'] == meta['id'] and not matches(meta['version'], d['version'])
+                       for d in mod['metadata']['requires']):
+                    raise ModError('replacement would break dependent mod: ' + mod['metadata']['id'],
+                                   'dependent_version')
+            originals = {}
+            if old:
+                for row in old['files']:
+                    if digest(read_file(self.path(row['path']))) != row['after']:
+                        raise ModError('file changed outside the manager; kept untouched: ' + row['path'], 'external_change')
+                    data = self._object(row['before']) if row['before'] is not None else None
+                    originals[row['path'].casefold()] = (row['path'], data)
+                    # Targets absent from the new version return to their pre-install state.
+                    changes[row['path']] = data
+            owners = {f['path'].casefold(): m['metadata']['id'] for m in others['mods'] for f in m['files']}
+            seen = set()
+
+            def target(rel):
+                rel = game_path(rel)
+                return originals.get(rel.casefold(), (rel, None))[0]
+
+            def previous(rel):
+                key = rel.casefold()
+                return originals[key][1] if key in originals else read_file(self.path(rel))
 
             def add(rel, data, previous):
                 nonlocal total
-                rel = game_path(rel)
+                rel = target(rel)
                 key = rel.casefold()
-                if key in owners or any(p.casefold() == key for p in changes):
+                if key in owners or key in seen:
                     raise ModError('file conflict: %s (%s)' % (rel, owners.get(key, 'this package')), 'file_conflict')
+                seen.add(key)
                 total += len(data)
                 if total > MAX_TOTAL:
                     raise ModError('installation exceeds size limit')
@@ -318,44 +357,75 @@ class Store:
                     if len(row) != 4:
                         raise ModError('invalid patch manifest')
                     rel, stem, before, after = row
-                    rel = game_path(rel)
+                    rel = target(rel)
+                    # who owns it comes first: merging over another mod's copy of a member fails as an external change
+                    if rel.casefold() in owners:
+                        raise ModError('file conflict: %s (%s)' % (rel, owners[rel.casefold()]), 'file_conflict')
                     hex_hash(before, 32); hex_hash(after, 32)
-                    previous = read_file(self.path(rel))
-                    if previous is None:
+                    base = previous(rel)
+                    if base is None:
                         raise ModError('missing game archive: ' + rel, 'game_file_missing')
-                    data = merge(previous, parts(package, folder, stem))
-                    if hashlib.md5(previous).hexdigest() == before and hashlib.md5(data).hexdigest() != after:
+                    data = merge(base, parts(package, folder, stem))
+                    if hashlib.md5(base).hexdigest() == before and hashlib.md5(data).hexdigest() != after:
                         raise ModError('patched archive does not match manifest: ' + rel)
-                    add(rel, data, previous)
+                    add(rel, data, base)
             for row in meta['files']:
-                add(row['target'], package.read(row['source']), read_file(self.path(row['target'])))
+                add(row['target'], package.read(row['source']), previous(target(row['target'])))
             if not records:
                 raise ModError('empty mod')
-        return meta, changes, records
+        # Installation records keep the ORIGINAL baseline; the transaction checks the CURRENT bytes.
+        expected = {r['path']: r['before'] for r in records}
+        if old:
+            expected.update({r['path']: r['after'] for r in old['files']})
+        transitions = [{'path': rel, 'before': expected[rel], 'after': digest(data)}
+                       for rel, data in changes.items()]
+        return meta, changes, records, old, transitions
 
-    def _ticket(self, meta, records, action='install'):
-        return digest(json_bytes({'game': os.path.normcase(str(self.game)), 'action': action,
-                                  'metadata': meta, 'files': records}))
+    def _ticket(self, meta, records, action='install', previous=None):
+        data = {'game': os.path.normcase(str(self.game)), 'action': action, 'metadata': meta, 'files': records}
+        if previous is not None:
+            data['previous'] = previous
+        return digest(json_bytes(data))
 
-    def preview(self, source):
+    def preview(self, source, replace=False, layer=False):
         """Validate and describe the exact planned changes without modifying game files or storing backups."""
         with self.locked():
             if self.path(JOURNAL).exists():
                 raise ModError('interrupted operation: run mods recover first', 'recovery_required')
-            meta, changes, records = self._prepare(source, self._state())
-            return {'metadata': meta, 'files': records, 'bytes': sum(map(len, changes.values())),
-                    'ticket': self._ticket(meta, records)}
+            state = self._state()
+            if layer or state['schema_version'] == 2:
+                import modlayers
+                return modlayers.Preparation(self, state).package(source, replace, layer)
+            meta, changes, records, old, transitions = self._prepare(source, state, replace)
+            result = {'metadata': meta, 'files': transitions,
+                      'bytes': sum(len(data) for data in changes.values() if data is not None),
+                      'ticket': self._ticket(meta, transitions, 'replace' if old else 'install', old)}
+            if old:
+                result['replaces'] = old['metadata']
+                retained = {r['path'] for r in records}
+                result['restores'] = [r['path'] for r in old['files'] if r['path'] not in retained]
+            return result
 
-    def install(self, source, expected=None):
+    def install(self, source, expected=None, replace=False, layer=False):
         with self.locked():
             self._closed()
             self._recover()
             state = self._state()
-            meta, changes, records = self._prepare(source, state)
-            if expected is not None and expected != self._ticket(meta, records):
+            if layer or state['schema_version'] == 2:
+                import modlayers
+                prepared = modlayers.Preparation(self, state)
+                plan = prepared.package(source, replace, layer)
+                prepared.commit(plan, expected)
+                return plan['metadata']
+            meta, changes, records, old, transitions = self._prepare(source, state, replace)
+            if expected is not None and expected != self._ticket(meta, transitions, 'replace' if old else 'install', old):
                 raise ModError('package or game changed since preview; review the package again', 'plan_changed')
-            state['mods'].append({'metadata': meta, 'files': records})
-            self._commit(changes, state, {r['path']: r['before'] for r in records})
+            record = {'metadata': meta, 'files': records}
+            if old:
+                state['mods'][state['mods'].index(old)] = record
+            else:
+                state['mods'].append(record)
+            self._commit(changes, state, {r['path']: r['before'] for r in transitions})
             return meta
 
     def _prepare_remove(self, mid, state):
@@ -377,7 +447,11 @@ class Store:
         with self.locked():
             if self.path(JOURNAL).exists():
                 raise ModError('interrupted operation: run mods recover first', 'recovery_required')
-            mod, changes = self._prepare_remove(mid, self._state())
+            state = self._state()
+            if state['schema_version'] == 2:
+                import modlayers
+                return modlayers.Preparation(self, state).remove(mid)
+            mod, changes = self._prepare_remove(mid, state)
             return {'metadata': mod['metadata'],
                     'files': [{'path': r['path'], 'before': r['after'], 'after': r['before']} for r in mod['files']],
                     'bytes': sum(len(data) for data in changes.values() if data is not None),
@@ -389,7 +463,11 @@ class Store:
         with self.locked():
             if self.path(JOURNAL).exists():
                 raise ModError('interrupted operation: run mods recover first', 'recovery_required')
-            mod = next((m for m in self._state()['mods'] if m['metadata']['id'] == mid), None)
+            state = self._state()
+            if state['schema_version'] == 2:
+                import modlayers
+                return modlayers.verify(self, state, mid)
+            mod = next((m for m in state['mods'] if m['metadata']['id'] == mid), None)
             if mod is None:
                 raise ModError('mod is not installed: ' + mid, 'not_installed')
             checked = []
@@ -410,9 +488,39 @@ class Store:
             self._closed()
             self._recover()
             state = self._state()
+            if state['schema_version'] == 2:
+                import modlayers
+                prepared = modlayers.Preparation(self, state)
+                plan = prepared.remove(mid)
+                prepared.commit(plan, expected)
+                return plan['metadata']
             mod, changes = self._prepare_remove(mid, state)
             if expected is not None and expected != self._ticket(mod['metadata'], mod['files'], 'remove'):
                 raise ModError('installed mod changed since preview; review the removal again', 'plan_changed')
             state['mods'].remove(mod)
             self._commit(changes, state, {r['path']: r['after'] for r in mod['files']})
             return mod['metadata']
+
+    def order_info(self):
+        with self.locked():
+            if self.path(JOURNAL).exists():
+                raise ModError('Interrupted operation: run mods recover first.', 'recovery_required')
+            import modlayers
+            state = self._state()
+            return dict(order=[m['metadata']['id'] for m in state['mods']], shared=modlayers.shared(state))
+
+    def preview_order(self, ids):
+        with self.locked():
+            if self.path(JOURNAL).exists():
+                raise ModError('Interrupted operation: run mods recover first.', 'recovery_required')
+            import modlayers
+            return modlayers.Preparation(self, self._state()).order(ids)
+
+    def order(self, ids, expected=None):
+        with self.locked():
+            self._closed(); self._recover()
+            import modlayers
+            prepared = modlayers.Preparation(self, self._state())
+            plan = prepared.order(ids)
+            prepared.commit(plan, expected)
+            return dict(order=plan['order'], shared=plan['shared'])

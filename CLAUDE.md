@@ -1,8 +1,8 @@
 # Toy Story 3 Modding Tool — notes for developers and AI agents
 
 A tool for modding Toy Story 3 Complete Edition (PC, Avalanche's Octane engine) without programming. Its first section
-puts a user's humanoid model (rigged FBX, or OBJ) in place of a game character; music/sounds and textures are planned
-(shown as "coming soon" on the start screen). Author: keyloor (`kit/about.py`; the attribution must stay, see
+puts a user's humanoid model (rigged FBX, or OBJ) in place of a game character and builds texture replacement packs;
+the explorer previews/exports sounds, while audio editing is planned. Author: keyloor (`kit/about.py`; the attribution must stay, see
 `NOTICE.md`). `PLAN.md` (Spanish) has the phases and decisions; `CONTRIBUTING.md` the rules for contributions.
 
 Users talk to the tool in Spanish or English; the maintainer works in Spanish.
@@ -19,8 +19,12 @@ Users talk to the tool in Spanish or English; the maintainer works in Spanish.
 | `kit/kit.py` | The commands (`characters`, `make`, `install`, `restore`, `export`) and the functions the window calls |
 | `kit/app.py` | The window (tkinter; texts in `TEXT`, `es` and `en`) |
 | `kit/viewer.py` | Live 3D preview: reads a converted character, skins it on the CPU (poses, live adjustments), draws it with moderngl offscreen into a tkinter label |
+| `kit/gltf.py` | Read-only GLB export: compact primitives, embedded diffuse maps, static/skinned separation and pivot-based rest skeleton |
+| `kit/gltflib.py` | Bounded glTF 2.0 Scene adapter; local/base64 resources, transforms/skin and project-owned PNG extraction |
 | `kit/explorer.py`, `kit/explorercli.py`, `kit/explorerui.py` | Read-only asset index, inspection, extraction and previews; CLI and bilingual screen |
-| `kit/build_kit.py` | PyInstaller build: `release/<TOOL> v<VERSION>/` + zip, or `--desktop` (a copy on the Desktop + shortcut) |
+| `kit/build_kit.py` | PyInstaller build: `release/<TOOL> v<VERSION>/` + zip, or `--local` (test copy in Start Menu/Programs + shortcut; `--desktop` is an alias) |
+| `kit/loader.py`, `kit/loaderui.py`, `kit/loadercli.py` | Player application; no authoring imports. Uses the same modstore/modfile/modupdate as the Tool. |
+| `kit/gamepaths.py`, `kit/loaderprefs.py` | Standard-library game discovery and merge-only game/language settings for the Loader |
 | `kit/pack/` | Templates of the exported Nexus pack: `README_tool.txt` (installed with the tool), or with `--installer` `installer.ps1`, `action.bat`, `README.txt` |
 | `tools/` | Game formats and the converter (below) |
 | `docs/` | `GUIA_MANUAL.md` (manual workflow, Spanish), `AGENTS.md` (for users' AI agents), `ejemplos/`, `CREDITS.md` |
@@ -198,6 +202,49 @@ Commits carry no `Co-Authored-By` or other AI attribution line: the maintainer i
 
 ## Next work
 
+0.2 released on GitHub (03/11/2026). Conflicts are checked before merging a patch: a pack over another's OCT is
+`file_conflict`, never `external_change`. Manager refusals reach the window through `App.mod_error_text`.
+
+Priorities (03/11): `modlayers.py` implements optional `Store.preview/install(..., layer=True)` and
+`preview_order/order(ids, expected=...)`; default CLI installs still refuse new shared targets without --layer.
+Registry v1 stays readable/unmodified until a confirmed layered operation migrates it to v2. Each row retains
+baseline before, composed after, kind(file/archive) and SHA-256 payload of its standalone output. The mods list
+is lowest-to-highest order. `modpriorityui.py` shares reorder/review dialogs across Tool/Loader. GUI installation
+reviews layers; new mods append, replacements retain position; removal replays remaining snapshots. Distinct ZIP
+members compose, a matching member/OCT wins whole; per-texture OCT merging is the next D slice, then resolution.
+All transitions use existing _commit/journal; tickets bind full old/new registry, payload hashes and current bytes.
+Verification checks composed file and all participating payloads. Dependencies/declared conflicts/external guards
+remain. Migration may need extra snapshots, capped at 2 GiB new data and rebuilt content per operation. Loader
+ships these stdlib modules too, without authoring dependencies. Test test_layers.py [--loader|--exe CLI] and
+test_loader.py cross-app priorities. Never edit/migrate the user's installed registry manually for testing.
+
+Explorer audio: `kit/audiobank.py` bounds RIFF/FSB5 inspection, PCM16 decoding, isolated native decoding,
+WAV export and explicit WinMM playback. `audio_worker.py` uses only the selected game's FMOD 2.03 DLL;
+never redistribute it. Frozen workers enter through `TS3 Modding CLI.exe _audio-decode` (private protocol).
+Public CLI: `explore audio PATH --track N --seconds N --out NEW_DIRECTORY [--play]`.
+Tests: `tests/test_audio.py [--exe CLI]`; no game files/runtime/audio device needed by synthetic checks.
+
+Local testing preference (02/11/2026): after a finished change, `python -I kit/build_kit.py --local` updates
+`%APPDATA%/Microsoft/Windows/Start Menu/Programs/Toy Story 3 Modding Tool/` and its sibling shortcut.
+The user moved the build there; do not recreate the Desktop copy. Run visual tests on the secondary monitor.
+
+Since 02/11/2026, the same build also produces **Toy Story 3 Mod Loader** in its own sibling Programs folder
+and shortcut. `build_kit.py` without flags produces two ZIPs for a requested release. The Loader has its own
+`TS3 Mod Loader CLI.exe`, with the same mod CLI protocol. No NumPy/Pillow/ModernGL in its bundle. Keep the
+registry path `<game>/TS3 Modding Tool/` unchanged: both products share it and its recovery journal/backups.
+Game discovery is in `gamepaths`; kit.find_game wraps its failures as KitError for backward compatibility.
+Loader settings use the existing TS3TOOL_SETTINGS/default file, merging only game/lang and preserving recents.
+Tests: `test_cli.py --loader` (source), `test_cli.py --exe <Loader CLI>`, and `test_loader.py [--exe <Loader CLI>]`.
+The last checks cross-app installation/removal and that authoring/image dependencies do not load.
+
+Same-ID replacement: `Store.preview/install(..., replace=True)`; CLI `mods plan/install --replace`.
+GUI review shows `replaces` metadata and `restores` retired paths. `_prepare` reads retained targets from
+the original backup, keeps that baseline in the installed record, and separately tracks current bytes for
+transaction expectations/tickets. Existing dependents must accept the new version. Never implement updates
+as a separate remove/install pair. `tests/test_replacement.py` covers archives, restoration, rollback,
+recovery, races, backup corruption and dependents. CLI and cross-app tests also cover replacement.
+`TS3TOOL_GEOMETRY` overrides initial window geometry for isolated secondary-monitor UI tests in both apps.
+
 Implemented first slice: `kit/modfile.py` (schema 1 + folder/ZIP packages), `kit/modstore.py`
 (transactional install/remove, exclusive target ownership, recoverable journal), `kit.py mods`
 commands, and `mod.json` in exports with a stable project ID. See `docs/MOD_FORMAT.md`.
@@ -208,7 +255,104 @@ screen with review and drag-and-drop (`kit/dropfiles.py`: `WM_DROPFILES` through
 dependency), and update checks (`kit/modupdate.py`: GitHub's latest release for `update.github`, once a day per
 repository, cached in `<game>/TS3 Modding Tool/updates.json`; the window's list reads only the cache, its
 button and `mods updates` ask GitHub; never downloads). A and B are done. C now has a working first version;
-D–E are not started.
+D has multi-archive workspaces and shared DDS edits; E exports GLB and reads GLB/glTF as normal character inputs.
+Original-skeleton character reinsertion is explicit; bounded rigid same-topology workspaces are available.
+Unrestricted static object/level reinsertion remains pending.
+
+Texture workflow: `kit/texpack.py` dumps PNGs + `index.json` for up to 256 archives (or one selected OCT), then builds a
+data-only patch pack from changed PNG hashes. `kit/ddsedit.py` keeps the source DDS header/dimensions/mip count
+(DXT1/3/5 or byte-aligned 32-bit RGB(A)); it does not resize. Validate the source archive/OCT/texture hashes
+before encoding. Exports/builds never install; use the existing manager. No shared-archive priorities yet.
+The GUI workspace UUID gives repeated exports a stable mod ID; the CLI takes `--id` explicitly.
+`textures dump A.zip B.zip --shared` groups only byte-identical DDS occurrences in selected archives;
+one PNG in shared/ uses CRC32 plus full SHA-256. Separate edits are the default. Schema 2 records archives,
+editing mode and per-row archive; schema 1 is normalized only in memory and remains readable. Never group by
+CRC or texture name alone. All selected source hashes must match before building; only changed archives
+enter the pack. Stage every archive before publishing output, and keep the one-mod-per-archive constraint.
+The GUI offers Export multiple ZIPs and an unchecked-by-default shared editing option.
+`kit/texturecli.py` uses the standard JSON envelope. Test with `python -I tests/test_textures.py`, also `--exe`.
+
+GLB export: `Browser.export_glb` / `explore glb` creates model.glb, report.json and README in a new folder.
+`GameModel.skin_mask` tracks actual skinned vertices so static pieces never acquire the first bone's weights.
+`bone_ids` preserves OCT BoneID in glTF extras. Mesh skin nodes are scene roots. Joint nodes use local pivot
+differences and column-major inverse translations (not original bone rotations/roll). Diffuse maps are decoded
+at source resolution, one at a time, with `_texture(..., limit=None)`; preview downsizing is unchanged.
+Original-skeleton reinsertion is optional (below); no animations or full game materials. Source signatures include loose buffers.
+Tests: `test_gltf.py [--exe CLI] [--artifacts build/gltf-checks]` and `validate_gltf.cjs` (pinned dev-only
+Khronos npm package; never bundled). Exported game assets stay outside git. Both apps still build locally.
+
+GLTF input: objlib.open_scene routes .glb/.gltf to gltflib.Scene without global caching; .fbx/.obj retain their
+existing routes. Meshes expose already-world/default-pose geometry with row-convention xf@xlink=identity.
+Skin node transforms are ignored as glTF requires; joint globals and inverse bind matrices bake default pose.
+UV V is flipped into the converter's bottom-left contract, then flipped back by build_vertices. Normal maps
+and base-colour factors are read; PBR/animations are not carried over. Static/mixed character inputs fail early.
+prepare validates generated PNGs under model-textures/<fingerprint> and refreshes automatic textures when
+sources change; explicit user texture folders are preserved. `model-info FILE --json` has no game/file writes.
+`--model` aliases --fbx; keep the project field named fbx for old project compatibility. SourceFBX preview uses
+open_scene too. Tests: test_gltflib.py [--exe CLI], plus converter/OBJ/FBX regressions.
+GLTF primitives may overlap intentionally: autotex skips its legacy duplicate-mesh heuristic only when the
+scene declares deduplicate_meshes=False. Keep the FBX/OBJ default unchanged. Explicit --textures or GUI folder
+selection clears the automatic-cache marker, including when the user selects an edited generated folder itself.
+
+Original-skeleton mode (03/11/2026): `make --fit normal|identity`, persisted `fit_mode` (absent=normal).
+`kit/identity.py` builds explicit IDENTITY maps and validates reused map modes without executing them;
+`tools/identityfit.py` optionally verifies GLTF joint BoneIDs/exact names, unique mappings, pivots <=1e-5 m,
+collapsed hierarchy and <=4 distinct influences. Unknown present IDs never fall back to names. Geometry,
+winding and UVs stay at TS3 float32/float16 precision; rounded byte weights retain original 255-based weights.
+The converter's normal path stays byte-identical; all new behavior is guarded by IDENTITY/identity=False.
+Runtime checks loaded map mode too; identity preflight runs before rotating previous output. Original target
+skeleton matrices/IDs/hierarchy and animation network stay. Counts/bounds, tangents, pieces and materials are
+rebuilt; palette/explicit material edits can remap UVs. Do not claim a byte-identical archive/material roundtrip.
+GUI step 3 selects mode, displays verified mappings and disables Adjustments/joint dragging/bone edits;
+saved adjust/joints/bones are preserved but ignored. Live preview/diagnosis do not apply stale fitting strain.
+Tests: test_identity.py [--exe CLI]. Woody's real geometry/UV/byte weights and original skeleton checked locally;
+pack install/verify/remove restores an isolated game copy exactly. In-game and Blender visual checks pending.
+
+Rigid editing (03/11/2026): `kit/meshpack.py`, `meshcli.py`, `meshes dump/build`, explorer buttons. One OCT
+member inside a ZIP, <=250000 visible rigid vertices/512 MiB archive and buffers. `mesh.json` stores source
+hashes/UUID; GLB `_TS3_VERTEX` float attributes map compact GameModel vertices back to original stream offsets.
+`GameModel(...provenance=True)` records blocks/transforms/source vertices; default output is unchanged.
+`gltf.encode(...vertex_ids=True)` is optional; gltflib exposes correspondence only when present. Ordinary
+explore glb exports cannot reinsert rigid edits. Keep point attributes and triangles (Blender Mesh > Attributes).
+Re-read live sources to derive offsets; never trust manifest offsets. Verify topology/multiplicity, split
+vertex consistency and source hashes. Apply positions/normals/UVs in original local coordinates/storage formats,
+rebuild tangent frames on incident faces, expand ancestor BoundingBox (never shrink); preserve other bytes.
+Protect overlapping/hidden streams and conflicting shared-instance edits. Reject skins, position-only fallback,
+unsupported bounding spheres/layouts and changed topology. GLB material edits are explicitly ignored;
+materials/textures/indices/collisions stay. Collision shapes do not follow visual edits. Staged data-only
+pack via existing texpack.patch_archive/manager ownership/backups. No direct game writes. Mesh pack ID from
+workspace UUID in UI; explicit --id in CLI. Test `test_meshes.py [--exe CLI]`; actual small rigid Toy Box object
+checked locally with exact fake-game restoration. New topology uses explicit replacement (below);
+whole-level/collision editing remains pending.
+
+Topology replacement (03/11/2026): optional `meshes build --topology replace`; default preserve remains.
+GUI checkbox exists only for mesh-pack dialogs and defaults unchecked; texture-pack results remain three fields.
+`kit/meshtopo.py` replaces one visible SubGeometryLit rigid piece, one input material; no scene-component refs,
+unknown source attributes, variable padding/extra components or multi-UV layouts. Max 65535 vertices/1m faces
+and original index width. Input GLTF Scene(correspondence=False) ignores obsolete/interpolated _TS3_VERTEX;
+normal readers still validate it. New data appends aligned to existing buffers, cloned streams append to pools,
+only the target's stream refs change. No node renumbering/deletion, no original buffer bytes removed/modified.
+Materials/textures/collisions/hidden pieces stay. Bounds helper expands AABB, sphere radius and OBB extents,
+retaining centers/axes and enclosing both orientation conventions; used by preserve mode too. Unknown combined
+BoundingSphere records remain refused. Calculate replacement bounds after float32 position storage rounding.
+Old preserve mode's attribute/tolerance rules stay. Tests: test_meshtopo.py [--exe CLI], test_meshes regression.
+Actual Toy Box object subdivided with geometry growth, original buffer prefixes/materials/textures checked and
+exact isolated-game restoration. In-game/Blender visuals, multi-piece/material/collision/level editing pending.
+
+Compound selection: `GameModel(...provenance=True).source_pieces` maps OCT node IDs to compact triangles,
+material and name. `meshes pieces WORKSPACE` or `meshes pieces ARCHIVE --member OCT` derives fresh visible
+piece metadata and structural supported_layout/reason (padding/input checks still run at build).
+`dump --piece NODE` writes a partial GLB/workspace with optional integer piece; it requires replace mode.
+Whole-workspace preserve behavior stays. `build --topology replace --piece NODE` selects a visible node,
+or uses the workspace default; auto requires one visible piece. New streams detach only that node even
+when visible instances share a block. Runtime verifies target counts, whole-model triangle count, and
+other visible pieces' positions/UV/materials. Reports distinguish per-piece and model counts. Query caches
+OCT record/block lookups within a source snapshot, invalidated by record-count changes; no persisted offsets.
+GUI performs fresh source reads in App.run, shows whole/partial export choices and a pack target combo;
+partial workspaces preselect replace mode/node. Texture dialogs still return three fields. Mesh dialogs
+return name/author/version/topology/piece. Old workspaces supported. Tests: test_meshselect.py [--exe CLI].
+Real three-piece planter checked with exact isolated restoration and other two pieces unchanged.
+PLAN's next functional slice is D per-texture composition inside one OCT, then texture resolution; E remains partially complete.
 
 Explorer: `Browser.index()` reads directories with `zipfile`, falling back to `FrontZip` for older TS3 archives
 with a leading directory only. Cache in LocalAppData (beside `TS3TOOL_SETTINGS` when set), keyed by game and file

@@ -26,9 +26,23 @@ jobs:
           $v = python -I -c "import sys; sys.path.insert(0, 'kit'); import about; print(about.VERSION)"
           if ("v$v" -ne "${{ github.ref_name }}") { throw "tag ${{ github.ref_name }} but kit/about.py says $v" }
       - run: python -I tests/test_mods.py
+      - run: python -I tests/test_replacement.py
+      - run: python -I tests/test_layers.py
       - run: python -I tests/test_adjust.py
       - run: python -I tests/test_model_errors.py
       - run: python -I tests/test_explorer.py
+      - run: python -I tests/test_audio.py
+      - run: python -I tests/test_gltf.py --artifacts build/gltf-checks
+      - run: python -I tests/test_gltflib.py
+      - run: python -I tests/test_identity.py
+      - run: python -I tests/test_meshes.py
+      - run: python -I tests/test_meshtopo.py
+      - run: python -I tests/test_meshselect.py
+      - run: npm.cmd install --prefix build/gltf-validator --no-save --ignore-scripts gltf-validator@2.0.0-dev.3.10
+      - run: node tests/validate_gltf.cjs build/gltf-checks
+      - run: python -I tests/test_textures.py
+      - run: python -I tests/test_cli.py --loader
+      - run: python -I tests/test_loader.py
       - run: python -I kit/build_kit.py
       - name: The console .exe answers like the source
         shell: pwsh
@@ -36,7 +50,34 @@ jobs:
           $exe = Get-ChildItem release -Recurse -Filter 'TS3 Modding CLI.exe' | Select-Object -First 1
           python -I tests/test_cli.py --exe $exe.FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_layers.py --exe $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -I tests/test_explorer.py --exe $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_audio.py --exe $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_textures.py --exe $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_gltf.py --exe $exe.FullName --artifacts build/gltf-frozen
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/validate_gltf.cjs build/gltf-frozen
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_gltflib.py --exe $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_identity.py --exe $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_meshes.py --exe $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_meshtopo.py --exe $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_meshselect.py --exe $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $loader = Get-ChildItem release -Recurse -Filter 'TS3 Mod Loader CLI.exe' | Select-Object -First 1
+          python -I tests/test_cli.py --exe $loader.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_loader.py --exe $loader.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_layers.py --exe $loader.FullName
       - name: Notes for this version (its section of CHANGELOG.md)
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh

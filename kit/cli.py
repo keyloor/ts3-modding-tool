@@ -7,6 +7,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == '_audio-decode':
+        import audio_worker
+        return audio_worker.main(argv[1:])
     if argv and argv[0] == 'mods':
         import modcli
         return modcli.main(argv[1:])

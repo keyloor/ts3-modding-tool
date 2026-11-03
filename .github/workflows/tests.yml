@@ -21,7 +21,22 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python -m compileall -q kit tools tests
       - run: python -I tests/test_mods.py
+      - run: python -I tests/test_replacement.py
+      - run: python -I tests/test_layers.py
+      - run: python -I tests/test_layers.py --loader
       - run: python -I tests/test_adjust.py
       - run: python -I tests/test_model_errors.py
       - run: python -I tests/test_cli.py
+      - run: python -I tests/test_cli.py --loader
+      - run: python -I tests/test_loader.py
       - run: python -I tests/test_explorer.py
+      - run: python -I tests/test_audio.py
+      - run: python -I tests/test_gltf.py --artifacts build/gltf-checks
+      - run: python -I tests/test_gltflib.py
+      - run: python -I tests/test_identity.py
+      - run: python -I tests/test_meshes.py
+      - run: python -I tests/test_meshtopo.py
+      - run: python -I tests/test_meshselect.py
+      - run: npm.cmd install --prefix build/gltf-validator --no-save --ignore-scripts gltf-validator@2.0.0-dev.3.10
+      - run: node tests/validate_gltf.cjs build/gltf-checks
+      - run: python -I tests/test_textures.py

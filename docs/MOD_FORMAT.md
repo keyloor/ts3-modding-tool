@@ -98,10 +98,33 @@ en `objects/`, identificadas por SHA-256. Se restaura exactamente el estado ante
 instalación, que puede incluir cambios de otro instalador. Los archivos nuevos se eliminan
 al quitar el mod. Las copias se conservan tras desinstalar; aún no hay limpieza automática.
 
-Cada archivo del juego tiene un solo propietario en el gestor. Dos mods que cambian el
-mismo ZIP se consideran incompatibles incluso si modifican entradas diferentes. No hay
-sobrescritura forzada, prioridades ni actualización automática: primero hay que quitar
-la versión anterior. Un mod requerido por otro no se puede quitar mientras ese otro siga instalado.
+El gestor admite capas con prioridad revisada. En CLI, compartir un destino nuevo requiere
+`mods plan/install --layer`; sin esa opción se mantiene el rechazo de conflictos de archivo.
+Los parches de entradas distintas de un ZIP se combinan; si coinciden, gana la entrada completa del último
+mod. No se mezclan texturas dentro de un mismo OCT. Los reemplazos de archivo completo sustituyen las
+capas inferiores; los parches posteriores modifican ese archivo. No hay sobrescritura forzada de cambios
+externos ni descarga automática de actualizaciones. Un paquete del mismo ID se
+puede reemplazar desde ambas aplicaciones, o con `mods plan/install --replace`: se revisan las versiones,
+se conservan los respaldos de la primera instalación y se restauran los destinos retirados del nuevo pack.
+Los parches se aplican sobre aquel respaldo, no encima de la versión instalada. Una transacción fallida
+o interrumpida vuelve a la versión anterior instalada, incluido su registro. Se validan tanto las nuevas
+dependencias/conflictos como los requisitos de los mods que ya dependen de él. Se permiten packs
+regenerados con la misma versión y bajadas compatibles; no se reemplazan otros IDs.
+Un mod requerido por otro no se puede quitar mientras ese otro siga instalado.
+
+`mods order` consulta el orden; `mods order ID... --dry-run` revisa uno nuevo, con todos los IDs instalados
+de menor a mayor prioridad, y `mods order ID... --expect TICKET` lo aplica. Ambas ventanas tienen
+«Prioridades de mods», botones para mover una capa y revisión antes de confirmar. Los nuevos mods van
+al final; reemplazarlos conserva su posición. Quitar una capa reconstruye las restantes. El último devuelve
+el archivo a su estado anterior a la primera instalación, incluido contenido externo que ya existía.
+
+Los paquetes siguen siendo esquema 1. Los registros instalados de esquema 1 se convierten al 2 solo al
+confirmar una operación con capas/orden: se conserva el respaldo `before`, cada salida independiente se guarda
+en `objects/` y los archivos registran `kind` (`file`/`archive`), `payload` (SHA-256 de esa salida) y `after`
+(SHA-256 del archivo compuesto actual). La lista `mods` define el orden. Las filas compartidas deben tener
+la misma ruta, copia original y resultado. El gestor conserva los objetos tras desinstalar y no depende del
+paquete original para reconstruir. Usa versiones actualizadas de ambas aplicaciones: las anteriores no leen
+el registro 2. Preparación de snapshots nuevos y reconstrucción: 2 GiB por operación. No edites estos datos.
 
 Si un archivo cambia fuera del gestor, se bloquea la desinstalación completa y se conservan
 el registro y las copias. Los botones antiguos de instalar/restaurar proyectos también

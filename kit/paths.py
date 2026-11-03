@@ -10,7 +10,7 @@ if FROZEN:
     TOOLS = os.path.join(KIT, 'tools')
 else:
     TOOLS = next(p for p in (os.path.join(KIT, 'tools'), os.path.normpath(os.path.join(KIT, '..', '..', 'tools')))
-                 if os.path.isfile(os.path.join(p, 'convert.py')))
+                 if os.path.isfile(os.path.join(p, 'install.py')))
     for p in (HERE, TOOLS):
         if p not in sys.path:
             sys.path.insert(0, p)
