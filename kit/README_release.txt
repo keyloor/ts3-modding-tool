@@ -21,26 +21,47 @@ MOD PRIORITIES
   CLI: mods plan/install PACKAGE --layer; mods order ID... --dry-run, then --expect TICKET.
   Use current versions of both apps with layered registries. External edits and declared conflicts stay blocked.
 
+MOD MANAGER AND VERIFICATION
+  The Tool groups global actions under Options and searches installed mods by name, author, description or ID.
+  Select a mod for its actions. Both products offer Verify files with readable game-file/backup/layer results.
+  Select a report row for details; raw JSON/hashes are under Technical details. Nothing is repaired automatically.
+  View result reopens the last check in this session. Refresh clears it; verify again after changes.
+  The Loader shows health issues before update notices. Interrupted operations request recovery, not a new install.
+  CLI: mods verify ID --game GAME --json (unchanged).
+  Loader: description/files have scrollable tabs. More holds View result and an available update page.
+
 TEXTURES ACROSS WORLD VARIANTS
-  Textures > Export multiple ZIPs creates one workspace for the selected game archives.
+  Explorer > Create mod > Prepare images from several archives creates one workspace for selected archives.
   Enable Share one PNG to edit identical DDS occurrences together; leave it off for separate edits.
-  Build texture pack creates one pack with all changed archives. Existing workspaces still open.
+  Create mod > Create mod from edited images creates one pack with all changed archives. Existing workspaces still open.
   CLI: textures dump ARCHIVE [ARCHIVE ...] --shared --out NEW_WORKSPACE --game GAME --json
 
 SOUND PREVIEWS
-  Music and sounds > Listen to sounds opens the explorer. Inspect an .assets.bank, choose a sample,
+  Music and sounds > Listen to sounds opens the explorer. Choose View sounds for a bank, then a sample,
   then Play/Stop or Save WAV. Excerpts start at the beginning, up to 120 seconds; no automatic playback.
   Compressed samples use the selected game's existing FMOD runtime on Windows, decoded in a separate process.
   No game DLL is included. Output is PCM16 mono/stereo. Bank editing/reinsertion remains planned.
   CLI: explore audio PATH --track 0 --seconds 30 --out NEW_DIRECTORY --game GAME --json
+  Sounds lists only banks with sample headers. View restores technical/event files and original names.
+  CLI: explore list --playable --game GAME --json (loose banks only, not ZIP members).
+
+GAME EXPLORER
+  Grouped readable names keep the original path beside the selection. Choose Preview/View sounds or Save a copy.
+  File extensions stay visible in names and the Format column. Preview shows image/audio/text, unavailable or not checked yet.
+  OCT/ZIP content needs checking first; opening updates the hint to the actual result. Refresh clears those hints.
+  Edit prepares the selected images or rigid object; Create mod builds an edited workspace.
+  More contains model export, PNG previews and technical details. Default information is a human summary.
+  Export/build results show Open folder for their output, including WAV, GLB, workspaces and packs.
 
 START
   Double-click "Toy Story 3 Modding Tool.exe" (no Python needed). If Windows warns about it, choose "More info" >
   "Run anyway". Some antivirus programs flag new, unsigned tools by mistake.
   The start screen finds the game through Steam and keeps your projects in Documents\Toy Story 3 Modding Tool.
+  Six equal task cards open Explorer, Textures, Models and objects, Music and sounds, Characters and Manage mods.
+  Folders holds workspace options. Characters has its own recent-project list with character and model filename.
 
 EXPORT TO BLENDER (FIRST STEP)
-  Explorer > choose a ZIP/OCT > Export GLB model creates model.glb and a report in a new folder.
+  Explorer > choose a ZIP/OCT > More > Export model for Blender creates model.glb and a report in a new folder.
   Geometry, UVs, diffuse maps and pivot-based skinning are included; static pieces stay outside the skin.
   Read report.json for omitted pieces and materials. Original bone roll/rotation, game shaders and animations
   are not reconstructed. Rigged character GLB/glTF files can be project inputs with normal fitting;
@@ -48,8 +69,8 @@ EXPORT TO BLENDER (FIRST STEP)
   CLI: explore glb PATH [--member OCT] --out NEW_DIRECTORY --game GAME --json
 
 RIGID OBJECT EDITING
-  Explorer > select an OCT member > Export editable mesh. Retouch model.glb without changing triangles
-  or its _TS3_VERTEX point attribute (Blender export: Mesh > Attributes), then Build mesh pack.
+  Explorer > select an OCT member > Edit > Prepare object for Blender. Retouch model.glb without changing triangles
+  or its _TS3_VERTEX point attribute (Blender export: Mesh > Attributes), then Create mod > Create mod from edited model.
   Keeps original materials, indices and collisions. Collisions do not follow shape edits.
   Shared buffer conflicts, missing IDs and changed topology are refused; limit 250000 visible vertices.
   Optional Replace topology (CLI --topology replace) allows adding/removing vertices and triangles for
@@ -73,7 +94,7 @@ GLB / glTF CHARACTERS
   CLI: make PROJECT --model FILE --character woody --game GAME --json
 
 YOUR OWN CHARACTER
-  Characters > "New project", give it a name, then:
+  Start > "Open characters" > "New character project", give it a name, then:
   1. Pick the character you replace: Woody, Buzz Lightyear, Jessie (or another under "Other").
   2. Choose your model (FBX or OBJ). Its textures folder is found next to it; "Change textures" if not.
   3. "Convert", and look at the Preview: turn it with the mouse, see it with its arms down as the game moves it.
@@ -100,8 +121,8 @@ BROWSE THE GAME
   Command line: "TS3 Modding CLI.exe" explore --help (JSON output supported; see docs/CLI.md).
 
 EDIT TEXTURES
-  Textures > "Edit textures": select a ZIP or OCT and "Export PNG textures" to a new folder.
-  Edit the PNGs in your image editor, keeping their size. "Build texture pack" reads that exported folder,
+  Textures > "Edit textures": select a ZIP or OCT and Edit > Prepare images to edit to a new folder.
+  Edit the PNGs in your image editor, keeping their size. Create mod > Create mod from edited images reads that folder,
   asks for your mod name/credit/version and creates an installable folder with only the changed OCT files.
   Install/remove it through Manage mods. No game files are changed when exporting or building.
   Supports DXT1/3/5 and 32-bit RGB(A), with original mipmaps. One managed mod per archive; no priorities yet.
@@ -138,9 +159,12 @@ EMPEZAR
   Doble clic en "Toy Story 3 Modding Tool.exe" (no hace falta Python). Si Windows avisa, elige "Más información" >
   "Ejecutar de todas formas". Algunos antivirus marcan por error las herramientas nuevas sin firma.
   La pantalla de inicio encuentra el juego por Steam y guarda tus proyectos en Documentos\Toy Story 3 Modding Tool.
+  Seis tarjetas del mismo tamaño abren el Explorador, Texturas, Modelos y objetos, Música y sonidos, Personajes
+  y Gestionar mods. Carpetas contiene las opciones de trabajo. Personajes tiene su propia lista de proyectos
+  recientes, con el personaje y el nombre del modelo, incluida su extensión.
 
 TU PROPIO PERSONAJE
-  Personajes > "Nuevo proyecto", ponle un nombre, y luego:
+  Inicio > "Abrir personajes" > "Nuevo proyecto de personaje", ponle un nombre, y luego:
   1. Elige el personaje que reemplazas: Woody, Buzz Lightyear, Jessie (u otro en "Otro").
   2. Elige tu modelo (FBX u OBJ). Su carpeta de texturas se busca junto a él; si no, "Cambiar texturas".
   3. "Convertir", y mira la Vista previa: gírala con el ratón, mírala con los brazos abajo como la mueve el juego.

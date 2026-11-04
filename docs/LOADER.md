@@ -21,6 +21,15 @@ Selecciona un mod para ver su descripción. «Quitar mod» restaura los archivos
 «Verificar archivos» comprueba su instalación y las copias. Si existe una actualización,
 puedes abrir su página para descargarla. El Loader no descarga ni ejecuta instaladores.
 
+La verificación muestra por archivo su estado, la copia original y los datos guardados de los mods que comparten
+ese destino. Selecciona una fila para ver el motivo de un problema. No repara ni sobrescribe archivos; los hashes
+y el JSON quedan en «Detalles técnicos». «Más → Ver resultado» abre la última comprobación de esta sesión. Recargar la
+lista la descarta: vuelve a verificar después de cambiar archivos o prioridades. Un aviso «Revisar archivos» tiene
+preferencia sobre una actualización disponible. La búsqueda admite nombre, autor, descripción e identificador,
+y el contador indica cuántos mods coinciden. Si hay una operación interrumpida, la lista pide recuperarla.
+El panel separa Descripción y Archivos que cambia en pestañas con desplazamiento. «Más» también da acceso a
+su actualización, cuando existe; verificar y quitar permanecen a la vista sin ocultar los archivos a tamaño mínimo.
+
 Toy Story 3 Mod Loader y Toy Story 3 Modding Tool comparten el mismo registro y las mismas
 copias de seguridad dentro de la carpeta del juego. Los mods que ya instalaste con el
 gestor de la Modding Tool aparecen aquí. Los de otros instaladores no se registran automáticamente.
@@ -55,6 +64,14 @@ to highest; last wins on matching ZIP members/whole files. Distinct patched memb
 whole member, without per-texture merging. Updates keep position; removing a layer rebuilds the rest from
 stored snapshots. Original backups remain. Use current versions of both apps for layered registries.
 External edits, declared conflicts and broken dependencies are refused. Use Recover changes after interruption.
+
+Verify files shows each game file, original backup and stored mod layer; select a row for an explanation.
+It never repairs files. Raw hashes/JSON are under Technical details. More → View result reopens the last check for
+this session; refreshing clears it. Verify again after changing files or priorities. Health warnings take
+precedence over update notices. Search matches names, authors, descriptions and IDs; counts reflect matches.
+An interrupted operation is shown as Recovery needed rather than an empty installed-mod list.
+Description and Files it changes have separate scrollable tabs. More also holds its update page when available,
+leaving Verify/Remove visible without crowding out files at minimum size. Table statuses are short; select a row for details.
 
 For creating mods, character conversion, texture editing and 3D exploration, download
 Toy Story 3 Modding Tool separately. No Python is required for either compiled application.

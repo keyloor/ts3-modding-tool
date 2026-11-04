@@ -19,7 +19,7 @@ KIT = paths.KIT
 TOOLS_USED = ['octlib', 'fbxlib', 'ts3model', 'convert', 'render', 'install', 'build_release', 'zx', 'zls', 'rt',
               'fbxinfo', 'bones5', 'dump', 'texpeek', 'angles', 'skelcmp', 'fmodbank', 'identityfit']
 KIT_FILES = ['about', 'paths', 'automap', 'autotex', 'objlib', 'viewer', 'modfile', 'modstore', 'modupdate', 'dropfiles',
-             'modcli', 'modlayers', 'modpriorityui', 'cli', 'kit', 'app', 'build_kit', 'explorer', 'explorercli', 'explorerui',
+             'modcli', 'modlayers', 'modpriorityui', 'modview', 'homeui', 'cli', 'kit', 'app', 'build_kit', 'explorer', 'explorercli', 'explorerui', 'explorerpresent',
              'ddsedit', 'texpack', 'texturecli', 'gltf', 'gltflib', 'identity', 'meshpack', 'meshcli', 'meshtopo', 'audiobank', 'audio_worker', 'gamepaths', 'loaderprefs', 'loader', 'loaderui', 'loadercli']
 CLI = 'TS3 Modding CLI'
 SHORTCUT = 'Abrir ' + TOOL + '.lnk'
@@ -104,7 +104,7 @@ def build_loader(local=False):
     shutil.copy2(work / 'dist' / (LOADER_CLI + '.exe'), rel)
     (rel / 'kit').mkdir(); (rel / 'tools').mkdir(); (rel / 'docs').mkdir(); (rel / 'licenses').mkdir()
     for name in ('about', 'paths', 'gamepaths', 'loaderprefs', 'loader', 'loaderui', 'loadercli',
-                 'modfile', 'modstore', 'modlayers', 'modpriorityui', 'modcli', 'modupdate', 'dropfiles'):
+                 'modfile', 'modstore', 'modlayers', 'modpriorityui', 'modview', 'modcli', 'modupdate', 'dropfiles'):
         shutil.copy2(Path(KIT) / 'kit' / (name + '.py'), rel / 'kit')
     shutil.copy2(Path(paths.TOOLS) / 'install.py', rel / 'tools')
     for name in ('LICENSE', 'NOTICE.md'):

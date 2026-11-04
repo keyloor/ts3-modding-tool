@@ -36,3 +36,11 @@ Current apps migrate installed registry 1 to 2 only on a confirmed layered opera
 stays 1. Never migrate manually or use old binaries to edit layered records. Payload snapshots/original
 backups stay in objects/. Limits: 2 GiB new snapshots/rebuilt content per operation. Verification includes
 all payloads for a target; hidden layers can be valid even when another layer determines the visible result.
+
+Both GUIs use modview.py for human verification reports and session-only results; refresh invalidates them.
+Unknown statuses and damaged/missing hidden-layer data must never look verified. The Loader prioritizes health
+warnings over update notices. Raw diagnostics remain in Technical details. The equivalent CLI is unchanged:
+`mods verify ID --game GAME --json`; inspect per-file status, backup_status and layers[].status, not just visible
+content. This checks files, not in-game appearance. Tests: test_modview.py and test_manager_controls.py.
+Selected-mod description/files use scrollable tabs; More holds View result and an available update page.
+Report tables use short statuses; selected-file details keep the full explanation.

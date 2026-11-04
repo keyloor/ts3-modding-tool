@@ -13,6 +13,11 @@ They are built from this repository as separate downloads. Both use the same `mo
 registry and backups. Existing managed mods appear in both apps; there is no migration or second copy of the registry.
 The Loader does not carry NumPy, Pillow, model conversion or the 3D runtime.
 
+Both managers offer **Verify files** with a readable report of game files, original backups and stored mod
+layers. **View result** (under **More** in the Loader) reopens the last check in this session; refreshing clears it. Verification never repairs
+files. The Tool now groups global actions under **Options**, searches names/authors/IDs and shows actions for
+the selected mod. Filtered counts and recovery notices distinguish an empty list from an interrupted operation.
+
 Both apps can replace an installed mod with a newer or rebuilt package of the same ID after review,
 preserving original backups and restoring files retired from the pack. The CLI uses `mods plan/install --replace`.
 Dependency mismatches, external edits and damaged backups block replacement; interrupted changes recover the old version.
@@ -24,26 +29,35 @@ the builder produces two separate release ZIPs. Public releases are published on
 
 ## Modding Tool
 
-Right now: **put your own 3D model in place of Woody, Buzz Lightyear or Jessie.** A rigged FBX, or an OBJ (the tool
-gives it a skeleton). The tool fits it to the game's skeleton, matches its textures, shows you a preview, installs it
-into your game (and takes it out again), and exports a pack for other players. Audio editing is still planned.
+The start screen gives equal space to **Explore the game, Textures, Models and objects, Music and sounds,
+Characters, and Manage mods**. Choose a task to begin. Game detection stays above the tasks; workspace options
+are under Folders. Characters has its own recent-project list with character names and model file extensions.
 
-**Texture editing**: start screen → Textures. Select a ZIP or OCT, export its individual PNGs, edit them in an
-image editor at the same size, then Build texture pack from that workspace. Only edited textures are encoded,
+**Character replacements**: put your own 3D model in place of Woody, Buzz Lightyear or Jessie. The tool fits a
+humanoid model to the game's skeleton, matches its textures, previews it and exports an installable pack.
+An OBJ gets an estimated skeleton. Audio editing is still planned.
+
+**Texture editing**: start screen → Textures. Select a ZIP or OCT → Edit → Prepare images to edit. Edit the PNGs in an
+image editor at the same size, then Create mod → Create mod from edited images. Only edited textures are encoded,
 keeping the DDS format and mipmaps. Install/remove the resulting folder with Manage mods. Supports DXT1/3/5
 and 32-bit RGB(A). Shared archives support reviewed priorities; distinct ZIP members combine, while a
 matching OCT is replaced as a whole by the higher priority pack. See [docs/CLI.md](docs/CLI.md).
-Use **Export multiple ZIPs** for one workspace covering several archives. The optional **Share one PNG**
+Use **Create mod → Prepare images from several archives** for one workspace covering several archives. The optional **Share one PNG**
 mode groups only identical DDS textures: one edit updates their occurrences in the selected archives.
 Separate edits remain the default. Existing workspaces still open; packs install with either application.
 
-**Game explorer**: start screen → Browse files. Search the game's archives and loose files, inspect OCT pools
+**Game explorer**: start screen → Browse files. Grouped readable names, original paths beside the selection,
+visible file extensions, Format and Preview columns (image, audio, text, unavailable or not checked yet),
+and actions for the selected file. **Edit** prepares images/rigid objects; **Create mod** builds from edited
+workspaces; **More** contains Blender export and technical details. Search the game's archives and loose files, inspect OCT pools
 and sound-bank track lists, view models and levels in 3D and textures in sheets, and extract assets or save PNG
 previews to a new folder outside the game. Reads the currently installed content, including mods. Also available
 as `kit.py explore ... --json`; see [docs/CLI.md](docs/CLI.md). The 3D view shows characters, objects and whole
 levels with their colour textures; the game's lighting, effects and animations aren't reproduced.
+Completed exports show their output folder with **Open folder**, also for WAVs, editable workspaces and mod packs.
 
-**Sound previews**: inspect a `.assets.bank` in the explorer, select a sample in Sounds, then Play/Stop
+**Sound previews**: Sounds lists only banks with sample headers; View can restore technical/event files.
+Choose **View sounds** for a `.assets.bank` or dialogue `.fsb`, select a sample in Sounds, then Play/Stop
 or Save WAV. Choose an excerpt of up to 120 seconds. Compressed audio uses the game's existing FMOD runtime
 on Windows; no game DLL is included in the download. CLI: `explore audio ... --track 0 --seconds 30 --out NEW_FOLDER`.
 Bank editing/reinsertion and event simulation remain planned.
@@ -55,14 +69,14 @@ CLI: `mods plan/install --layer`, `mods order ID... --dry-run/--expect TICKET`. 
 members use the last layer; per-texture merging inside the same OCT remains pending. External changes,
 declared conflicts and dependencies remain protected. Layered records need current versions of both apps.
 
-**Export to Blender (first step)**: select a ZIP/OCT in the explorer → Export GLB model. It exports supported
+**Export to Blender (first step)**: select a ZIP/OCT in the explorer → More → Export model for Blender. It exports supported
 geometry, UVs, diffuse textures and a pivot-based rest skeleton/weights, with a report of omissions. Static
 pieces remain separate from skins. Also available as `explore glb ... --json`. Original bone rotations/roll,
 game shaders and animations are not reconstructed. Rigged character GLB/glTF files can be used as project
 inputs with normal fitting or verified original-skeleton reinsertion. Rigid edits use the separate workspace below.
 
-**Edit rigid objects**: select an OCT inside a ZIP in the explorer → **Export editable mesh**. Reshape the
-GLB without changing its triangles, preserve `_TS3_VERTEX`, then **Build mesh pack** and install through
+**Edit rigid objects**: select an OCT inside a ZIP in the explorer → **Edit → Prepare object for Blender**. Reshape the
+GLB without changing its triangles, preserve `_TS3_VERTEX`, then **Create mod → Create mod from edited model** and install through
 the Loader. Positions/normals/first UVs are editable; original materials, indices and collisions stay.
 Collisions do not follow shape edits. Shared-buffer conflicts and missing IDs are refused. Limited to
 250000 vertices per OCT in preserve mode. Optional **Replace topology** allows adding/removing geometry
@@ -120,7 +134,7 @@ pip install numpy pillow moderngl
 python -I kit/app.py
 ```
 
-Start screen → Characters → New project → pick the character, your model → Convert → look at the preview → Install.
+Start screen → Open characters → New character project → pick the character, your model → Convert → look at the preview → Install.
 
 Command line: `python -I kit/kit.py make work/my_model --character woody --fbx model.fbx --textures textures/`
 (`python -I kit/kit.py --help` for the rest).

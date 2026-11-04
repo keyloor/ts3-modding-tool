@@ -1,5 +1,4 @@
 """Bounded, read-only FSB5 bank inspection, isolated decoding and WAV previews."""
-import array
 import io
 import json
 import math
@@ -17,10 +16,100 @@ from modfile import ModError, inside
 RATES = (4000, 8000, 11000, 11025, 16000, 22050, 24000, 32000, 44100, 48000, 96000)
 MAX_SECONDS = 120
 MAX_PCM = 96 * 1024 * 1024
+DECODER_MESSAGES = {
+    'unsupported_runtime': "This game's audio runtime is not supported.",
+    'format_mismatch': 'The decoded sample does not match its bank information.',
+    'unsupported_format': 'This sample uses an unsupported audio format.',
+    'sample_not_found': 'The selected sample is no longer in this bank.',
+    'size_limit': 'Choose a shorter audio excerpt.',
+    'incomplete_audio': 'The sample could not be decoded completely.',
+    'invalid_read': 'The audio decoder returned invalid sample data.',
+    'decode_failed': 'The selected sample could not be decoded.',
+}
+
+
+def error_text(message, lang):
+    """GUI failures stay actionable/localized; native diagnostics remain in the CLI response."""
+    message = str(message)
+    spanish = {
+        'unsupported_runtime': 'Esta versión del audio del juego todavía no es compatible.',
+        'format_mismatch': 'El sonido obtenido no coincide con la información del banco. Prueba con otra muestra.',
+        'unsupported_format': 'El formato de esta muestra todavía no es compatible.',
+        'sample_not_found': 'La muestra elegida ya no está en este banco. Vuelve a inspeccionarlo.',
+        'size_limit': 'Elige un fragmento de audio más corto.',
+        'incomplete_audio': 'No se pudo decodificar esta muestra completa. Prueba con otra muestra.',
+        'invalid_read': 'El decodificador devolvió datos de audio incorrectos. Prueba con otra muestra.',
+        'decode_failed': 'No se pudo decodificar esta muestra. Prueba con otra muestra.',
+    }
+    for problem, text in DECODER_MESSAGES.items():
+        if message == text: return spanish[problem] if lang == 'es' else text
+    if "fmod.dll" in message or 'matching architectures' in message or 'companion TS3 Modding CLI.exe' in message:
+        return ('Falta un componente para leer el audio. Comprueba la carpeta del juego y que la herramienta esté completa.' if lang == 'es' else
+                'An audio component is missing. Check the game folder and that all tool files are present.')
+    if 'timed out' in message:
+        return 'El audio tardó demasiado en prepararse. Prueba con un fragmento más corto.' if lang == 'es' else 'Preparing audio took too long. Try a shorter excerpt.'
+    if 'changed' in message:
+        return 'El archivo cambió. Vuelve a inspeccionarlo antes de escuchar o guardar.' if lang == 'es' else 'The file changed. Inspect it again before playing or saving.'
+    if 'size limit' in message or 'Preview exceeds' in message: return spanish['size_limit'] if lang == 'es' else DECODER_MESSAGES['size_limit']
+    return ('No se pudo reproducir o guardar el audio. Comprueba el archivo elegido y la carpeta de destino.' if lang == 'es' else
+            'The audio could not be played or saved. Check the selected file and output folder.')
 
 
 def invalid(message):
     raise ModError(message, 'invalid_audio')
+
+
+def sample_count(path):
+    """Header-only index hint, not a substitute for bank()'s full validation before use.
+
+    Seek over payloads (including multi-GB dialogue banks). Zero means a validated
+    RIFF container without sample data; damaged/unsupported files raise ModError.
+    """
+    with open(path, 'rb') as f:
+        size = os.fstat(f.fileno()).st_size
+        def read(at, length):
+            if at < 0 or at + length > size: invalid('Truncated sound bank header.')
+            f.seek(at)
+            data = f.read(length)
+            if len(data) != length: invalid('Truncated sound bank header.')
+            return data
+        header = read(0, 12)
+        base, end = 0, size
+        if header[:4] != b'FSB5':
+            if header[:4] != b'RIFF' or header[8:12] != b'FEV ': invalid('Expected an FSB5 or RIFF FEV sound bank.')
+            if 8 + struct.unpack_from('<I', header, 4)[0] != size: invalid('Invalid bank length.')
+            found, budget = {}, [0]
+            def chunks(at, limit, depth=0):
+                if depth > 16: invalid('Bank nesting is too deep.')
+                while at < limit:
+                    budget[0] += 1
+                    if budget[0] > 200000 or at+8 > limit: invalid('Invalid bank chunks.')
+                    h = read(at, 8); cid, length = h[:4], struct.unpack_from('<I', h, 4)[0]
+                    stop = at+8+length
+                    if stop > limit: invalid('Bank chunk exceeds its container.')
+                    if cid in (b'SNDH', b'SND '):
+                        if cid in found: invalid('Multiple sound data sections are unsupported.')
+                        found[cid] = (at, length)
+                    if cid in (b'LIST', b'RIFF'):
+                        if length < 4: invalid('Invalid bank list.')
+                        chunks(at+12, stop, depth+1)
+                    at = stop+(length & 1)
+                if at != limit: invalid('Missing bank chunk padding.')
+            chunks(12, size)
+            if not found: return 0
+            if b'SNDH' not in found or b'SND ' not in found: invalid('Incomplete sound data sections.')
+            at, length = found[b'SNDH']; snd, snd_length = found[b'SND ']
+            if length < 12: invalid('Truncated sound data pointer.')
+            base, length = struct.unpack('<II', read(at+12, 8)); end = base+length
+            if base < snd+8 or end > snd+8+snd_length: invalid('Sound data pointer leaves its chunk.')
+        if base+60 > end: invalid('Missing FSB5 header.')
+        h = read(base, 60)
+        if h[:4] != b'FSB5': invalid('Missing FSB5 header.')
+        ver, count, heads, names, length = struct.unpack_from('<5I', h, 4)
+        if ver != 1: raise ModError('Only FSB5 version 1 is supported.', 'unsupported_audio')
+        if not 1 <= count <= 20000 or heads < count*8 or names < count*4 or base+60+heads+names+length != end:
+            invalid('Invalid FSB5 section lengths or sample count.')
+        return count
 
 
 def bank(data):
@@ -110,16 +199,15 @@ def options(track, seconds):
 
 def pcm16(raw, channels, bits):
     """Clip float32, or retain PCM16; multichannel previews use a parity-average stereo downmix."""
-    values = array.array('h' if bits == 16 else 'f'); values.frombytes(raw)
     if bits == 16 and channels <= 2: return raw
-    pcm, out_channels = array.array('h'), min(2, channels)
-    for start in range(0, len(values), channels):
-        for channel in range(out_channels):
-            group = values[start+channel:start+channels:out_channels]
-            value = sum(group)/len(group)
-            if bits == 32: value *= 32767
-            pcm.append(round(max(-32768, min(32767, value))) if math.isfinite(value) else 0)
-    return pcm.tobytes()
+    import numpy as np
+    values = np.frombuffer(raw, dtype='<i2' if bits == 16 else '<f4').astype(np.float64).reshape(-1, channels)
+    if channels > 2:
+        with np.errstate(invalid='ignore'):
+            values = np.column_stack((values[:, 0::2].mean(axis=1), values[:, 1::2].mean(axis=1)))
+    if bits == 32: values *= 32767
+    values[~np.isfinite(values)] = 0
+    return np.rint(np.clip(values, -32768, 32767)).astype('<i2').tobytes()
 
 
 def worker_command():
@@ -154,9 +242,13 @@ def run_worker(game, fsb, target, track, seconds, cancel=None):
                 if child.poll() is None: child.kill(); child.wait()
         log.seek(0); result = log.read(8192).decode('utf-8', errors='replace')
     if child.returncode or not target.is_file():
-        try: message = json.loads(result)['error']
-        except (ValueError, KeyError, TypeError): message = 'Native decoder failed (exit %s).' % child.returncode
-        raise ModError(message, 'decoder_failed')
+        try: failure = json.loads(result)['error']
+        except (ValueError, KeyError, TypeError): failure = {}
+        if not isinstance(failure, dict): failure = {}
+        problem = failure.get('problem', 'decode_failed')
+        error = ModError(DECODER_MESSAGES.get(problem, DECODER_MESSAGES['decode_failed']), 'decoder_failed')
+        error.details = dict(problem=problem, exit_code=child.returncode, native=failure.get('details', {}))
+        raise error
 
 
 def decode(browser, path, member=None, track=0, seconds=30, cancel=None):
@@ -185,6 +277,15 @@ def decode(browser, path, member=None, track=0, seconds=30, cancel=None):
             run_worker(browser.game, fsb, wav, track, seconds, cancel)
         if not wav.is_file() or wav.stat().st_size > MAX_PCM: invalid('Decoded audio exceeds preview limit.')
         result = wav.read_bytes()
+    rate, channels, frames = validate_wav(result, sample, seconds)
+    if signature(source) != before: raise ModError('Bank changed during audio decoding; retry.', 'source_changed')
+    if cancel is not None and cancel.is_set(): raise ModError('Audio preview cancelled.', 'interrupted')
+    return result, dict(sample, decoded_seconds=frames/rate, decoded_channels=channels,
+                        truncated=frames < sample['samples'], decoder='pcm16' if parsed['mode'] == 2 else 'game-fmod')
+
+
+def validate_wav(result, sample, seconds):
+    """Shared output check for previews and the exhaustive real-bank regression scan."""
     try:
         with wave.open(io.BytesIO(result), 'rb') as w:
             rate, channels, frames = w.getframerate(), w.getnchannels(), w.getnframes()
@@ -193,10 +294,7 @@ def decode(browser, path, member=None, track=0, seconds=30, cancel=None):
                     or frames != expected or len(w.readframes(frames)) != frames*channels*2):
                 invalid('Decoded WAV format or length does not match the selected sample.')
     except (wave.Error, EOFError) as e: invalid('Invalid decoded WAV: '+str(e))
-    if signature(source) != before: raise ModError('Bank changed during audio decoding; retry.', 'source_changed')
-    if cancel is not None and cancel.is_set(): raise ModError('Audio preview cancelled.', 'interrupted')
-    return result, dict(sample, decoded_seconds=frames/rate, decoded_channels=channels,
-                        truncated=frames < sample['samples'], decoder='pcm16' if parsed['mode'] == 2 else 'game-fmod')
+    return rate, channels, frames
 
 
 def export(browser, path, member, output, track=0, seconds=30):

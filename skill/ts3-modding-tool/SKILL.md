@@ -16,12 +16,20 @@ rules. For any map table or manual fix, read `<KIT>/docs/GUIA_MANUAL.md` (Spanis
 
 ## Quick path (Python 3.12 with numpy and Pillow; always `python -I`)
 
-For audio, `explore inspect PATH --game GAME --json` lists sample indices in `.assets.bank`.
+GUI navigation: six equal home cards lead to exploration, textures, models/objects, sounds, characters and mods.
+Open characters contains new/open character projects and the recent list (character and model extension shown).
+The texture/model/sound cards open task-specific Explorer titles/filters and retain context across languages.
+CLI commands and kit_project.json stay unchanged; use the existing make/explore/textures/meshes/mods workflows.
+
+For audio, `explore inspect PATH --game GAME --json` lists sample indices in `.assets.bank` or dialogue `.fsb`.
 `explore audio PATH [--member NAME] --track INDEX --seconds 30 --out NEW_DIRECTORY --game GAME --json`
 exports a PCM16 mono/stereo `sample.wav` and `audio.json`. Limit 120 seconds; inspect `truncated` and
 `decoded_seconds`. `--play` listens explicitly, Ctrl+C stops. Compressed samples use the selected game's
 Windows FMOD 2.03 DLL; never copy it into packs. Events banks have no sample list; choose their
 `.assets.bank` companion. This reads/exports audio, without modifying banks or simulating game events.
+The decoder uses offline reads (fixing v0.2's incomplete-read errors). Optional CLI `error.details` retains native
+diagnostics; the GUI localizes failures. Full real-game regression: `tests/check_game_audio.py --game GAME --out
+NEW_REPORT_DIRECTORY`, explicitly opt-in, no playback/game writes; checks all loose banks/samples and source hashes.
 
 The separate player app, Toy Story 3 Mod Loader, accepts the same `mods ... --json` commands through
 `TS3 Mod Loader CLI.exe` or `kit/loadercli.py`. Both apps share the registry/backups; no migration is needed.
@@ -51,6 +59,16 @@ To explore game assets, use `kit/cli.py explore list --game GAME --query TEXT --
 `next_offset`. `explore inspect PATH --member NAME` describes an asset. `explore preview` saves PNGs;
 `explore extract` saves a member or a whole ZIP. Both require `--out NEW_DIRECTORY` outside the game.
 See `docs/CLI.md` for all options. Read index/list errors. Previews draw any model or level as `model.png`.
+
+`explore list --playable [--kind sound]` finds loose banks with a positive `audio_samples` header hint,
+excluding events, unverified files and ZIP-contained audio; plain list still returns all files. Never infer
+playability from filenames alone. Inspect/decode fully validate again. In the GUI, Sounds uses that filter;
+View restores technical files/original names. Readable names/groups keep the original path above the actions.
+Edit prepares selected assets, More contains Blender export/technical details, and Create mod builds workspaces.
+Normal names and the Format column keep extensions, including `.assets.bank`. Preview hints distinguish images/audio/text, unsupported
+files and unchecked OCT/ZIP content; actual opening refines the hint. An OCT extension does not guarantee a model.
+Completed GUI exports/builds show `output` with Open folder. This opens only a directory and does not install
+or execute a pack. New selections/previews and failures clear the old folder action.
 The explorer reads installed content (possibly modded), never changes it, and extracted game files must not be shared.
 `explore glb PATH [--member OCT] --out NEW_DIRECTORY --game GAME --json` exports a model for Blender as
 `model.glb` plus a report. Includes supported geometry, UVs, original-resolution diffuse maps, pivot-based
@@ -104,6 +122,10 @@ Read `<KIT>/docs/CLI.md` for the JSON contract, errors and command arguments. Di
 without Python. Pass the game folder explicitly. Prepare with `mods plan`, review the
 changes, then use `mods install --expect TICKET` within the user's authorized scope.
 Use `mods verify` to check files and backups and `mods remove --dry-run` before removal.
+Both GUIs offer Verify files with a shared readable report for game files, backups and layer data. Check hidden
+layers too. Results are session-only and cleared on refresh; reopening them does not run another check. Raw
+hashes/JSON remain in Technical details. No files are repaired by verification. CLI arguments remain unchanged.
+The Loader uses Description/Files tabs; More holds View result and an available update page.
 To update/rebuild the same ID, use `mods plan PACKAGE --replace` then
 `mods install PACKAGE --replace --expect TICKET`, with explicit `--game` and `--json`.
 Review the installed metadata in `replaces`, retired targets in `restores`, and all `files`.

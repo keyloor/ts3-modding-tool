@@ -17,6 +17,7 @@ from modfile import ModError
 from modstore import Store, JOURNAL
 import modupdate
 import modpriorityui
+import modview
 
 TEXT = {
     'es': dict(subtitle='Tus mods, en un solo lugar.', game='Juego', found='Toy Story 3 detectado',
@@ -28,6 +29,7 @@ TEXT = {
                no_match='No hay resultados', no_match_help='Prueba con otro nombre o autor.',
                select='Selecciona un mod', select_help='Aquí verás su descripción y las opciones para gestionarlo.',
                remove='Quitar mod', verify='Verificar archivos', files='Archivos que cambia', unknown='Sin indicar',
+               description='Descripción', selected_more='Más',
                updates='Buscar actualizaciones', page='Ver actualización', available='Actualización disponible',
                more='Más opciones', refresh='Recargar lista', about='Acerca de',
                scope='Compatible con la Modding Tool: ambas aplicaciones comparten tus mods y copias.',
@@ -72,6 +74,7 @@ TEXT = {
                no_match='No results', no_match_help='Try another name or author.',
                select='Select a mod', select_help='Its description and management options will appear here.',
                remove='Remove mod', verify='Verify files', files='Files it changes', unknown='Not specified',
+               description='Description', selected_more='More',
                updates='Check for updates', page='View update', available='Update available',
                more='More options', refresh='Refresh list', about='About',
                scope='Works with the Modding Tool: both apps share your mods and backups.',
@@ -223,7 +226,7 @@ class LoaderApp:
         left.rowconfigure(0, weight=1); left.columnconfigure(0, weight=1)
         self.tree = ttk.Treeview(left, columns=('priority', 'name', 'version', 'author', 'state'), show='headings',
                                  selectmode='browse', style='Loader.Treeview')
-        for key, width in (('priority', 85), ('name', 210), ('version', 70), ('author', 90), ('state', 105)):
+        for key, width in (('priority', 85), ('name', 210), ('version', 70), ('author', 90), ('state', 130)):
             self.tree.heading(key, text=modpriorityui.TEXT[self.lang]['priority'] if key == 'priority' else self.t(key))
             self.tree.column(key, width=width, minwidth=55, stretch=key == 'name')
         self.tree.grid(row=0, column=0, sticky='nsew')
@@ -240,17 +243,28 @@ class LoaderApp:
         detail_actions = tk.Frame(right, background=COLOURS['surface']); detail_actions.pack(side='bottom', fill='x')
         self.detail_title = ttk.Label(right, style='CardTitle.TLabel', wraplength=260); self.detail_title.pack(anchor='w')
         self.detail_meta = ttk.Label(right, style='Card.TLabel', wraplength=260); self.detail_meta.pack(anchor='w', pady=(6, 14))
-        self.description = tk.Text(right, width=27, height=4, wrap='word', relief='flat', background='white',
+        tabs = self.detail_tabs = ttk.Notebook(right); tabs.pack(fill='both', expand=True, pady=(0, 12))
+        description = ttk.Frame(tabs); files = self.detail_files_tab = ttk.Frame(tabs)
+        tabs.add(description, text=self.t('description')); tabs.add(files, text=self.t('files'))
+        self.description = tk.Text(description, width=27, height=3, wrap='word', relief='flat', background='white',
                                    foreground=COLOURS['ink'], font=('Segoe UI', 10), state='disabled')
-        self.description.pack(fill='x')
-        ttk.Separator(right).pack(fill='x', pady=14)
-        ttk.Label(right, text=self.t('files'), style='Card.TLabel').pack(anchor='w')
-        self.file_list = tk.Text(right, width=27, height=5, wrap='word', relief='flat',
+        self.description.pack(side='left', fill='both', expand=True)
+        scroll = ttk.Scrollbar(description, command=self.description.yview); scroll.pack(side='right', fill='y')
+        self.description.config(yscrollcommand=scroll.set)
+        self.file_list = tk.Text(files, width=27, height=3, wrap='word', relief='flat',
                                   background='white', foreground=COLOURS['muted'], font=('Segoe UI', 9), state='disabled')
-        self.file_list.pack(fill='both', expand=True, pady=(6, 12))
-        self.page_button = self.button(detail_actions, self.t('page'), self.open_update)
-        self.verify_button = self.button(detail_actions, self.t('verify'), self.verify)
-        self.verify_button.pack(fill='x', pady=(0, 8))
+        self.file_list.pack(side='left', fill='both', expand=True)
+        scroll = ttk.Scrollbar(files, command=self.file_list.yview); scroll.pack(side='right', fill='y')
+        self.file_list.config(yscrollcommand=scroll.set)
+        row = tk.Frame(detail_actions, background=COLOURS['surface']); row.pack(fill='x', pady=(0, 8))
+        self.verify_button = self.button(row, self.t('verify'), self.verify)
+        self.verify_button.pack(side='left', fill='x', expand=True)
+        self.details_more = ttk.Menubutton(row, text=self.t('selected_more'), style='Loader.TButton')
+        self.controls.append(self.details_more)
+        self.details_menu = tk.Menu(self.details_more, tearoff=False)
+        self.details_menu.add_command(label=modview.TEXT[self.lang]['result'], command=self.show_verification)
+        self.details_menu.add_command(label=self.t('page'), command=self.open_update)
+        self.details_more.config(menu=self.details_menu)
         self.remove_button = self.button(detail_actions, self.t('remove'), self.remove, 'Danger.Loader.TButton')
         self.remove_button.pack(fill='x')
         footer = ttk.Frame(main, style='Loader.TFrame'); footer.pack(side='bottom', fill='x', pady=(10, 0), before=pane)
@@ -330,6 +344,7 @@ class LoaderApp:
             return game, pending, rows, updates
         def done(result):
             self.game, self.pending, rows, updates = result
+            self.health = {}
             self.save_prefs(game=self.game)
             self.records = {r['metadata']['id']: r for r in rows}
             self.updates = {u['id']: u for u in updates}
@@ -365,25 +380,26 @@ class LoaderApp:
         if self.busy:
             return
         selected = select_id or self.current_id()
-        text = self.search.get().casefold().strip()
+        text = self.search.get().strip()
         self.tree.delete(*self.tree.get_children())
         count = 0
         for mid, record in self.records.items():
             meta = record['metadata']
-            if text and text not in ' '.join(str(meta.get(k, '')) for k in ('name', 'author', 'description')).casefold():
+            if not modview.matches(meta, text):
                 continue
-            state = self.t('available') if self.updates.get(mid, {}).get('update') else self.health.get(mid, self.t('active'))
+            report = self.health.get(mid)
+            state = modview.list_state(report, self.updates.get(mid, {}).get('update'), self.lang)
             self.tree.insert('', 'end', iid=mid, values=(record.get('priority', 0), meta['name'], meta['version'], meta['author'] or self.t('unknown'), state))
             count += 1
-        self.counter.config(text=self.t('count') % len(self.records))
+        self.counter.config(text=modview.TEXT[self.lang]['waiting'] if self.pending else modview.count(count, len(self.records), self.lang))
         if count:
             self.empty.grid_remove(); self.tree.grid();
             if selected in self.tree.get_children():
                 self.tree.selection_set(selected)
         else:
             self.tree.grid_remove(); self.empty.grid(row=0, column=0, sticky='nsew')
-            self.empty_title.config(text=self.t('no_match') if text else self.t('empty'))
-            self.empty_note.config(text=self.t('no_match_help') if text else self.t('empty_help'))
+            self.empty_title.config(text=self.t('recover') if self.pending else self.t('no_match') if text else self.t('empty'))
+            self.empty_note.config(text=self.t('pending') if self.pending else self.t('no_match_help') if text else self.t('empty_help'))
         self.selected()
 
     def selected(self):
@@ -398,6 +414,8 @@ class LoaderApp:
         if record:
             self.file_list.insert('1.0', '\n'.join(f['path'] for f in record['files']))
         self.file_list.config(state='disabled')
+        count = len(record['files']) if record else 0
+        self.detail_tabs.tab(self.detail_files_tab, text=self.t('files') + (' (%d)' % count if record else ''))
         self.refresh_controls()
 
     def refresh_controls(self):
@@ -416,9 +434,14 @@ class LoaderApp:
         if self.pending:
             self.recover_button.pack(side='right', padx=(8, 0))
             self.recover_button.state(['disabled'] if self.busy else ['!disabled'])
-        self.page_button.pack_forget()
-        if self.updates.get(self.current_id(), {}).get('update'):
-            self.page_button.pack(fill='x', before=self.verify_button, pady=(0, 8))
+        has_update = bool(self.updates.get(self.current_id(), {}).get('update'))
+        has_result = self.current_id() in self.health
+        if has_update or has_result:
+            if not self.details_more.winfo_manager(): self.details_more.pack(side='right', padx=(8, 0))
+        else: self.details_more.pack_forget()
+        self.details_more.state(['!disabled'] if ready and selected else ['disabled'])
+        self.details_menu.entryconfigure(0, state='normal' if ready and has_result else 'disabled')
+        self.details_menu.entryconfigure(1, state='normal' if ready and has_update else 'disabled')
 
     def show_notice(self, text, warning=False):
         self.banner.config(text=text, foreground=COLOURS['warn'] if warning else COLOURS['success'])
@@ -525,11 +548,16 @@ class LoaderApp:
             return
         game = self.game
         def done(report):
-            self.show_notice(self.t('verified') % self.records[mid]['metadata']['name'] if report['valid'] else self.t('unhealthy'), warning=not report['valid'])
-            if not report['valid']:
-                self.error_detail = json.dumps(report, indent=2, ensure_ascii=False)
-                self.details_button.pack(side='right', padx=(8, 0))
+            self.health[mid] = report
+            self.filter(mid)
+            self.show_notice(modview.summary(report, self.lang), warning=not modview.valid(report))
+            self.show_verification()
         self.run(lambda: Store(game).verify(mid), done)
+
+    def show_verification(self):
+        report = self.health.get(self.current_id())
+        if report and not self.busy and not self.pending and not self.root.grab_current():
+            modview.VerificationDialog(self.root, report, self.lang, self.records.values())
 
     def recover(self):
         if self.busy or not self.pending:

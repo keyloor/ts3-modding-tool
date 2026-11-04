@@ -18,6 +18,7 @@ Users talk to the tool in Spanish or English; the maintainer works in Spanish.
 | `kit/objlib.py` | OBJ reader + automatic skeleton and weights; `open_scene()` stands in for `fbxlib.Scene` |
 | `kit/kit.py` | The commands (`characters`, `make`, `install`, `restore`, `export`) and the functions the window calls |
 | `kit/app.py` | The window (tkinter; texts in `TEXT`, `es` and `en`) |
+| `kit/homeui.py` | Task home and separate character-project browser; bilingual, read-only recent-project projection |
 | `kit/viewer.py` | Live 3D preview: reads a converted character, skins it on the CPU (poses, live adjustments), draws it with moderngl offscreen into a tkinter label |
 | `kit/gltf.py` | Read-only GLB export: compact primitives, embedded diffuse maps, static/skinned separation and pivot-based rest skeleton |
 | `kit/gltflib.py` | Bounded glTF 2.0 Scene adapter; local/base64 resources, transforms/skin and project-owned PNG extraction |
@@ -175,8 +176,11 @@ shows the still images. `kit.py doctor` reports it.
 
 ## The window (`kit/app.py`)
 
-Start screen (game, workspace `<Documents>/Toy Story 3 Modding Tool/`, sections, recent projects, new project) and a
-project screen in 4 steps (pinned Woody / Buzz Lightyear / Jessie, model, convert, install/export/restore), tabs Bones,
+Start screen has six equal cards (exploration, textures, models/objects, sounds, characters, mods), compact game
+detection and workspace options under Folders. Characters has a separate new/open/recent-project browser;
+recent rows show character and model extension, and unreadable JSON does not block the rest. Task Explorer
+titles/initial filters persist through language rebuilds. Navigation uses existing CLI engines/project format.
+The project screen has 4 steps (pinned Woody / Buzz Lightyear / Jessie, model, convert, install/export/restore), tabs Bones,
 Materials, Adjustments (pages: head and proportions, accessories and clothes, eyes and face, weights; undo / redo
 keeps snapshots of `adjust_now()`, versions), Preview (3D, images, weights, joints; stretch in red; beside it the
 game's original or the previous conversion), Log. Work runs in a thread (stdout → Log tab); a spinner shows while busy. Settings in
@@ -352,7 +356,62 @@ GUI performs fresh source reads in App.run, shows whole/partial export choices a
 partial workspaces preselect replace mode/node. Texture dialogs still return three fields. Mesh dialogs
 return name/author/version/topology/piece. Old workspaces supported. Tests: test_meshselect.py [--exe CLI].
 Real three-piece planter checked with exact isolated restoration and other two pieces unchanged.
-PLAN's next phase: fix the sound decoder errors (40 of 71 real samples tried fail), then a more intuitive interface.
+Sound decoder fixed after 0.2: use OPENONLY without CREATESTREAM. Decoder class is shared by the private worker and
+opt-in tests/check_game_audio.py, which checks every bank/sample without playback/game writes. Full scan: 63140
+samples, 75 audio banks (including 14 dialogue FSBs), 64 event/metadata banks, zero failures and unchanged SHA-256;
+up to 120 seconds per sample. Never infer coverage from a few examples. Native SDK doubles enforce the open mode,
+short reads/EOF and resetting repeated selections. NumPy PCM conversion preserves clipping/rounding/downmix.
+GUI audio failures use localized audiobank.error_text; CLI error.details retains native diagnostics. FSB is a sound
+kind; explorer cache schema 2 invalidates the old classification (separate from the mod registry schema).
+PLAN's current phase is a more intuitive interface. Explorer's first slice is implemented: contextual
+Preview/View sounds + Save copy, Edit/More menus, global Create mod, readable grouped names and original path.
+Human summaries are the default; raw JSON/errors stay in More > Technical details. `explorerpresent.py` owns
+pure presentation/action policy and ships in KIT_FILES. Tests: test_explorer_presentation.py.
+`audiobank.sample_count` reads bounded headers and seeks over payloads, never loads FMOD; optional cached
+audio_samples (0 events, null unknown) is an index hint only. Old schema 2 caches gain it without ZIP rebuilds.
+`explore list --playable [--kind sound]` filters loose positive hints, excludes unknown/ZIP members; default list
+unchanged. Sounds uses it; View restores technical files. No filename heuristics for sound availability.
+Source audio/explorer tests also cover hints/cache/CLI. UI checked on secondary: ES samples/technical toggle,
+EN 960x700 selection. Model context and manager follow-up reviews are completed below; project/pack-dialog
+review remains before closing phase 2. Do not repeat completed reviews without a new failure.
+Local builds refreshed via build_kit.py --local (log build/explorer-ux-build.log). Source audio25/explorer22/
+presentation4 and frozen audio25/explorer22/loader7 passed. No commit, version bump or publication.
+Follow-up: readable names retain extensions (compound .assets.bank too); Format column keeps extensions visible
+when names clip. Preview column + selection hint distinguish format-supported image/audio/text, none and unchecked
+OCT/ZIP content. preview_states records model/images/none/error after opening, cleared on index reload. No extra
+payload reads during indexing. Unknown OCTs never promise a model; events with audio_samples=0 offer information.
+Visual follow-up on secondary at minimum size: ES motion OCT -> none, EN Woody -> actual 3D + Edit menu,
+ES Format/audio columns. Pure presentation tests now 6. Broader Tool/Loader UX/export-flow review still pending.
+Format/preview follow-up built both locals successfully (build/explorer-formats-build.log); presentation6,
+source explorer22 and frozen explorer22 passed. Shipped UI/presentation/docs/skill hashes match source.
+Manager UX next slice: modview.py is shared by app.py and loaderui.py (stdlib/Tk only, ship in both products).
+Tool global actions are in Options; search matches name/author/description/ID, selection actions include Verify.
+Both show human per-file verification reports including original backups and all layer snapshots; Technical
+details retains raw JSON. Session reports clear on successful reload; health issues outrank Loader updates.
+Recovery pending must not appear as an empty installed list. No store/registry/CLI semantics changed.
+Tests: test_modview.py (actual synthetic Store reports, v1/v2, hidden-layer damage), test_manager_controls.py
+(both controllers, work/recovery/modal guards, reopening reports without another store read).
+Manager review completed at secondary/minimum size: Tool ES layout, Loader ES/EN, bad and healthy reports,
+reopening a result, and access to changed files. Fixture: build/preview_manager_ux.py, only temporary fake-game
+installs/damage, isolated settings, automatic close. Loader description/files now use scrollable tabs; selected
+More holds result/update links so buttons cannot hide the files. modview uses short table statuses/full details.
+Manager local build completed (build/manager-ux-build.log), both Programs copies updated. modview6 + controller4
+and source Loader7 passed; frozen Loader7 passed. Both GUI bundles include modview; installed UI/shared source
+hashes match. No version bump, commit or publication.
+Explorer show_result now offers Open folder for completed exports/builds (copies, PNG/GLB/WAV, mesh/texture
+workspaces/packs). Only directories are opened; selection/preview/failure clears the old action. No install or
+payload execution. ES/EN minimum-size result screens checked using build/preview_export_result.py, a real export
+from an owned fake game. Next phase-2 work: project screens and pack creation/export dialogs, then D composition.
+Both local Programs builds refreshed (build/ui-results-build.log). Source explorer22/modview6/controller4/Loader7
+and frozen explorer22/Loader7 passed. No callback errors recorded; installed UI/shared module/guide/skill match source.
+No publication, commit or version bump. Do not repeat the completed manager/export-result visual checks by default.
+Home redesign: homeui.py gives six areas equal weight; recent character projects moved into Characters.
+ExplorerPane(mode=all/textures/models/sounds) sets its initial category before indexing and retains task context
+on language rebuild. Project storage/engines/CLI stay unchanged. tests/test_home.py checks bad recent JSON,
+read-only projection, busy guards and retained context. ES/EN minimum-size home/character lists reviewed on
+secondary with build/preview_home.py; Models route checked in EN. No callback errors. Both locals rebuilt
+(build/home-redesign-build.log); source home3/controller4/Loader7/explorer22 and frozen Loader7/explorer22 passed.
+Installed home/app/explorer/docs/skill hashes match source; creator GUI bundle includes homeui. No new release.
 After it, D per-texture composition inside one OCT, then texture resolution; E remains partially complete.
 
 Explorer: `Browser.index()` reads directories with `zipfile`, falling back to `FrontZip` for older TS3 archives

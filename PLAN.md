@@ -26,35 +26,66 @@ editados y prioridades.
 
 ## Próxima fase (pedida por keyloor el 03/11/2026)
 
-**1. Arreglar los errores del decodificador de sonido.** En Explorador → Sonidos, muchas muestras no se pueden
-reproducir ni guardar: `Decoder returned incomplete audio (13)`, y en algunas `(16)` (visto primero en `cane_impact`
-de `wt_characters_wt_characters.assets.bank`). No es un caso raro: medido con el código de la 0.2, en ese banco fallan
-11 de 17 muestras, y en otros 14 bancos al azar, 29 de 54 (en total 40 de 71). Falla igual con un límite de 0,1 s en una
-muestra de 0,31 s, así que no es por llegar al final de la muestra. Causa sin encontrar; el aviso sale de
-`kit/audio_worker.py` (`Sound_ReadData` devuelve menos bytes de los pedidos). Hecho cuando:
-- se decodifiquen todas las muestras de todos los bancos con audio, comprobado con un recorrido completo, no una muestra;
-- si alguna no se puede decodificar, el mensaje lo diga en el idioma de la ventana, sin códigos internos;
-- quede una prueba que no permita volver atrás (la CLI `explore audio` usa el mismo código).
+**1. Corregido: errores del decodificador de sonido (03/11/2026, después de 0.2).** La 0.2 fallaba con
+lecturas incompletas de FMOD, incluidos `cane_impact` y 40 de las 71 muestras inicialmente probadas.
+Abrir como stream (`CREATESTREAM | OPENONLY`) usaba una ruta que fallaba con muchos Vorbis cortos. Se usa
+solo `OPENONLY` para decodificar offline, con reinicio al principio de la muestra y manejo correcto de lecturas
+parciales; EOF prematuro y errores reales siguen rechazándose sin rellenar audio. Fallos en el idioma de la ventana,
+sin códigos internos; los detalles nativos quedan en la CLI. El usuario confirmó que ya suena.
 
-Para el agente que lo arregle (pendiente, nadie lo está haciendo; es lo primero de esta fase):
-- Reproducirlo, desde `mods/ts3_modding_tool/`, solo lee el juego:
-  `python -I kit/cli.py explore audio data_dx/sound/wt_characters_wt_characters.assets.bank --track 8 --seconds 30 --out <carpeta nueva> --game "D:/steam/steamapps/common/Toy Story 3 Complete Edition" --json`
-  (la 8 es `cane_impact`; usar `TS3TOOL_SETTINGS` temporal). Las muestras 0, 6 y 7 de ese banco sí funcionan: comparar.
-- Las pruebas de `tests/test_audio.py` pasan con el error presente: son sintéticas y no usan el FMOD real. Probar con
-  bancos reales, y no dar por bueno el arreglo con unas pocas muestras (así se escapó en la 0.2: se probaron seis y una).
-- Las notas de la release v0.2 no avisan de este error. La siguiente versión debe decir que se corrigió.
-- Luego, compilar con `python -I kit/build_kit.py --local`. Commits sin atribución de IA, y sin etiquetas ni release si
-  keyloor no lo pide.
+Recorrido completo: 139 archivos `.bank`/`.fsb`, 75 con audio y 64 de eventos/metadatos sin muestras.
+**63 140 muestras decodificadas y WAV validados, 0 fallos**, incluidos los 14 idiomas de diálogos. Hasta 120 segundos
+por muestra; las más largas se limitan como en la escucha normal. SHA-256 de todos los archivos del juego intactos.
+Informe local: `build/audio-full-scan-1/report.json` (303,5 s). Para repetir, sin reproducir audio ni modificar el juego:
+`python -I tests/check_game_audio.py --game GAME --out NEW_REPORT_DIRECTORY`.
+Las pruebas sintéticas ahora simulan FMOD y rechazan la reintroducción de CREATESTREAM, además de comprobar
+lecturas parciales, EOF, reinicio, conversión PCM y errores localizados. Los `.fsb` de voces aparecen como sonidos.
+La siguiente release debe mencionar el arreglo; no publicar ni etiquetar sin petición de keyloor.
 
-**2. Hacer la interfaz más intuitiva.** Empezar por el Explorador, donde más se nota:
-- demasiados botones juntos (11, varios desactivados sin explicar por qué): mostrar solo lo que sirve para lo
-  seleccionado, o agruparlo por tarea (ver, extraer, editar texturas, editar malla);
-- palabras técnicas para quien no conoce el formato: OCT, malla, topología, «índice», KiB;
-- la lista son rutas largas de archivos, sin agrupar: en Sonidos cada banco sale dos veces (`.assets.bank` con el
-  audio y `.bank` con los eventos, sin muestras), y conviene mostrar nombres claros y solo los que tienen audio;
-- errores y textos sin pulir: códigos internos, «1 channels», «1 resultados»;
-- después, repasar con el mismo criterio el resto de pantallas de la Tool y el Loader.
-Se revisa con capturas en el monitor secundario, en español y en inglés.
+**2. En curso: hacer la interfaz más intuitiva.** Primer bloque implementado en el Explorador:
+- acciones según la selección: ver y guardar copia; menús Editar/Más; Crear mod separado para workspaces;
+- nombres legibles agrupados, ruta original aparte, resúmenes en vez de JSON por defecto y detalles técnicos
+  conservados en Más; búsqueda por nombres/grupos o rutas, en ambos idiomas; tamaños KB/MB y plurales;
+- Sonidos muestra los 75 bancos con muestras; Vista permite consultar los 139 archivos, incluidos los eventos.
+  El filtro usa cabeceras RIFF/FSB, sin decodificar ni leer los payloads. Disponible también por CLI con
+  `explore list --playable`; los archivos desconocidos y miembros ZIP se conservan en la vista técnica/listado normal.
+
+Se conservan extensiones, incluida `.assets.bank`, con columnas Formato y Vista previa.
+La extensión queda visible aunque se recorte el nombre. OCT/ZIP pasan de «Por comprobar» al resultado real al abrir;
+sin vista previa se ofrece información; bancos de eventos sin audio no ofrecen escucha. Comprobado en secundario
+a tamaño mínimo: un OCT de movimiento sin vista (ES), Woody con modelo 3D y menú Editar (EN), y formatos/audio (ES).
+
+Segundo bloque implementado: gestor de mods. La Tool agrupa acciones globales en Opciones, añade búsqueda por
+nombre/autor/ID y acciones según selección; contadores filtrados y estados vacíos/recuperación en ambas apps.
+Verificar archivos disponible en las dos, con informe compartido por archivo/copia original/datos de capas,
+explicaciones legibles y JSON solo en detalles técnicos. El resultado se puede reabrir durante la sesión y se
+descarta al recargar. El Loader muestra problemas de archivos antes que avisos de nuevas versiones.
+Pruebas con juegos ficticios: modificaciones externas, archivo/copia ausente, datos de capa oculta dañados,
+archivo creado sin original y conexiones/guardas de las dos interfaces. La revisión visual del gestor quedó
+completada en secundario: Tool ES y Loader ES/EN a tamaño mínimo; informes con problemas y correctos,
+reapertura desde Más y acceso a la lista de archivos. Se corrigió el panel del Loader, que ocultaba archivos
+por falta de espacio: ahora Descripción/Archivos tienen pestañas desplazables y las acciones secundarias van en Más.
+Los estados de tabla son cortos; la explicación completa queda al seleccionar la fila.
+
+Tercer bloque: resultados de exportación. Copias, PNG, GLB, WAV, workspaces y packs muestran la carpeta creada
+con Abrir carpeta. No ejecuta ni instala contenido. Selección/vista nueva o fallo retiran el acceso anterior.
+Resultado revisado ES/EN en secundario a tamaño mínimo, con una exportación real desde un juego ficticio.
+
+**Siguiente trabajo de la fase 2: pantallas de proyectos y diálogos de creación/exportación de packs.**
+Petición de inicio general (03/11): implementado `homeui.py`, con seis tarjetas iguales para Explorador,
+Texturas, Modelos y objetos, Música y sonidos, Personajes y Gestionar mods. Juego/carpeta de trabajo compactos;
+Personajes tiene su propia pantalla de crear/abrir y recientes con personaje y extensión del modelo. Un JSON
+ilegible queda señalado sin bloquear otros proyectos. Los accesos al Explorador conservan título/filtro al
+cambiar idioma. Sin cambios al formato de proyectos, conversión ni comandos CLI.
+Revisado en secundario a tamaño mínimo: inicio y proyectos ES/EN, acceso a Modelos (EN). Juego ficticio,
+preferencias aisladas y sin errores de callbacks. La revisión del editor de proyectos y diálogos sigue pendiente.
+Builds locales actualizadas en ambas carpetas Programs (`build/home-redesign-build.log`). Validación de este
+bloque: 36 pruebas en fuente (inicio 3, controles 4, Loader 7, Explorador 22) y 29 con ejecutables (Loader 7,
+Explorador 22), todas correctas. Módulo de inicio incluido en el bundle; fuentes/guía/skill instaladas coinciden.
+Después de esa revisión, cerrar esta fase y pasar a D (mezcla de texturas dentro del mismo OCT). No repetir
+la revisión ya completada del Explorador/gestor salvo un fallo nuevo. Mantener pruebas visuales ES/EN en secundario.
+Validación del bloque: 39 pruebas en fuente (explorador 22, informes 6, controles 4, Loader 7) y 29 con
+ejecutables (explorador 22, Loader 7), sin fallos. Ambas builds locales actualizadas; registro: build/ui-results-build.log.
 
 ## Continuación del roadmap (03/11/2026)
 
@@ -253,7 +284,8 @@ Resultado de la ronda del 30/10/2026 (tras la fase 5, a pedido del usuario):
     estimado queda a un 1–6 % de la altura del real; KH3 Woody desde OBJ se ve como desde FBX.
 - **Ventana nueva**:
   - Pantalla de inicio: juego detectado solo, carpeta de trabajo (`Documentos\Toy Story 3 Modding Tool`), secciones
-    de la herramienta, proyectos recientes, «Nuevo proyecto» (solo pide un nombre; crea `Personajes\<nombre>`).
+    de la herramienta. Ahora Personajes tiene su propia pantalla con recientes y «Nuevo proyecto de personaje»
+    (solo pide un nombre; crea `Personajes\<nombre>`); el inicio muestra seis áreas del mismo tamaño.
   - En el proyecto, 4 pasos: Woody, Buzz Lightyear y Jessie fijados como botones grandes (las variantes en «Otro»),
     elegir modelo FBX u OBJ, Convertir, Instalar / Exportar / Restaurar.
   - Una línea azul dice el siguiente paso, y los botones se apagan hasta que se pueden usar.

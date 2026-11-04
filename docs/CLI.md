@@ -153,6 +153,15 @@ mods verify ID --game JUEGO --json
 mods recover --game JUEGO --json
 ```
 
+En ambas ventanas, «Verificar archivos» usa `mods verify` y presenta un informe legible de archivos del juego,
+copias originales y datos guardados de las capas. Seleccionar una fila explica cada estado; «Detalles técnicos»
+conserva el JSON y los hashes. «Ver resultado» reabre esa comprobación durante la sesión; recargar la lista la
+descarta. No es una comprobación continua ni una reparación: vuelve a verificar después de cambiar archivos
+o prioridades. Un problema de una capa oculta también exige revisión. El estado del Loader da preferencia a
+estos problemas sobre los avisos de actualización. La búsqueda de las ventanas es una ayuda de presentación
+(nombre, autor, descripción, ID); el protocolo de `mods list` no cambia.
+El Loader coloca resultados y actualizaciones en «Más» del mod seleccionado; descripción y archivos tienen pestañas separadas.
+
 Para saber si hay versiones nuevas de los mods que declaran `update.github`:
 
 ```text
@@ -272,10 +281,31 @@ Without Python, replace `python -I kit/cli.py` with `"TS3 Modding CLI.exe"`. `ki
 | `glb PATH [--member NAME] --out NEW_DIRECTORY` | A self-contained `model.glb`, `report.json` and README for a supported character, object or level. Without `--member`, uses the ZIP's main `<name>.oct`. |
 | `audio PATH [--member NAME] --track INDEX --seconds N --out NEW_DIRECTORY [--play]` | Decode a selected sample to `sample.wav` and `audio.json`. Default index 0, first 30 seconds; maximum 120. `--play` listens to the exported WAV; Ctrl+C stops. |
 
+`list --playable` lists only loose sound banks with a positive sample-header count, skipping event-only,
+damaged/unsupported and ZIP-contained banks. Combine with `--kind sound` or omit `--kind`; another kind is an
+argument error. Sound rows include `audio_samples` (zero for events; null for an unverified header). The index
+stores a diagnostic `audio_note` for unverified banks. Counting seeks over payloads without decoding or loading
+FMOD; it is only an index hint. Inspection/playback still fully validate the source. Changed signatures refresh
+the hint; `--refresh` retries all headers. Plain `list` retains all files and its original path-based query behavior.
+
+The window's Sounds category uses this filter by default. **View → Show technical files and original names**
+restores events and unverified files. Readable names/groups never rename game files; the original path remains
+above the action bar. GUI search matches these names/groups as well as original paths. **More → Technical
+details** retains raw metadata/errors; the default Information tab uses human summaries. **Edit** prepares the
+selected asset for external editing; **Create mod** finishes an edited workspace or starts a multi-archive one.
+Completed GUI exports/builds show the output and Open folder, including copies, PNG/GLB/WAV, workspaces and packs.
+New selections/previews and failures clear that action. This only opens the existing CLI `data.output` directory;
+export and installation semantics are unchanged.
+Extensions remain visible in normal names and the Format column, including `.assets.bank`. The GUI Preview column summarizes existing
+file kinds/audio header hints: image, audio, text, unavailable or unchecked. OCT content is unchecked until opened;
+whole ZIP previews require their main `<archive>.oct`. Opening records the actual model/image/empty/error result
+for the current indexed list; refresh clears these observations. These are GUI hints, not an additional CLI format
+guarantee: use `inspect`, `preview` or `audio` for validated command-line results.
+
 ### Sound playback and WAV excerpts
 
-Inspect an `.assets.bank` first to obtain its `sounds[].index`, name, rate, channels and duration.
-In the explorer, Inspect/Preview opens the Sounds tab; select a sample, choose a duration, then Play/Stop
+Inspect an `.assets.bank` or dialogue `.fsb` first to obtain its `sounds[].index`, name, rate, channels and duration.
+In the explorer, View sounds opens the Sounds tab; select a sample, choose a duration, then Play/Stop
 or Save WAV. Playback is explicit and stops when changing samples/assets or leaving the explorer.
 
 ```text
@@ -295,6 +325,16 @@ Export requires a new folder outside the game. CLI playback requires Windows.
 Audio refusals: `no_audio` (events bank; choose the matching `.assets.bank`), `invalid_audio`,
 `unsupported_audio`, `sample_not_found`, `decoder_unavailable`, `decoder_failed`, `source_changed`,
 `size_limit`, and `invalid_arguments`. Inspecting banks never loads FMOD. Decode failure leaves no export.
+Native failures include optional `error.details` with the decoder problem, exit code and native diagnostics;
+the window shows localized messages without those internal codes. Offline decoding uses OPENONLY rather than
+streaming, fixing the incomplete-read failures present in v0.2. Partial successful reads continue; early EOF
+still refuses the export instead of manufacturing missing audio.
+
+For an exhaustive, opt-in real-game regression (Python, Windows, no playback or game writes):
+`python -I tests/check_game_audio.py --game GAME --out NEW_REPORT_DIRECTORY`.
+It checks every loose `.bank`/`.fsb` in assets/data_dx, skips validated event-only banks, decodes each sample up
+to 120 seconds, validates WAV dimensions/frames and source SHA-256, and records failures rather than skipping them.
+Default two isolated workers; `--jobs 1..4` and `--seconds N` are supported. This is separate from CI's synthetic tests.
 
 ### GLB model export (first part of the Blender workflow)
 
@@ -303,7 +343,7 @@ python -I kit/cli.py explore glb assets/characters/woody/woody.zip --out work/wo
 python -I kit/cli.py explore glb assets/worlds/westerntown.zip --member westerntown.oct --out work/town-glb --game GAME --json
 ```
 
-In the explorer, select the ZIP or OCT and choose **Export GLB model**. Open `model.glb` in a glTF 2.0 editor
+In the explorer, select the ZIP or OCT and choose **More → Export model for Blender**. Open `model.glb` in a glTF 2.0 editor
 such as Blender. Rigged character GLB/glTF files can now be used as project inputs through normal fitting
 (see below), or on their verified original skeleton with `--fit identity`. Static object/level reinsertion
 uses the separate bounded rigid-mesh workspace below; unrestricted object/level reinsertion remains pending.
@@ -460,7 +500,7 @@ Shared mode writes one PNG per **byte-identical DDS**, under `shared/CRC32_SHA25
 every matching occurrence listed in the workspace, only in the selected archives. Different DDS formats,
 headers or mipmaps remain separate even if they look the same; CRC collisions cannot combine different DDS.
 Deleting a shared PNG skips its whole group. Leave `--shared` off for independent edits of each occurrence.
-The GUI offers «Export multiple ZIPs» and an unchecked-by-default shared-PNG option with the same scope.
+The GUI offers **Create mod → Prepare images from several archives** and an unchecked-by-default shared-PNG option with the same scope.
 Single-archive/default exports still write schema 1. Multi-archive/shared workspaces write schema 2,
 with `archives: [{path, sha256, md5}]`, `mode: separate|shared` and an `archive` field on each texture row.
 Both schemas remain readable; existing workspaces are never migrated or rewritten.
@@ -501,7 +541,7 @@ python -I kit/cli.py mods plan work/object-pack --game GAME --json
 python -I kit/cli.py mods install work/object-pack --expect TICKET --game GAME --json
 ```
 
-The explorer offers **Export editable mesh** on an OCT member inside a ZIP, then **Build mesh pack**.
+The explorer offers **Edit → Prepare object for Blender** on an OCT member inside a ZIP, then **Create mod → Create mod from edited model**.
 This is a separate export from `explore glb`: only the editable workspace writes `_TS3_VERTEX`
 correspondence. It contains `model.glb`, `mesh.json`, `report.json` and instructions. Keep game exports local.
 `--member` is required. `build --model FILE` is optional; by default it reads the workspace's `model.glb`.
@@ -550,7 +590,7 @@ Tests: `python -I tests/test_meshes.py [--exe CLI]`; no game assets in fixtures.
 python -I kit/cli.py meshes build work/object-mesh --model work/new-shape.glb --topology replace --out work/object-topology-pack --id myname.object --name "My object" --author "My name" --game GAME --json
 ```
 
-In **Build mesh pack**, tick **Replace topology**. It is unchecked by default; CLI default is
+In **Create mod from edited model**, tick **Replace topology**. It is unchecked by default; CLI default is
 `--topology preserve`. Use the existing mesh workspace to identify and verify the source. Replace mode
 accepts an unskinned GLB/glTF with added/deleted vertices and faces; `_TS3_VERTEX` is not required and any
 old/interpolated correspondence attributes are ignored. A new input can contain several meshes/primitives
@@ -605,7 +645,7 @@ structural eligibility; remaining padding/component/input checks run when buildi
 rigid pieces are listed; hidden nodes are not replacement targets. Duplicate names are safe because selection
 uses the OCT node index, stable only while the verified source is unchanged.
 
-In the explorer, **Export editable mesh** offers the whole model or a specific piece when several are
+In the explorer, **Edit → Prepare object for Blender** offers the whole model or a specific piece when several are
 visible. Whole-model export retains the preserve-mode workflow. A selected-piece export contains only that
 piece's triangles/material and records its default `piece` in mesh.json. Such a workspace requires
 `--topology replace`; the GUI preselects its node and mode. Old workspaces remain readable. The pack dialog

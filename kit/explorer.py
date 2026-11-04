@@ -99,7 +99,7 @@ def open_zip(path):
 def kind(name):
     suffix = Path(name).suffix.lower()
     return {'.zip': 'archive', '.oct': 'oct', '.dds': 'texture', '.png': 'texture',
-            '.tga': 'texture', '.bank': 'sound', '.vbuf': 'mesh', '.ibuf': 'mesh',
+            '.tga': 'texture', '.bank': 'sound', '.fsb': 'sound', '.vbuf': 'mesh', '.ibuf': 'mesh',
             '.txt': 'text', '.xml': 'text', '.json': 'text', '.ini': 'text',
             '.csv': 'text'}.get(suffix, 'other')
 
@@ -160,7 +160,7 @@ class Browser:
         if not refresh:
             try:
                 data = json.loads(self.cache_file.read_text(encoding='utf-8'))
-                if data.get('schema_version') == 1 and data.get('game') == str(self.game):
+                if data.get('schema_version') == 2 and data.get('game') == str(self.game):
                     old = data['files']
             except (OSError, ValueError, KeyError, TypeError):
                 pass
@@ -182,16 +182,24 @@ class Browser:
                         cached = old.get(path)
                         if (isinstance(cached, dict) and cached.get('signature') == sig
                                 and isinstance(cached.get('entries'), list)):
-                            files[path] = cached
+                            info = dict(cached)
                             reused += 1
-                            continue
-                        entries = directory(source) if kind(name) == 'archive' else []
+                        else:
+                            entries = directory(source) if kind(name) == 'archive' else []
+                            info = dict(signature=sig, size=sig[0], kind=kind(name), entries=entries)
+                        if info['kind'] == 'sound' and 'audio_samples' not in info:
+                            from audiobank import sample_count
+                            try:
+                                info['audio_samples'] = sample_count(source)
+                            except (OSError, ModError, struct.error) as e:
+                                # Keep unknown audio visible in the technical view; never guess from its filename.
+                                info.update(audio_samples=None, audio_note=str(e))
                         if signature(source) != sig:
                             raise ModError('File changed while indexing; refresh to retry.', 'source_changed')
-                        files[path] = dict(signature=sig, size=sig[0], kind=kind(name), entries=entries)
+                        files[path] = info
                     except (OSError, ValueError, zipfile.BadZipFile, struct.error) as e:
                         errors.append({'path': path, 'message': str(e)})
-        data = dict(schema_version=1, game=str(self.game), files=files)
+        data = dict(schema_version=2, game=str(self.game), files=files)
         try:
             self.cache.mkdir(parents=True, exist_ok=True)
             with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=self.cache, delete=False) as f:
@@ -210,12 +218,15 @@ class Browser:
         return path.is_symlink() or (hasattr(path, 'is_junction') and path.is_junction())
 
     @staticmethod
-    def search(index, query='', category=None):
+    def search(index, query='', category=None, playable=False):
         result = []
         for path, info in sorted(index['files'].items()):
             rows = [dict(path=path, member=None, size=info['size'], kind=info['kind'])]
+            if 'audio_samples' in info:
+                rows[0]['audio_samples'] = info['audio_samples']
             rows += [dict(e, path=path) for e in info['entries']]
             result.extend(r for r in rows if (not category or r['kind'] == category)
+                          and (not playable or (r['kind'] == 'sound' and (r.get('audio_samples') or 0) > 0))
                           and query.casefold() in (path + '/' + (r['member'] or '')).casefold())
         return result
 

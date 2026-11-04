@@ -22,6 +22,7 @@ def parser():
         if action == 'list':
             s.add_argument('--query', default='')
             s.add_argument('--kind', choices=KINDS)
+            s.add_argument('--playable', action='store_true', help='only loose sound banks with sample headers; skips events and unverified files')
             s.add_argument('--limit', type=int, default=200)
             s.add_argument('--offset', type=int, default=0)
         if action in ('inspect', 'extract', 'preview', 'glb', 'audio'):
@@ -49,6 +50,8 @@ def main(argv=None):
         command += '.' + a.action
         if a.action == 'list' and (a.offset < 0 or not 1 <= a.limit <= 10000):
             raise ModError('Use offset >= 0 and limit between 1 and 10000.', 'invalid_arguments')
+        if a.action == 'list' and a.playable and a.kind not in (None, 'sound'):
+            raise ModError('--playable requires --kind sound or no --kind.', 'invalid_arguments')
         from kit import find_game, KitError
         try:
             game = a.game or find_game()
@@ -57,7 +60,7 @@ def main(argv=None):
         b = Browser(game)
         if a.action in ('index', 'list'):
             index = b.index(a.refresh)
-            rows = b.search(index, a.query, a.kind) if a.action == 'list' else b.search(index)
+            rows = b.search(index, a.query, a.kind, playable=a.playable) if a.action == 'list' else b.search(index)
             data = dict(game=str(b.game), total=len(rows), files=len(index['files']),
                         reused=index['reused'], errors=index['errors'])
             if a.action == 'list':
@@ -83,6 +86,7 @@ def main(argv=None):
     except ModError as e:
         status = 2 if e.code == 'invalid_arguments' else 3
         error = dict(code=e.code, message=str(e))
+        if getattr(e, 'details', None): error['details'] = e.details
     except (OSError, ValueError, zipfile.BadZipFile, struct.error, zlib.error, IndexError, KeyError) as e:
         status, error = 3, dict(code='io_error' if isinstance(e, OSError) else 'invalid_data', message=str(e))
     except KeyboardInterrupt:

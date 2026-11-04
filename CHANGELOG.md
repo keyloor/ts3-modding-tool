@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+- Tool home now gives equal space to Explorer, Textures, Models and objects, Music and sounds, Characters,
+  and Manage mods. Character projects have their own screen with recent projects, character names and model
+  extensions. Game/workspace controls are compact; Explorer task titles and initial filters survive language changes.
+- Loader: description/files now have separate scrollable tabs so files remain accessible at minimum size.
+  View result/update share a compact More menu. Verification tables use short statuses and full explanations below.
+- Explorer export/build results now show Open folder for copies, PNG/GLB/WAV, editable workspaces and packs.
+  New selections/previews and failures clear the old folder action.
+- Mod manager UI: the Tool now groups global actions under Options, searches names/authors/IDs and shows
+  selection actions only when relevant. Both products show filtered counts and a clear recovery state.
+- Verify files is now available in both products with a shared human report for current files, original
+  backups and stored layer data. Results can be reopened for the session; refresh clears them. Health warnings
+  take precedence over update notices in the Loader. Raw JSON/hashes remain under Technical details.
+- Explorer file names always retain their extensions, including `.assets.bank`; a Format column keeps them visible
+  when long names are clipped. A Preview column and selection
+  hint distinguish images, audio, text, unavailable content and unchecked OCT/ZIP content. Opening a preview
+  records the actual result (3D model, images, unavailable or failure) until the list is refreshed; unavailable
+  previews offer information instead. Event-only banks no longer offer a listening action.
+- Explorer: grouped, readable names with the original path shown separately, a contextual action bar,
+  Edit/More menus and a separate Create mod menu. Human summaries replace the default JSON view;
+  technical details remain available. Search also matches displayed names/groups in Spanish and English.
+- Sounds normally lists only banks with sample headers (75 in the checked game, rather than 139 audio/event
+  files). View restores technical files and original names. Header-only counting skips payloads and is cached;
+  `explore list --playable` exposes the same filter. Result plurals and size units are readable in both languages.
+- Fixed the v0.2 audio decoder's incomplete-read failures (including `cane_impact`). Banks now open
+  for offline reads without CREATESTREAM; repeated selections seek to sample zero, valid partial reads
+  continue, and real truncation/errors still fail instead of padding audio. Checked all 63,140 samples
+  across 75 banks, including all 14 dialogue languages, at up to 120 seconds each: no failures or game changes.
+- Dialogue `.fsb` files appear as sounds in the explorer. Audio errors are localized without native codes
+  in the window; CLI failures retain structured diagnostics. Mono channel labels and the status after saving
+  WAV are corrected. PCM conversion is vectorized with equivalent clipping, rounding and downmix behavior.
+- Regression tests cover the FMOD open mode and partial-read/EOF contracts. An opt-in exhaustive real-game
+  scan is available as `tests/check_game_audio.py --game GAME --out NEW_REPORT_DIRECTORY`.
+
 ## 0.2
 
 Two downloads from now on: **Toy Story 3 Mod Loader** for players, and **Toy Story 3 Modding Tool** for creators. Both

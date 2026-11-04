@@ -16,6 +16,8 @@ import automap as AM
 import viewer as V
 import kit as K
 import modupdate
+import modview
+import homeui
 from dropfiles import DropTarget
 from PIL import Image, ImageTk
 
@@ -602,8 +604,10 @@ class App:
         m = tk.Menu(self.root)
         fm = tk.Menu(m, tearoff=0)
         fm.add_command(label=self.t('home_menu'), command=self.show_home)
-        fm.add_command(label=self.t('new_project'), command=self.new_project)
-        fm.add_command(label=self.t('open_other'), command=self.open_other)
+        fm.add_command(label=homeui.TEXT[self.lang]['characters'], command=self.show_characters)
+        fm.add_command(label=homeui.TEXT[self.lang]['character_new'], command=self.new_project)
+        fm.add_command(label=homeui.TEXT[self.lang]['character_open'], command=self.open_other)
+        fm.add_separator()
         fm.add_command(label=self.t('mods_title'), command=self.show_mods)
         fm.add_command(label=self.t('explorer_title'), command=self.show_explorer)
         fm.add_separator(); fm.add_command(label=self.t('quit'), command=self.close)
@@ -630,6 +634,8 @@ class App:
             self.build_mods()
         elif self.screen == 'explorer':
             self.build_explorer()
+        elif self.screen == 'characters':
+            self.build_characters()
         else:
             (self.build_project if self.screen == 'project' and self.work else self.build_home)()
         self.root.after_idle(self.setup_drop)
@@ -658,97 +664,47 @@ class App:
         self.build_home()
 
     def build_home(self):
-        f = ttk.Frame(self.body, padding=(28, 20))
-        f.pack(fill='both', expand=True)
-        ttk.Label(f, text=TOOL, style='Title.TLabel').pack(anchor='w')
-        ttk.Label(f, text=self.t('by') % (AUTHOR, VERSION), style='Sub.TLabel').pack(anchor='w', pady=(0, 14))
+        self.home_panel = homeui.HomePane(self)
 
-        g = ttk.Frame(f); g.pack(fill='x', pady=2)
-        self.game_lbl = ttk.Label(g)
-        self.game_lbl.pack(side='left')
-        self.game_btn = ttk.Button(g, command=self.browse_game)
-        self.game_btn.pack(side='left', padx=10)
-        self.show_game()
-        w = ttk.Frame(f); w.pack(fill='x', pady=2)
-        ttk.Label(w, text=self.t('workspace') % self.settings['workspace']).pack(side='left')
-        ttk.Button(w, text=self.t('change'), command=self.browse_workspace).pack(side='left', padx=10)
-        ttk.Button(w, text=self.t('open_folder'), command=lambda: (os.makedirs(self.settings['workspace'], exist_ok=True),
-                                                                   self.open_path(self.settings['workspace']))).pack(side='left')
+    def show_characters(self):
+        if self.busy: return
+        self.screen = 'characters'
+        self.clear_body()
+        self.build_characters()
 
-        cards = ttk.Frame(f); cards.pack(fill='both', expand=True, pady=(18, 0))
-        cards.columnconfigure(0, weight=3); cards.columnconfigure(1, weight=2)
-        c = ttk.Frame(cards, style='Card.TFrame', padding=16)
-        c.grid(row=0, column=0, rowspan=4, sticky='nsew', padx=(0, 12))
-        ttk.Label(c, text=self.t('mod_chars'), style='Head.TLabel').pack(anchor='w')
-        ttk.Label(c, text=self.t('mod_chars_desc')).pack(anchor='w', pady=(2, 10))
-        b = ttk.Frame(c); b.pack(fill='x')
-        ttk.Button(b, text=self.t('new_project'), style='Big.TButton', command=self.new_project).pack(side='left')
-        ttk.Button(b, text=self.t('open_other'), command=self.open_other).pack(side='left', padx=10)
-        ttk.Label(c, text=self.t('recent'), style='Muted.TLabel').pack(anchor='w', pady=(14, 2))
-        self.recent = [p for p in self.recent_projects()]
-        lb = tk.Listbox(c, height=10, font=('Segoe UI', 10), activestyle='none', borderwidth=1)
-        for p in self.recent:
-            pj = K.load_project(p)
-            char = dict(MAIN).get(pj.get('character'), pj.get('character') or '?')
-            model = os.path.basename(pj.get('fbx') or '') or '-'
-            lb.insert('end', '  %s   —   %s  ←  %s' % (os.path.basename(p), char, model))
-        if not self.recent:
-            lb.insert('end', '  ' + self.t('no_recent'))
-        lb.pack(fill='both', expand=True)
-        lb.bind('<Double-1>', lambda e: self.recent and lb.curselection() and self.open_project(self.recent[lb.curselection()[0]]))
-        lb.bind('<Return>', lambda e: self.recent and lb.curselection() and self.open_project(self.recent[lb.curselection()[0]]))
-        s = ttk.Frame(cards, style='Card.TFrame', padding=16)
-        s.grid(row=0, column=1, sticky='nsew', pady=(0, 12))
-        ttk.Label(s, text=self.t('mods_title'), style='Head.TLabel').pack(anchor='w')
-        ttk.Label(s, text=self.t('mods_desc'), wraplength=350).pack(anchor='w', pady=(2, 10))
-        ttk.Button(s, text=self.t('mods_open'), style='Big.TButton', command=self.show_mods).pack(anchor='w')
-        s = ttk.Frame(cards, style='Card.TFrame', padding=16)
-        s.grid(row=1, column=1, sticky='nsew', pady=(0, 12))
-        ttk.Label(s, text=self.t('explorer_title'), style='Head.TLabel').pack(anchor='w')
-        ttk.Label(s, text=self.t('explorer_desc'), wraplength=350).pack(anchor='w', pady=(2, 10))
-        ttk.Button(s, text=self.t('explorer_open'), command=self.show_explorer).pack(anchor='w')
-        for r, (k, d) in enumerate((('mod_music', 'mod_music_desc'), ('mod_tex', 'mod_tex_desc')), start=2):
-            s = ttk.Frame(cards, style='Card.TFrame', padding=16)
-            s.grid(row=r, column=1, sticky='nsew', pady=(0, 12) if r == 2 else 0)
-            ttk.Label(s, text=self.t(k), style='Head.TLabel').pack(anchor='w')
-            ttk.Label(s, text=self.t(d), style='Muted.TLabel', wraplength=350).pack(anchor='w', pady=(2, 6))
-            if k == 'mod_tex':
-                ttk.Button(s, text=self.t('textures_open'), command=self.show_textures).pack(anchor='w')
-            else:
-                ttk.Button(s, text=self.t('sounds_open'), command=self.show_sounds).pack(anchor='w')
+    def build_characters(self):
+        self.characters_panel = homeui.CharactersPane(self, dict(MAIN))
+
+    def open_workspace(self):
+        if self.busy: return
+        os.makedirs(self.settings['workspace'], exist_ok=True)
+        self.open_path(self.settings['workspace'])
 
     # ------------------------------------------------------------------ explorer
     def show_textures(self):
-        if self.busy:
-            return
-        self.show_explorer()
-        panel = getattr(self, 'explorer_panel', None)
-        if panel:
-            panel.category.current(2)
-            panel.filter()
+        self.show_explorer('textures')
+
+    def show_models(self):
+        self.show_explorer('models')
 
     def show_sounds(self):
-        if self.busy: return
-        self.show_explorer()
-        panel = getattr(self, 'explorer_panel', None)
-        if panel:
-            panel.category.current(4)
-            panel.filter()
+        self.show_explorer('sounds')
 
-    def show_explorer(self):
+    def show_explorer(self, mode='all'):
         if self.busy:
             return
         if not self.settings.get('game'):
             messagebox.showinfo(self.t('explorer_title'), self.t('no_game_first'), parent=self.root)
             return
         self.screen = 'explorer'
+        self.explorer_mode = mode
         self.clear_body()
         self.build_explorer()
 
     def build_explorer(self):
         from explorerui import ExplorerPane
         try:
-            self.explorer_panel = ExplorerPane(self)
+            self.explorer_panel = ExplorerPane(self, mode=getattr(self, 'explorer_mode', 'all'))
         except Exception as e:
             self.show_home()
             messagebox.showerror(self.t('explorer_title'), str(e), parent=self.root)
@@ -812,50 +768,67 @@ class App:
         self.show_game()
         self.mods_drop_lbl = ttk.Label(f, text=self.t('mods_drop' if self.drop_target else 'mods_no_drop'),
                                        style='Hint.TLabel', padding=(12, 14), relief='groove')
-        self.mods_drop_lbl.pack(fill='x', pady=16)
+        self.mods_drop_lbl.pack(fill='x', pady=(10, 12))
         bar = ttk.Frame(f); bar.pack(fill='x', pady=(0, 12))
         self.mods_zip_btn = ttk.Button(bar, text=self.t('mods_zip'), command=self.choose_package)
-        self.mods_folder_btn = ttk.Button(bar, text=self.t('mods_folder'), command=lambda: self.choose_package(folder=True))
-        self.mods_reload_btn = ttk.Button(bar, text=self.t('mods_refresh'), command=self.reload_mods)
-        self.mods_remove_btn = ttk.Button(bar, text=self.t('mods_remove'), command=self.remove_mod)
+        self.mods_zip_btn.pack(side='left', padx=(0, 8))
+        self.mods_more = ttk.Menubutton(bar, text=modview.TEXT[self.lang]['more'])
+        self.mods_menu = tk.Menu(self.mods_more, tearoff=False)
+        self.mods_menu.add_command(label=self.t('mods_folder'), command=lambda: self.choose_package(folder=True))
+        self.mods_menu.add_separator()
+        self.mods_menu.add_command(label=self.t('mods_refresh'), command=self.reload_mods)
+        self.mods_menu.add_command(label=self.t('mods_check'), command=self.check_updates)
+        self.mods_more.config(menu=self.mods_menu); self.mods_more.pack(side='left', padx=(0, 8))
         self.mods_recover_btn = ttk.Button(bar, text=self.t('mods_recover'), command=self.recover_mods)
-        self.mods_check_btn = ttk.Button(bar, text=self.t('mods_check'), command=self.check_updates)
-        self.mods_page_btn = ttk.Button(bar, text=self.t('mods_open_update'), command=self.open_update)
-        for b in (self.mods_zip_btn, self.mods_folder_btn, self.mods_reload_btn, self.mods_remove_btn,
-                  self.mods_check_btn, self.mods_page_btn):
-            b.pack(side='left', padx=(0, 8))
-        self.mods_recover_btn.pack(side='right')
-        self.buttons = [self.mods_back, self.game_btn, self.mods_zip_btn, self.mods_folder_btn,
-                        self.mods_reload_btn, self.mods_remove_btn, self.mods_recover_btn,
-                        self.mods_check_btn, self.mods_page_btn]
-        priority = ttk.Frame(f); priority.pack(fill='x', pady=(0, 10))
-        self.mods_priority_btn = ttk.Button(priority, text=modpriorityui.TEXT[self.lang]['title'], command=self.mod_priorities)
-        self.mods_priority_btn.pack(side='left'); self.buttons.append(self.mods_priority_btn)
-        ttk.Label(priority, text=modpriorityui.TEXT[self.lang]['hint'], wraplength=790).pack(side='left', padx=12)
+        self.mods_priority_btn = ttk.Button(bar, text=modpriorityui.TEXT[self.lang]['title'], command=self.mod_priorities)
+        self.buttons = [self.mods_back, self.game_btn, self.mods_zip_btn, self.mods_more,
+                        self.mods_recover_btn, self.mods_priority_btn]
+        search = ttk.Frame(f); search.pack(fill='x', pady=(0, 10))
+        self.mods_counter = ttk.Label(search, style='Muted.TLabel'); self.mods_counter.pack(side='left')
+        self.mods_query = tk.StringVar()
+        self.mods_search_entry = ttk.Entry(search, textvariable=self.mods_query, width=32)
+        self.mods_search_entry.pack(side='right'); self.buttons.append(self.mods_search_entry)
+        ttk.Label(search, text=modview.TEXT[self.lang]['search']).pack(side='right', padx=8)
         pane = ttk.Frame(f); pane.pack(fill='both', expand=True)
         pane.rowconfigure(0, weight=1); pane.columnconfigure(0, weight=1)
-        self.mods_tree = ttk.Treeview(pane, columns=('priority', 'name', 'version', 'author', 'files', 'update'),
+        self.mods_tree = ttk.Treeview(pane, columns=('priority', 'name', 'version', 'author', 'files', 'state', 'update'),
                                      show='headings',
                                      selectmode='browse', height=8)
-        for key, label, width in (('name', 'pack_name', 320), ('version', 'version', 100),
-                                  ('author', 'mods_author', 200), ('files', 'mods_files', 120),
-                                  ('update', 'mods_update', 140)):
+        for key, label, width in (('name', 'pack_name', 240), ('version', 'version', 85),
+                                  ('author', 'mods_author', 130), ('files', 'mods_files', 70),
+                                  ('update', 'mods_update', 120)):
             self.mods_tree.heading(key, text=self.t(label))
-            self.mods_tree.column(key, width=width, minwidth=80, stretch=key in ('name', 'author'))
+            self.mods_tree.column(key, width=width, minwidth=60, stretch=key in ('name', 'author'))
+        self.mods_tree.heading('files', text=modview.TEXT[self.lang]['files'])
+        self.mods_tree.heading('state', text=modview.TEXT[self.lang]['state'])
+        self.mods_tree.column('state', width=130, minwidth=100, stretch=False)
         self.mods_tree.heading('priority', text=modpriorityui.TEXT[self.lang]['priority'])
         self.mods_tree.column('priority', width=75, minwidth=60, stretch=False)
         self.mods_tree.grid(row=0, column=0, sticky='nsew')
         scroll = ttk.Scrollbar(pane, orient='vertical', command=self.mods_tree.yview)
         scroll.grid(row=0, column=1, sticky='ns'); self.mods_tree.config(yscrollcommand=scroll.set)
         self.mods_tree.bind('<<TreeviewSelect>>', lambda e: self.mod_selected())
+        self.mods_tree.bind('<Button-1>', lambda e: 'break' if self.busy else None)
+        self.mods_tree.bind('<Key>', lambda e: 'break' if self.busy else None)
+        self.mods_tree.bind('<Control-f>', lambda e: self.mods_search_entry.focus_set())
+        self.mods_empty = ttk.Label(pane, text=modview.TEXT[self.lang]['empty'], wraplength=660, padding=24)
         self.mods_note = ttk.Label(f, text=self.t('working'), style='Muted.TLabel', wraplength=1000)
         self.mods_note.pack(anchor='w', pady=(8, 12))
+        actions = ttk.Frame(f); actions.pack(fill='x', pady=(0, 8))
+        self.mods_verify_btn = ttk.Button(actions, text=modview.TEXT[self.lang]['verify'], command=self.verify_mod)
+        self.mods_result_btn = ttk.Button(actions, text=modview.TEXT[self.lang]['result'], command=self.show_mod_verification)
+        self.mods_remove_btn = ttk.Button(actions, text=self.t('mods_remove'), command=self.remove_mod)
+        self.mods_page_btn = ttk.Button(actions, text=self.t('mods_open_update'), command=self.open_update)
+        self.mods_action_layout = None
+        self.buttons += [self.mods_verify_btn, self.mods_result_btn, self.mods_remove_btn, self.mods_page_btn]
         self.mods_details = tk.Text(f, height=7, wrap='word', font=('Segoe UI', 10), relief='flat',
                                     background='#f4f4f4', padx=12, pady=8)
         self.mods_details.pack(fill='x')
         self.set_mod_details(self.t('mods_select'))
-        self.mods_rows, self.mods_updates = {}, {}
+        self.mods_rows, self.mods_updates, self.mods_health = {}, {}, {}
         self.mods_ready = self.mods_pending = False
+        self.mods_query.trace_add('write', lambda *args: self.filter_mods())
+        self.filter_mods()
         self.refresh_mod_controls()
         if load:
             self.reload_mods()
@@ -864,15 +837,32 @@ class App:
         if self.screen != 'mods':
             return
         enabled = not self.busy and bool(self.settings.get('game'))
-        for button in (self.mods_zip_btn, self.mods_folder_btn):
-            button.state(['!disabled'] if enabled and not self.mods_pending else ['disabled'])
-        self.mods_reload_btn.state(['!disabled'] if enabled else ['disabled'])
-        selected = bool(self.mods_tree.selection())
-        self.mods_remove_btn.state(['!disabled'] if enabled and self.mods_ready and selected else ['disabled'])
+        ready = enabled and self.mods_ready and not self.mods_pending
+        self.mods_zip_btn.state(['!disabled'] if ready else ['disabled'])
+        self.mods_more.state(['!disabled'] if enabled else ['disabled'])
+        self.mods_search_entry.state(['!disabled'] if not self.busy else ['disabled'])
+        self.mods_menu.entryconfigure(0, state='normal' if ready else 'disabled')
+        self.mods_menu.entryconfigure(3, state='normal' if ready and self.mods_rows else 'disabled')
+        selection = self.mods_tree.selection()
+        selected = bool(selection and selection[0] in self.mods_rows)
+        for button in (self.mods_verify_btn, self.mods_remove_btn, self.mods_result_btn, self.mods_page_btn):
+            button.state(['!disabled'] if ready and selected else ['disabled'])
+        layout = (selected, bool(selected and selection[0] in self.mods_health), bool(selected and self.selected_update()))
+        if layout != self.mods_action_layout:
+            for button in (self.mods_verify_btn, self.mods_result_btn, self.mods_page_btn, self.mods_remove_btn): button.pack_forget()
+            if selected:
+                self.mods_verify_btn.pack(side='left', padx=(0, 8))
+                if layout[1]: self.mods_result_btn.pack(side='left', padx=(0, 8))
+                if layout[2]: self.mods_page_btn.pack(side='left', padx=(0, 8))
+                self.mods_remove_btn.pack(side='right')
+            self.mods_action_layout = layout
+        if self.mods_pending:
+            if not self.mods_recover_btn.winfo_manager(): self.mods_recover_btn.pack(side='right')
+        else: self.mods_recover_btn.pack_forget()
         self.mods_recover_btn.state(['!disabled'] if enabled and self.mods_pending else ['disabled'])
-        self.mods_check_btn.state(['!disabled'] if enabled and self.mods_ready and self.mods_rows
-                                  else ['disabled'])
-        self.mods_page_btn.state(['!disabled'] if not self.busy and self.selected_update() else ['disabled'])
+        if len(self.mods_rows) > 1:
+            if not self.mods_priority_btn.winfo_manager(): self.mods_priority_btn.pack(side='left')
+        else: self.mods_priority_btn.pack_forget()
         self.mods_priority_btn.state(['!disabled'] if enabled and self.mods_ready and len(self.mods_rows) > 1 else ['disabled'])
 
     def selected_update(self):
@@ -885,6 +875,30 @@ class App:
         self.mods_details.delete('1.0', 'end'); self.mods_details.insert('1.0', text)
         self.mods_details.config(state='disabled')
 
+    def filter_mods(self, selected=None):
+        if self.busy or self.screen != 'mods': return
+        old = self.mods_tree.selection()
+        selected = selected or (old[0] if old else None)
+        query = self.mods_query.get().strip()
+        self.mods_tree.delete(*self.mods_tree.get_children())
+        visible = 0
+        for mid, record in self.mods_rows.items():
+            m = record['metadata']
+            if not modview.matches(m, query): continue
+            self.mods_tree.insert('', 'end', iid=mid, values=(record.get('priority', 0), m['name'], m['version'],
+                m['author'] or self.t('mods_unknown'), len(record['files']), modview.state(self.mods_health.get(mid), self.lang), self.update_text(mid)))
+            visible += 1
+        self.mods_counter.config(text=modview.TEXT[self.lang]['waiting'] if self.mods_pending else modview.count(visible, len(self.mods_rows), self.lang))
+        if visible:
+            self.mods_empty.grid_remove()
+            if selected in self.mods_tree.get_children(): self.mods_tree.selection_set(selected)
+        else:
+            text = (self.t('mods_pending') if self.mods_pending else self.t('working') if not self.mods_ready else
+                    modview.TEXT[self.lang]['no_match'] if query else modview.TEXT[self.lang]['empty'])
+            self.mods_empty.config(text=text)
+            self.mods_empty.grid(row=0, column=0, sticky='nsew')
+        self.mod_selected()
+
     def mod_selected(self):
         if self.screen != 'mods':
             return
@@ -895,6 +909,8 @@ class App:
             m = mod['metadata']
             text = '%s  %s\n%s\n\n%s:\n%s' % (m['name'], m['version'], m['description'],
                 self.t('mods_files'), '\n'.join(r['path'] for r in mod['files']))
+            if m['id'] in self.mods_health:
+                text = modview.summary(self.mods_health[m['id']], self.lang) + '\n\n' + text
             info = self.mods_updates.get(m['id'])
             if info and info['update']:
                 text = self.t('mods_update_line') % (info['latest'], info['url']) + '\n\n' + text
@@ -921,16 +937,10 @@ class App:
             self.mods_updates = {u['id']: u for u in updates}
             self.mods_ready = not self.mods_pending
             self.mods_rows = {r['metadata']['id']: r for r in records}
-            self.mods_tree.delete(*self.mods_tree.get_children())
-            for mid, r in self.mods_rows.items():
-                m = r['metadata']
-                self.mods_tree.insert('', 'end', iid=mid, values=(r.get('priority', 0), m['name'], m['version'],
-                    m['author'] or self.t('mods_unknown'), len(r['files']), self.update_text(mid)))
-            if selected and selected[0] in self.mods_rows:
-                self.mods_tree.selection_set(selected[0])
-            self.mod_selected()
+            self.mods_health = {}
+            self.filter_mods(selected[0] if selected else None)
             self.mods_note.config(text=self.t('mods_pending') if self.mods_pending else
-                                  self.t('mods_count') % len(records) if records else self.t('mods_empty'))
+                                  self.t('mods_select') if records else '')
             self.status.set(notice or self.t('ready'))
         self.run(read, done, on_error=self.mods_failed)
 
@@ -1081,7 +1091,7 @@ class App:
         self.run(lambda: K.modstore.Store(game).preview_order(ids), reviewed, on_error=self.mods_failed)
 
     def remove_mod(self):
-        if self.busy:
+        if self.busy or not self.mods_ready or self.mods_pending:
             return
         sel = self.mods_tree.selection()
         if not sel or sel[0] not in self.mods_rows:
@@ -1091,6 +1101,23 @@ class App:
         if messagebox.askyesno(self.t('mods_remove'), self.t('mods_remove_confirm') % m['name'], parent=self.root):
             self.run(lambda: K.modstore.Store(game).remove(m['id']),
                      lambda meta: self.reload_mods(self.t('mods_removed') % meta['name']), on_error=self.mods_failed)
+
+    def verify_mod(self):
+        selected = self.mods_tree.selection()
+        if self.busy or not self.mods_ready or self.mods_pending or not selected or self.root.grab_current(): return
+        mid, game = selected[0], self.settings['game']
+        def done(report):
+            self.mods_health[mid] = report
+            self.filter_mods(mid)
+            self.mods_note.config(text=modview.summary(report, self.lang))
+            self.show_mod_verification()
+        self.run(lambda: K.modstore.Store(game).verify(mid), done, on_error=self.mods_failed)
+
+    def show_mod_verification(self):
+        selected = self.mods_tree.selection()
+        report = self.mods_health.get(selected[0]) if selected else None
+        if report and not self.busy and not self.mods_pending and not self.root.grab_current():
+            modview.VerificationDialog(self.root, report, self.lang, self.mods_rows.values())
 
     def recover_mods(self):
         if self.busy or not self.mods_pending:
@@ -1114,6 +1141,12 @@ class App:
         if not hasattr(self, 'game_lbl') or not self.game_lbl.winfo_exists():
             return
         g = self.settings.get('game')
+        if self.screen == 'home' and getattr(self, 'home_game_path', None) is not None and self.home_game_path.winfo_exists():
+            words = homeui.TEXT[self.lang]
+            self.game_lbl.config(text=self.t('game_looking') if self.game_state == 'looking' else words['game_ready'] if g else words['game_missing'])
+            self.home_game_path.config(text=g or words['game_help'])
+            self.game_btn.config(text=self.t('change') if g else self.t('find_game'))
+            return
         if self.game_state == 'looking':
             self.game_lbl.config(text=self.t('game_looking')); self.game_btn.config(text=self.t('find_game'))
         elif g:
@@ -1159,7 +1192,7 @@ class App:
         if d:
             self.settings['workspace'] = d
             self.save_settings()
-            self.show_home()
+            self.show_characters() if self.screen == 'characters' else self.show_home()
 
     def new_project(self):
         if self.busy:

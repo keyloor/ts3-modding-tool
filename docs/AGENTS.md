@@ -6,13 +6,21 @@ are `docs/GUIA_MANUAL.md` (manual, every map table explained) and the skill in `
 
 ## What you are doing
 
-Audio inspection: `explore inspect PATH --game GAME --json` lists `sounds[].index` from `.assets.bank`.
+The Tool home has six equal task cards. Character projects moved to Open characters, with new/open actions
+and a read-only recent-project list. Textures, Models and objects, and Music and sounds open the existing
+Explorer with a task title and initial filter; language changes retain that context. These are navigation
+changes only: use the existing make/explore/textures/meshes/mods CLI commands and project format.
+
+Audio inspection: `explore inspect PATH --game GAME --json` lists `sounds[].index` from `.assets.bank` or dialogue `.fsb`.
 `explore audio PATH [--member NAME] --track INDEX --seconds 30 --out NEW_DIRECTORY --game GAME --json`
 exports `sample.wav` (PCM16 mono/stereo) plus `audio.json` without changing the game. Maximum 120 seconds;
 read `truncated` and `decoded_seconds`. Add `--play` only when listening is wanted; Ctrl+C stops playback.
 Compressed samples require the selected game's existing Windows FMOD 2.03 DLL and matching architecture;
 it is not redistributed. Event-only banks return no samples: use their `.assets.bank` companion.
 These are sample excerpts, not simulated events/spatial mixing or audio replacement packs.
+The offline decoder fixes v0.2's streaming-mode failures. Native diagnostics are in optional `error.details`;
+GUI failures are localized. For full real-game validation, run the opt-in `tests/check_game_audio.py --game GAME
+--out NEW_REPORT_DIRECTORY`; it decodes all loose banks/samples up to 120 seconds and checks source SHA-256.
 
 For players, prefer the separate Toy Story 3 Mod Loader. Its `TS3 Mod Loader CLI.exe mods ...` and
 `kit/loadercli.py mods ...` use the same protocol, registry and backups as this Tool. Never migrate or clear
@@ -44,6 +52,16 @@ Inspect `shared`, `order`, and `files` before applying. External edits, dependen
 backup validation and recovery remain enforced. Keep plans bound to tickets; hidden-layer changes invalidate them.
 
 For read-only game exploration, use `kit/cli.py explore list --game GAME --query TEXT --kind oct --json`.
+`explore list --playable [--kind sound]` filters to loose banks with sample headers; plain list retains events
+and unverified files. `audio_samples` is an index hint, not playback validation. Indexing reads only bounded
+headers and seeks over audio payloads. GUI Sounds uses the filter; View restores technical files. The GUI now
+groups readable names but keeps original paths, Edit/More contextual actions and Create mod for workspaces.
+Use More → Technical details for raw metadata/errors. CLI paths and the existing query contract are unchanged.
+File extensions always remain visible in names and the Format column. The GUI Preview column distinguishes format hints from unchecked OCT/ZIP
+content and records the actual result after opening; refresh resets observations. Do not promise model geometry
+solely because a file ends in `.oct`. CLI inspect/preview/audio still perform their own validation.
+Completed GUI exports/builds show Open folder for `output`; new selections/previews and failures clear the action.
+This does not install a pack or execute its contents. CLI output paths and validation remain unchanged.
 For an export to Blender, use `explore glb PATH [--member OCT] --out NEW_DIRECTORY --game GAME --json`.
 Read `report.json`/`data.warnings`: the GLB exports supported geometry, UVs, diffuse maps, pivot-based rest
 skeleton and skin weights, while keeping rigid pieces outside the skin. Original bone rotations/roll,
@@ -119,6 +137,11 @@ inspect the package, prepare `mods plan`, and apply it with `mods install --expe
 within the user's authorized scope. `mods verify ID` checks installed files and backups;
 `mods remove ID --dry-run` prepares removal. Tickets are bound to the operation and game
 folder. A failed verification returns exit code 4 and includes its report in `data`.
+
+The GUIs expose verification in both products with a shared readable report, including stored layer snapshots.
+Session results can be reopened; refresh clears them. Raw diagnostics stay in Technical details. A health
+warning must not be hidden by an update notice. Verification never repairs files or proves in-game behavior.
+Loader details have Description/Files tabs; More holds View result and an available update page.
 `mods updates` says which installed mods have a newer GitHub release (`url` = its page); it never downloads.
 For a newer or rebuilt package with the same ID, use `mods plan PACKAGE --replace` and
 `mods install PACKAGE --replace --expect TICKET` with the same explicit `--game` and `--json`.
