@@ -18,7 +18,7 @@ Users talk to the tool in Spanish or English; the maintainer works in Spanish.
 | `kit/objlib.py` | OBJ reader + automatic skeleton and weights; `open_scene()` stands in for `fbxlib.Scene` |
 | `kit/kit.py` | The commands (`characters`, `make`, `install`, `restore`, `export`) and the functions the window calls |
 | `kit/app.py` | The window (tkinter; texts in `TEXT`, `es` and `en`) |
-| `kit/homeui.py` | Task home and separate character-project browser; bilingual, read-only recent-project projection |
+| `kit/homeui.py` | Task home and separate character-project browser; bilingual, read-only recent-project projection. Card icons are vector strokes (`ICONS`, 24-unit grid) drawn by `icon_image()` with Pillow at 8x and box-reduced (Tk's canvas has no anti-aliasing) |
 | `kit/viewer.py` | Live 3D preview: reads a converted character, skins it on the CPU (poses, live adjustments), draws it with moderngl offscreen into a tkinter label |
 | `kit/gltf.py` | Read-only GLB export: compact primitives, embedded diffuse maps, static/skinned separation and pivot-based rest skeleton |
 | `kit/gltflib.py` | Bounded glTF 2.0 Scene adapter; local/base64 resources, transforms/skin and project-owned PNG extraction |
@@ -206,7 +206,8 @@ Commits carry no `Co-Authored-By` or other AI attribution line: the maintainer i
 
 ## Next work
 
-0.2 released on GitHub (03/11/2026). Conflicts are checked before merging a patch: a pack over another's OCT is
+0.2 released on GitHub (03/11/2026). 0.3 prepared 10/11/2026 (`about.py`, `CHANGELOG.md`, Nexus text); the
+`v0.3` tag waits for the maintainer. Conflicts are checked before merging a patch: a pack over another's OCT is
 `file_conflict`, never `external_change`. Manager refusals reach the window through `App.mod_error_text`.
 
 Priorities (03/11): `modlayers.py` implements optional `Store.preview/install(..., layer=True)` and

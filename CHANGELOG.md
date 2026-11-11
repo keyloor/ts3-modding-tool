@@ -1,10 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.3
+
+A clearer interface in both apps, and every sound of the game now plays. Mods and backups installed with 0.2 keep
+working as they are.
 
 - Tool home now gives equal space to Explorer, Textures, Models and objects, Music and sounds, Characters,
   and Manage mods. Character projects have their own screen with recent projects, character names and model
   extensions. Game/workspace controls are compact; Explorer task titles and initial filters survive language changes.
+- Cleaner home icons: one consistent line-icon set on rounded tiles, drawn smooth (anti-aliased) and sized
+  to the display's scaling instead of jagged canvas lines.
 - Loader: description/files now have separate scrollable tabs so files remain accessible at minimum size.
   View result/update share a compact More menu. Verification tables use short statuses and full explanations below.
 - Explorer export/build results now show Open folder for copies, PNG/GLB/WAV, editable workspaces and packs.

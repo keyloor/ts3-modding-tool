@@ -24,6 +24,13 @@ dos packs del mismo OCT sin `--layer` daban `external_change` en vez de `file_co
 salían en inglés en la ventana. Sin comprobar dentro del juego: texturas editadas, reinserción GLB, objetos rígidos
 editados y prioridades.
 
+## Versión 0.3 (preparada el 10/11/2026, sin etiquetar)
+
+Lleva el arreglo del decodificador de sonido, el inicio nuevo con íconos más limpios (trazos suavizados con Pillow
+en vez de líneas de `Canvas`), el Explorador y el gestor de mods más claros (punto 2 de abajo). Versión, `CHANGELOG.md`
+y texto de Nexus listos; la página invita a contribuir en GitHub. Se publica al etiquetar `v0.3` cuando keyloor lo
+diga. Pendiente de la fase 2: pantallas de proyecto y diálogos de packs.
+
 ## Próxima fase (pedida por keyloor el 03/11/2026)
 
 **1. Corregido: errores del decodificador de sonido (03/11/2026, después de 0.2).** La 0.2 fallaba con

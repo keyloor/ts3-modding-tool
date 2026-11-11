@@ -1,5 +1,6 @@
 """Task-oriented creator home and a separate character-project browser."""
 import json
+import math
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
@@ -71,27 +72,58 @@ def button(app, parent, text, command):
     return widget
 
 
+# Card icons: strokes on a 24-unit grid (round caps and joins), like an SVG icon set. Tk's canvas draws without
+# anti-aliasing, so they are drawn with Pillow at SUPER times the size and reduced: smooth edges at any scale.
+# ('line', x, y, ...) open path, ('shape', x, y, ...) closed path, ('circle', cx, cy, r),
+# ('arc', cx, cy, rx, ry, from°, to°) (y down, so 180→360 is the upper half), ('box', x1, y1, x2, y2, radius).
+ICONS = {
+    'explorer': (('circle', 10.5, 10.5, 6.5), ('line', 15.4, 15.4, 20.5, 20.5)),
+    'textures': (('box', 3.5, 3.5, 20.5, 20.5, 3), ('circle', 9, 9, 1.75),
+                 ('line', 20.5, 15, 15.5, 10, 5, 20.5)),
+    'models': (('shape', 12, 2.75, 20.25, 7.25, 20.25, 16.75, 12, 21.25, 3.75, 16.75, 3.75, 7.25),
+               ('line', 3.75, 7.25, 12, 11.75, 20.25, 7.25), ('line', 12, 11.75, 12, 21.25)),
+    'sounds': (('shape', 3.5, 9.5, 7.5, 9.5, 12.5, 5, 12.5, 19, 7.5, 14.5, 3.5, 14.5),
+               ('arc', 12.5, 12, 4.25, 4.25, -48, 48), ('arc', 12.5, 12, 8, 8, -48, 48)),
+    'characters': (('circle', 12, 7.75, 4), ('arc', 12, 21, 7.5, 7, 180, 360)),
+    'mods': (('box', 3, 3.75, 21, 8.5, 1.5), ('box', 4.75, 8.5, 19.25, 20.5, 2), ('line', 10, 12.5, 14, 12.5)),
+}
+SUPER, TILE, GLYPH, STROKE = 8, 34, 22, 2.0
+
+
+def icon_image(kind, size=TILE, ink=BLUE, tile=SOFT, back='white'):
+    """The card icon as a Pillow image: the glyph centred on a rounded tile, `size` pixels square."""
+    from PIL import Image, ImageDraw
+    big = size*SUPER; k = big*GLYPH/TILE/24; off = (big - 24*k)/2; w = STROKE*k; r = w/2
+    image = Image.new('RGB', (big, big), back); draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((0, 0, big-1, big-1), radius=big*0.27, fill=tile)
+    at = lambda x, y: (off + x*k, off + y*k)
+    def path(points, closed):
+        if closed: points = points + points[:1]
+        draw.line(points, fill=ink, width=round(w))
+        for x, y in points: draw.ellipse((x-r, y-r, x+r, y+r), fill=ink)   # round caps and joins
+    for name, *v in ICONS.get(kind, ICONS['mods']):
+        if name in ('line', 'shape'):
+            path([at(*v[i:i+2]) for i in range(0, len(v), 2)], name == 'shape')
+        elif name == 'circle':
+            (x, y), s = at(v[0], v[1]), v[2]*k + r
+            draw.ellipse((x-s, y-s, x+s, y+s), outline=ink, width=round(w))
+        elif name == 'arc':
+            cx, cy, rx, ry, a, b = v; n = max(8, int(abs(b-a)/4))
+            path([at(cx + rx*math.cos(math.radians(a + (b-a)*i/n)), cy + ry*math.sin(math.radians(a + (b-a)*i/n)))
+                  for i in range(n+1)], False)
+        elif name == 'box':
+            (x1, y1), (x2, y2) = at(v[0], v[1]), at(v[2], v[3])
+            draw.rounded_rectangle((x1-r, y1-r, x2+r, y2+r), radius=v[4]*k + r, outline=ink, width=round(w))
+    return image.resize((size, size), Image.BOX)     # area average: no ringing halos around the strokes
+
+
 def icon(parent, kind):
-    c = tk.Canvas(parent, width=30, height=30, bg=SOFT, highlightthickness=0, takefocus=False)
-    args = dict(fill=BLUE, width=2)
-    if kind == 'explorer':
-        c.create_oval(6, 5, 21, 20, outline=BLUE, width=2); c.create_line(20, 19, 26, 25, **args)
-    elif kind == 'textures':
-        for x in (6, 16):
-            for y in (6, 16): c.create_rectangle(x, y, x+7, y+7, outline=BLUE, width=2)
-    elif kind == 'models':
-        c.create_polygon(15, 4, 26, 10, 26, 22, 15, 28, 4, 22, 4, 10, fill='', outline=BLUE, width=2)
-        c.create_line(4, 10, 15, 16, 26, 10, **args); c.create_line(15, 16, 15, 28, **args)
-    elif kind == 'sounds':
-        c.create_polygon(5, 11, 11, 11, 18, 5, 18, 25, 11, 19, 5, 19, fill='', outline=BLUE, width=2)
-        c.create_arc(15, 6, 28, 24, start=-60, extent=120, style='arc', outline=BLUE, width=2)
-    elif kind == 'characters':
-        c.create_oval(10, 4, 20, 14, outline=BLUE, width=2)
-        c.create_arc(5, 17, 25, 36, start=0, extent=180, style='arc', outline=BLUE, width=2)
-    else:
-        c.create_rectangle(5, 5, 25, 25, outline=BLUE, width=2)
-        c.create_line(9, 15, 14, 20, 22, 10, **args)
-    return c
+    from PIL import ImageTk
+    scale = float(parent.tk.call('tk', 'scaling'))/(96/72)          # follow Tk's own scaling (1.0 at 96 dpi)
+    photo = ImageTk.PhotoImage(icon_image(kind, max(TILE, round(TILE*scale))), master=parent)
+    label = tk.Label(parent, image=photo, background='white', borderwidth=0, highlightthickness=0, takefocus=False)
+    label.image = photo                                               # Tk keeps no reference of its own
+    return label
 
 
 def workspace_footer(app, parent, words):

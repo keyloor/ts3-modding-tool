@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'kit'))
 from app import App
-from homeui import recent_rows
+from homeui import BLUE, ICONS, TASKS, icon_image, recent_rows
 
 
 class Home(unittest.TestCase):
@@ -55,6 +55,25 @@ class Home(unittest.TestCase):
                 App.build_explorer(app)
                 pane.assert_called_once_with(app, mode=mode)
         self.assertEqual(settings, {'game': 'isolated-game', 'recent': ['owned-project']})
+
+    def test_every_card_has_its_own_smooth_icon_inside_a_rounded_tile(self):
+        self.assertEqual(set(TASKS), set(ICONS))
+        ink = tuple(int(BLUE[i:i+2], 16) for i in (1, 3, 5))
+        drawn = {}
+        for task in TASKS:
+            for size in (34, 51):
+                image = icon_image(task, size)
+                self.assertEqual((image.mode, image.size), ('RGB', (size, size)))
+                self.assertEqual(image.getpixel((0, 0)), (255, 255, 255))        # rounded corner shows the card
+                colours = {colour for _, colour in image.getcolors(size*size)}
+                # Only blends of ink, tile and card: nothing darker than the ink (no ringing), strokes close to
+                # solid ink, and many in-between shades (smoothed edges).
+                self.assertTrue(all(c >= i for colour in colours for c, i in zip(colour, ink)))
+                self.assertLess(max(c - i for c, i in zip(min(colours, key=sum), ink)), 40)
+                self.assertGreater(len(colours), 12)
+            drawn[task] = icon_image(task).tobytes()
+        self.assertEqual(len(set(drawn.values())), len(TASKS))
+        self.assertEqual(icon_image('unknown').tobytes(), drawn['mods'])
 
 
 if __name__ == '__main__':
