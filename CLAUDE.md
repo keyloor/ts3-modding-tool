@@ -206,8 +206,9 @@ Commits carry no `Co-Authored-By` or other AI attribution line: the maintainer i
 
 ## Next work
 
-0.2 released on GitHub (03/11/2026). 0.3 prepared 10/11/2026 (`about.py`, `CHANGELOG.md`, Nexus text); the
-`v0.3` tag waits for the maintainer. Conflicts are checked before merging a patch: a pack over another's OCT is
+0.2 released on GitHub (03/11/2026). 0.3 tagged 11/11/2026 (GitHub Actions builds the release); first Nexus
+page: https://www.nexusmods.com/toystory3completeedition/mods/30 ("Toy Story 3 Modding Tool & Mod Loader", both zips
+as main files, in manual review). Nexus images: `release/nexus/media/render.py` (not in git). Conflicts are checked before merging a patch: a pack over another's OCT is
 `file_conflict`, never `external_change`. Manager refusals reach the window through `App.mod_error_text`.
 
 Priorities (03/11): `modlayers.py` implements optional `Store.preview/install(..., layer=True)` and

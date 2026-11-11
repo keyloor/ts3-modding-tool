@@ -24,12 +24,13 @@ dos packs del mismo OCT sin `--layer` daban `external_change` en vez de `file_co
 salían en inglés en la ventana. Sin comprobar dentro del juego: texturas editadas, reinserción GLB, objetos rígidos
 editados y prioridades.
 
-## Versión 0.3 (preparada el 10/11/2026, sin etiquetar)
+## Versión 0.3 (etiquetada el 11/11/2026; en Nexus como mods/30, archivos en revisión)
 
 Lleva el arreglo del decodificador de sonido, el inicio nuevo con íconos más limpios (trazos suavizados con Pillow
 en vez de líneas de `Canvas`), el Explorador y el gestor de mods más claros (punto 2 de abajo). Versión, `CHANGELOG.md`
-y texto de Nexus listos; la página invita a contribuir en GitHub. Se publica al etiquetar `v0.3` cuando keyloor lo
-diga. Pendiente de la fase 2: pantallas de proyecto y diálogos de packs.
+y texto de Nexus listos; la página invita a contribuir en GitHub. Primera página en Nexus, con la Tool y el Loader
+como archivos principales e imágenes de `release/nexus/media/`. Pendiente de la fase 2: pantallas de proyecto y
+diálogos de packs.
 
 ## Próxima fase (pedida por keyloor el 03/11/2026)
 
