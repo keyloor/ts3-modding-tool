@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Exported mod READMEs recommend Mod Loader and link its Nexus download. Player, release and authoring guides
+  include download links and current installation instructions. Removed obsolete one-mod-per-archive claims
+  for the shared manager and corrected the texture-workspace menu path.
+- Mod Loader bundles now include docs/CLI.md, which the included mod-format guide links to.
+
 ## 0.3
 
 A clearer interface in both apps, and every sound of the game now plays. Mods and backups installed with 0.2 keep

@@ -4,7 +4,7 @@ La herramienta reconoce una carpeta o ZIP con `mod.json`, los packs antiguos con
 `patches/manifest.txt` y las carpetas que reproducen `assets/` o `data_dx/`. Acepta una
 carpeta contenedora dentro del ZIP. No ejecuta los `.bat`, `.ps1`, `.exe` ni `.py` del pack.
 
-El gestor está disponible por línea de comandos y desde la pantalla «Mods instalados».
+El gestor está disponible en Mod Loader, desde «Gestionar mods» en Modding Tool y por línea de comandos.
 En la ventana se puede arrastrar un ZIP o una carpeta de mod desde el Explorador. Los mods
 con `update` avisan de versiones nuevas («Buscar actualizaciones» o `mods updates`).
 Para automatización, salida JSON, planes y verificación, consulta [CLI.md](CLI.md).

@@ -147,7 +147,8 @@ def dump(game, archive, output, member=None, *, shared=False):
             CREDIT + '\n\nEdit PNGs at their original size. Delete PNGs you do not want to replace.\n'
             'Shared mode: each PNG replaces ALL identical DDS occurrences in index.json, only in selected archives.\n'
             'Shared filenames use CRC32 plus full SHA-256; CRC collisions never group different DDS files.\n'
-            'Then use Textures > Build texture pack, or: textures build WORKSPACE --out NEW_FOLDER ...\n'
+            'Then use Create mod > Create mod from edited images in the explorer,\n'
+            'or: textures build WORKSPACE --out NEW_FOLDER ...\n'
             'Only changed PNGs go into the pack. These are game textures; keep the workspace local.\n', encoding='utf-8')
         publish(stage, output)
     return dict(output=str(output), archives=len(archives), textures=len(rows), png_files=len(pngs),
@@ -316,8 +317,11 @@ def build(game, folder, output, *, mod_id, name, author, version='1.0.0'):
             manifest.append('%s|%s|%s|%s' % (archive, stem, hashlib.md5(original).hexdigest(), hashlib.md5(after).hexdigest()))
         (stage / 'mod.json').write_bytes(json_bytes(meta))
         (stage / 'patches/manifest.txt').write_text('\n'.join(manifest) + '\n', encoding='utf-8')
-        (stage / 'README.txt').write_text('%s\nby %s\n\n%s\n\nDrop this folder on the Mod Loader or Modding Tool to install it.\n'
-                                         'Remove it with Manage mods to restore the previous files.\n' % (name, author, CREDIT), encoding='utf-8')
+        (stage / 'README.txt').write_text('%s\nby %s\n\n%s\n\nDownload Toy Story 3 Mod Loader from the Files tab:\n'
+                                         'https://www.nexusmods.com/toystory3completeedition/mods/30\n'
+                                         'Drop this folder on the Mod Loader window to install it.\n'
+                                         'Select this mod and press "Remove mod" to uninstall it.\n'
+                                         'Modding Tool can also manage this pack.\n' % (name, author, CREDIT), encoding='utf-8')
         for archive, before in snapshots.items():
             if signature(browser.source(archive)) != before:
                 raise ModError('Archive changed while building the pack: ' + archive, 'source_changed')

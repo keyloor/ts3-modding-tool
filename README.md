@@ -13,6 +13,10 @@ They are built from this repository as separate downloads. Both use the same `mo
 registry and backups. Existing managed mods appear in both apps; there is no migration or second copy of the registry.
 The Loader does not carry NumPy, Pillow, model conversion or the 3D runtime.
 
+Download both apps from [Nexus Mods, Files tab](https://www.nexusmods.com/toystory3completeedition/mods/30?tab=files)
+or [GitHub Releases](https://github.com/keyloor/ts3-modding-tool/releases). Choose Mod Loader to install mods,
+or Modding Tool to create them. Extract the chosen ZIP outside the game folder and open its executable.
+
 Both managers offer **Verify files** with a readable report of game files, original backups and stored mod
 layers. **View result** (under **More** in the Loader) reopens the last check in this session; refreshing clears it. Verification never repairs
 files. The Tool now groups global actions under **Options**, searches names/authors/IDs and shows actions for
@@ -118,7 +122,7 @@ the default. Materials/textures are rebuilt; this does not preserve a whole char
 - **Everything from the command line too** (`kit.py adjust`, `kit.py mods`), for scripts and AI agents.
 - **Install / restore** with a backup of the game's archive; refuses to build on an archive another mod changed, and
   finds the original in other installers' backups.
-- **Export a Nexus pack**: only your changes, which players drop on the tool to install (no scripts, so Nexus doesn't
+- **Export a Nexus pack**: only your changes, which players drop on Mod Loader to install (no scripts, so Nexus doesn't
   hold it for review); optionally with its own installer for players without the tool.
 - **Advanced**: everything is driven by a plain Python "map" file you can edit by hand, with every option of the
   converter (eyelids, face, split weights, colour palettes...).
@@ -144,8 +148,8 @@ folders/ZIPs with game files, with backups, interrupted-operation recovery and u
 `mod.json` names a GitHub repository). The same from the command line: `kit.py mods ...` (JSON output for scripts
 and AI agents, [docs/CLI.md](docs/CLI.md)). See [format and usage (Spanish)](docs/MOD_FORMAT.md).
 
-**Without Python**: `python -I kit/build_kit.py` builds `Toy Story 3 Modding Tool.exe` (needs PyInstaller); ready-made
-builds will be on the releases page and on Nexus Mods.
+**Without Python**: download a ready-made application using the links above. Building from source requires
+Python and PyInstaller: `python -I kit/build_kit.py` builds both applications.
 
 ### With an AI agent
 
@@ -192,7 +196,13 @@ a mod made with the tool, please credit it: *"Made with TS3 Modding Tool by keyl
 **Toy Story 3 Modding Tool, de keyloor**: modifica *Toy Story 3 Complete Edition* (PC, Steam) sin programar. Por ahora:
 pon tu propio modelo 3D (FBX con esqueleto, u OBJ) en lugar de Woody, Buzz Lightyear o Jessie, míralo en una vista
 previa, instálalo en tu juego y exporta un pack para Nexus. También puedes exportar texturas PNG, editarlas
-conservando su tamaño y crear un pack desde la sección Texturas. Música y sonidos vendrán después.
+conservando su tamaño y crear un pack desde la sección Texturas. Puedes escuchar sonidos y guardar WAV.
+La edición de audio sigue pendiente.
+
+Si solo quieres instalar mods, descarga **Toy Story 3 Mod Loader** desde
+[Nexus Mods, pestaña Files](https://www.nexusmods.com/toystory3completeedition/mods/30?tab=files) o
+[GitHub Releases](https://github.com/keyloor/ts3-modding-tool/releases). Extrae su ZIP fuera de la carpeta del
+juego y abre `Toy Story 3 Mod Loader.exe`. Modding Tool es la descarga para crear mods.
 
 Para usarla con Python: `pip install numpy pillow` y `python -I kit/app.py`. La guía para hacerlo todo a mano está en
 `docs/GUIA_MANUAL.md`.

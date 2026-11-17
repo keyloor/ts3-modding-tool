@@ -243,8 +243,10 @@ its own length` says when to use it: a stretch beyond 1.25 means a long, distort
 
 To publish: `kit.py export work/<name> --name "<Mod name>" --version 1.0 --author "<user>" --what "<one line>"
 --model-credits "<model author>"` writes `work/<name>/pack/<Mod name> for TS3/` and its zip: only the mod's changes to
-the game archive (`patches/`), `mod.json` and a README with the credits. Players install it with the tool (drop it
-on the window, or `mods install`); it holds no scripts, so Nexus doesn't quarantine it. `--installer` adds its
+the game archive (`patches/`), `mod.json` and a README with the credits. Players install it with Mod Loader (drop it
+on the window, or use its CLI's reviewed `mods plan/install` workflow). Link the Mod Loader download on the mod page:
+https://www.nexusmods.com/toystory3completeedition/mods/30 (Files tab). Modding Tool's manager also accepts the pack.
+It holds no scripts, so Nexus doesn't quarantine it. `--installer` adds its
 own installer (.bat + .ps1) for players without the tool; Nexus then reviews each upload by hand. Ask the user for
 every field; never invent the model's author or permission.
 
@@ -276,7 +278,9 @@ no console, so read `<project>/report.txt` (and `%TEMP%\Toy Story 3 Modding Tool
 - Texture sets: `d` diffuse, `n` normal (must share the diffuse map's UV layout), `orm` or `spec` (number) or
   `mask` + `mask_spec` (image), sizes as powers of two up to 1024. Every FBX material of a skinned mesh must be in
   `MATERIALS` (set name or `(r, g, b)`) or `SKIP_MATERIALS`, or the converter stops and names it.
-- One mod per character archive: installing over another mod replaces it.
+- Managed packages can share a character archive through reviewed priorities. Distinct ZIP members combine;
+  a matching OCT is replaced as a whole by the higher-priority mod. Direct project installs are separate:
+  restore with the same installer before switching to managed packages on that archive.
 
 ## Rules
 

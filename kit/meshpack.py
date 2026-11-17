@@ -309,7 +309,9 @@ def build(game, folder, output, *, mod_id, name, author, version='1.0.0', model=
         (stage/'report.json').write_bytes(json_bytes(report))
         (stage/'README.txt').write_text(name+'\nby '+author+'\n\n'+CREDIT+
             '\n\nRigid geometry edit. Original collisions and materials stay.\n'
-            'Install/remove this folder with the Mod Loader or Modding Tool.\n', encoding='utf-8')
+            'Download Toy Story 3 Mod Loader from the Files tab:\n'
+            'https://www.nexusmods.com/toystory3completeedition/mods/30\n'
+            'Install/remove this folder with Mod Loader. Modding Tool can also manage this pack.\n', encoding='utf-8')
         if signature(s['file']) != s['signature']: fail('Source changed before publishing.', 'source_changed')
         TP.publish(stage, output)
     return dict(output=str(output), metadata=meta, **report)

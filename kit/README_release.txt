@@ -7,6 +7,7 @@ Jessie, edit textures, preview sounds, and install, remove and share mods. Audio
 
 JUST WANT TO INSTALL MODS?
   Use the separate "Toy Story 3 Mod Loader" download for the simpler player interface.
+  Download it from the Files tab: https://www.nexusmods.com/toystory3completeedition/mods/30
   This Modding Tool download is for creating mods. Its integrated manager and the Loader share the same
   installed-mod registry and backups, so your existing mods are available in both.
   Choose a newer or rebuilt package with the same ID to review and replace the installed version.
@@ -54,7 +55,8 @@ GAME EXPLORER
   Export/build results show Open folder for their output, including WAV, GLB, workspaces and packs.
 
 START
-  Double-click "Toy Story 3 Modding Tool.exe" (no Python needed). If Windows warns about it, choose "More info" >
+  Extract this zip outside the game folder, then double-click "Toy Story 3 Modding Tool.exe" (no Python needed).
+  If Windows warns about it, choose "More info" >
   "Run anyway". Some antivirus programs flag new, unsigned tools by mistake.
   The start screen finds the game through Steam and keeps your projects in Documents\Toy Story 3 Modding Tool.
   Six equal task cards open Explorer, Textures, Models and objects, Music and sounds, Characters and Manage mods.
@@ -102,7 +104,7 @@ YOUR OWN CHARACTER
      head and neck, proportions, size, accessories, clothes, eyes and face, weights (with undo). In the Preview,
      "Your model's skeleton" lets you drag a joint that is off.
   4. "Install into the game" (game closed). "Restore original" undoes it. "Export pack for Nexus" makes a pack
-     with only your changes, which other players install by dropping it on this tool.
+     with only your changes, which other players install by dropping it on Mod Loader (or this tool's manager).
   Your model: a humanoid standing in a T or A pose. A rigged FBX (skeleton + skin) gives the best result; an OBJ
   gets a skeleton from the tool. Textures as PNG, TGA, JPG or DDS.
 
@@ -125,7 +127,8 @@ EDIT TEXTURES
   Edit the PNGs in your image editor, keeping their size. Create mod > Create mod from edited images reads that folder,
   asks for your mod name/credit/version and creates an installable folder with only the changed OCT files.
   Install/remove it through Manage mods. No game files are changed when exporting or building.
-  Supports DXT1/3/5 and 32-bit RGB(A), with original mipmaps. One managed mod per archive; no priorities yet.
+  Supports DXT1/3/5 and 32-bit RGB(A), with original mipmaps. Shared archives use the mod priorities described above.
+  Distinct ZIP members combine; a matching OCT is replaced as a whole, without per-texture merging.
   CLI: "TS3 Modding CLI.exe" textures --help. See docs/CLI.md for the complete workflow.
 
 WITH AN AI AGENT (Claude Code, Codex, Cursor...)
@@ -155,8 +158,14 @@ ESPAÑOL
 Modifica Toy Story 3 sin programar. Ahora: pon tu propio modelo 3D (FBX con esqueleto, u OBJ) en lugar de Woody,
 Buzz o Jessie, edita texturas, escucha sonidos, e instala, quita y comparte mods. La edición de audio: próximamente.
 
+¿SOLO QUIERES INSTALAR MODS?
+  Descarga "Toy Story 3 Mod Loader" desde Files: https://www.nexusmods.com/toystory3completeedition/mods/30
+  Extrae su zip fuera de la carpeta del juego y abre "Toy Story 3 Mod Loader.exe".
+  Modding Tool sirve para crear mods. Ambas aplicaciones comparten los mods instalados y sus copias.
+
 EMPEZAR
-  Doble clic en "Toy Story 3 Modding Tool.exe" (no hace falta Python). Si Windows avisa, elige "Más información" >
+  Extrae este zip fuera de la carpeta del juego y abre "Toy Story 3 Modding Tool.exe" (no hace falta Python).
+  Si Windows avisa, elige "Más información" >
   "Ejecutar de todas formas". Algunos antivirus marcan por error las herramientas nuevas sin firma.
   La pantalla de inicio encuentra el juego por Steam y guarda tus proyectos en Documentos\Toy Story 3 Modding Tool.
   Seis tarjetas del mismo tamaño abren el Explorador, Texturas, Modelos y objetos, Música y sonidos, Personajes
@@ -172,7 +181,7 @@ TU PROPIO PERSONAJE
      cabeza y cuello, proporciones, tamaño, accesorios, ropa, ojos y cara, pesos (con deshacer). En la Vista
      previa, "Esqueleto de tu modelo" deja arrastrar una articulación que esté mal.
   4. "Instalar en el juego" (con el juego cerrado). "Restaurar original" lo deshace. "Exportar pack para Nexus" hace
-     un pack solo con tus cambios, que otros jugadores instalan arrastrándolo a esta herramienta.
+     un pack solo con tus cambios, que otros jugadores instalan arrastrándolo a Mod Loader o al gestor de esta herramienta.
 
 INSTALAR OTROS MODS
   "Gestionar mods" en la pantalla de inicio, y arrastra el ZIP o la carpeta del mod a la ventana (o "Instalar

@@ -310,15 +310,19 @@ python -I <KIT>/tools/install.py restore "<JUEGO>" assets/characters/woody/woody
 
 La primera vez guarda una copia del archivo original en `<KIT>/game/backup/`, y `restore` la devuelve. (`kit.py
 install` guarda la suya junto al juego, en `TS3 Modding Tool backup`: restaura siempre con lo mismo que usaste para
-instalar.) Solo puede haber **un mod por personaje**: instalar otro sobre el mismo archivo reemplaza el anterior.
+instalar.) Con estos instaladores directos se ve el último mod que cambie los mismos archivos.
+Para gestionar varios paquetes, usa Mod Loader y sus prioridades. No mezcles instalaciones directas con las del
+gestor sobre el mismo archivo. Restaura primero con el instalador que usaste.
 
 ## 10. Publicarlo
 
 Si el modelo no es tuyo, publica solo si su autor lo permite. Nunca subas archivos del juego. Un pack para Nexus lleva
-solo tus cambios (`patches/`) y un `mod.json`; quien lo descarga lo arrastra a TS3 Modding Tool, que lo aplica sobre
-su copia del juego. Como no lleva scripts, Nexus no lo retiene para revisarlo. Si quieres que funcione también sin la
-herramienta, marca «Incluir también un instalador propio (.bat)» al exportar (`--installer`): entonces Nexus revisa
-cada subida a mano. Pon en la página: "Hecho con TS3 Modding Tool de keyloor" y la herramienta como requisito.
+solo tus cambios (`patches/`) y un `mod.json`. Quien lo descarga lo arrastra a **Toy Story 3 Mod Loader**,
+disponible en [Nexus Mods, pestaña Files](https://www.nexusmods.com/toystory3completeedition/mods/30?tab=files).
+El gestor de Modding Tool también acepta el paquete. Como no lleva scripts, Nexus no lo retiene para revisarlo.
+Si quieres que funcione también sin ninguna de las dos aplicaciones, marca «Incluir también un instalador propio
+(.bat)» al exportar (`--installer`). Entonces Nexus revisa cada subida a mano.
+Pon en la página "Hecho con TS3 Modding Tool de keyloor" y enlaza Mod Loader como requisito para los paquetes sin instalador.
 
 ---
 

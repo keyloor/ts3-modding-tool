@@ -4,6 +4,8 @@ by keyloor — for Toy Story 3 Complete Edition on PC (Steam).
 
 ## Español
 
+Descarga **Toy Story 3 Mod Loader** desde [Nexus Mods, pestaña Files](https://www.nexusmods.com/toystory3completeedition/mods/30?tab=files)
+o [GitHub Releases](https://github.com/keyloor/ts3-modding-tool/releases). Extrae el ZIP fuera de la carpeta del juego.
 Abre `Toy Story 3 Mod Loader.exe`. La aplicación busca el juego en Steam; si no lo encuentra,
 elige su carpeta con «Elegir carpeta». No necesitas Python.
 
@@ -48,6 +50,8 @@ Para crear personajes, explorar niveles o editar texturas, usa la descarga separ
 
 ## English
 
+Download **Toy Story 3 Mod Loader** from [Nexus Mods, Files tab](https://www.nexusmods.com/toystory3completeedition/mods/30?tab=files)
+or [GitHub Releases](https://github.com/keyloor/ts3-modding-tool/releases). Extract the ZIP outside the game folder.
 Open `Toy Story 3 Mod Loader.exe`. It finds the game in Steam; otherwise choose its folder.
 Install a mod ZIP with Install mod or by dropping it onto the window. Folders are accepted
 through More options. Review the package before installing. Close the game for changes.

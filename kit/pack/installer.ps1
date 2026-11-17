@@ -5,8 +5,8 @@
   so every step it takes is written below.
 
   It changes only the game archive listed in patches\manifest.txt (@@ARCHIVE@@), plus a
-  "@@NAME@@ backup" folder it makes in the game folder. Nothing outside the game folder, no downloads,
-  no Windows settings. Log: %TEMP%\@@NAME@@ Setup.log
+  "@@NAME@@ backup" folder it makes in the game folder and the temporary log below. No downloads
+  or Windows settings changes. Log: %TEMP%\@@NAME@@ Setup.log
 
   Made with TS3 Modding Tool by keyloor.
 

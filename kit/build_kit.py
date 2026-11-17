@@ -112,6 +112,7 @@ def build_loader(local=False):
     shutil.copy2(Path(KIT) / 'docs/LOADER.md', rel / 'README.txt')
     shutil.copy2(Path(KIT) / 'docs/LOADER_AGENTS.md', rel / 'AGENTS.md')
     shutil.copy2(Path(KIT) / 'docs/MOD_FORMAT.md', rel / 'docs')
+    shutil.copy2(Path(KIT) / 'docs/CLI.md', rel / 'docs')
     shutil.copy2(Path(sys.base_prefix) / 'LICENSE.txt', rel / 'licenses/Python.txt')
     for license_file in glob.glob(os.path.join(sys.base_prefix, 'tcl', 't*8.*', 'license.terms')):
         shutil.copy2(license_file, rel / 'licenses' / ('Tcl-Tk - %s.txt' % Path(license_file).parent.name))
