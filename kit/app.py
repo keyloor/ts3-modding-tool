@@ -16,6 +16,7 @@ import automap as AM
 import viewer as V
 import kit as K
 import modupdate
+import appupdateui
 import modview
 import homeui
 from dropfiles import DropTarget
@@ -528,6 +529,7 @@ class App:
         sys.stdout = sys.stderr = Out(self.q)
         self.settings = self.load_settings()
         self.lang = self.settings.get('lang', 'es')
+        self.app_updates = appupdateui.Notice(root, TOOL, lambda: self.lang)
         self.settings.setdefault('workspace', os.path.join(documents(), TOOL))
         self.work, self.proj = None, {}
         self.info = self.tables = None
@@ -619,6 +621,7 @@ class App:
         hm = tk.Menu(m, tearoff=0)
         hm.add_command(label=self.t('guide'), command=lambda: self.open_path(paths.doc('GUIA_MANUAL.md')))
         hm.add_command(label=self.t('agents'), command=lambda: self.open_path(paths.doc('AGENTS.md')))
+        hm.add_command(label=self.app_updates.text('check'), command=lambda: self.app_updates.check(force=True))
         hm.add_separator(); hm.add_command(label=self.t('about'), command=self.about)
         m.add_cascade(label=self.t('help'), menu=hm)
         self.root.config(menu=m)
@@ -627,6 +630,7 @@ class App:
         bar.pack(fill='x', side='bottom')
         self.spinner = ttk.Progressbar(bar, mode='indeterminate', length=180)   # shown while something runs
         ttk.Label(bar, textvariable=self.status, padding=(10, 3)).pack(side='left', fill='x', expand=True)
+        self.app_updates.mount(self.root)
         self.body = ttk.Frame(self.root)
         self.body.pack(fill='both', expand=True)
         self.buttons = []

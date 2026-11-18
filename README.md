@@ -17,6 +17,13 @@ Download both apps from [Nexus Mods, Files tab](https://www.nexusmods.com/toysto
 or [GitHub Releases](https://github.com/keyloor/ts3-modding-tool/releases). Choose Mod Loader to install mods,
 or Modding Tool to create them. Extract the chosen ZIP outside the game folder and open its executable.
 
+Both apps check for a newer application release on startup without blocking your work. An update notice opens
+the official GitHub release page, so future downloads do not depend on Nexus files being updated.
+You can check manually from Help in the Tool or More options in the Loader, using **Check for application updates**.
+This is separate from installed-mod updates. Downloads and installation remain manual: close the app, extract
+the new ZIP outside the game folder and open the executable for the same product. Settings, mods and backups
+are shared with the previous copy. Older releases without this notice need one manual update first.
+
 Both managers offer **Verify files** with a readable report of game files, original backups and stored mod
 layers. **View result** (under **More** in the Loader) reopens the last check in this session; refreshing clears it. Verification never repairs
 files. The Tool now groups global actions under **Options**, searches names/authors/IDs and shows actions for
@@ -203,6 +210,11 @@ Si solo quieres instalar mods, descarga **Toy Story 3 Mod Loader** desde
 [Nexus Mods, pestaña Files](https://www.nexusmods.com/toystory3completeedition/mods/30?tab=files) o
 [GitHub Releases](https://github.com/keyloor/ts3-modding-tool/releases). Extrae su ZIP fuera de la carpeta del
 juego y abre `Toy Story 3 Mod Loader.exe`. Modding Tool es la descarga para crear mods.
+
+Ambas aplicaciones buscan nuevas versiones al abrirse y avisan con un enlace a la descarga oficial en GitHub.
+Puedes forzar la comprobación desde Ayuda en Modding Tool o Más opciones en Mod Loader con
+«Buscar actualizaciones de la aplicación». Descarga el ZIP de la misma aplicación, ciérrala, extrae el ZIP fuera
+del juego y abre el nuevo ejecutable. Las versiones anteriores sin este aviso requieren una primera actualización manual.
 
 Para usarla con Python: `pip install numpy pillow` y `python -I kit/app.py`. La guía para hacerlo todo a mano está en
 `docs/GUIA_MANUAL.md`.

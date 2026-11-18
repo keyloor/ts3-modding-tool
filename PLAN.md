@@ -34,6 +34,14 @@ diálogos de packs.
 
 ## Próxima fase (pedida por keyloor el 03/11/2026)
 
+**Aviso de nuevas versiones de la aplicación (17/11/2026, pendiente de publicar).** Tool y Loader consultan
+la última release estable de GitHub en segundo plano al abrirse, con caché diaria junto a los ajustes.
+Ayuda/Más opciones permiten forzar la consulta. Un aviso independiente del estado de los mods abre GitHub;
+las siguientes descargas pueden publicarse allí sin renovar cada archivo de Nexus. Las versiones antiguas
+necesitan una primera actualización manual. Se reutilizan la consulta, caché y comparación de `modupdate.py`,
+con un controlador de interfaz compartido y sin dependencias nuevas. No hace falta un actualizador que
+reemplace ejecutables. CLI `mods updates --app [--force] --json`, sin juego. Las preferencias y copias no se migran.
+
 **1. Corregido: errores del decodificador de sonido (03/11/2026, después de 0.2).** La 0.2 fallaba con
 lecturas incompletas de FMOD, incluidos `cane_impact` y 40 de las 71 muestras inicialmente probadas.
 Abrir como stream (`CREATESTREAM | OPENONLY`) usaba una ruta que fallaba con muchos Vorbis cortos. Se usa

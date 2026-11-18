@@ -34,6 +34,10 @@ NEW_REPORT_DIRECTORY`, explicitly opt-in, no playback/game writes; checks all lo
 The separate player app, Toy Story 3 Mod Loader, accepts the same `mods ... --json` commands through
 `TS3 Mod Loader CLI.exe` or `kit/loadercli.py`. Both apps share the registry/backups; no migration is needed.
 
+To check the application itself, use `mods updates --app --json` without a game; add `--force` to bypass its daily
+cache beside the settings. Read `data.application.error` as well as `update/latest`. The official GitHub release
+page is returned; downloading/installing remains manual. This is separate from installed-mod updates.
+
 For shared destinations, use `mods plan/install PACKAGE --layer` and its reviewed ticket. Combine with
 `--replace` for same-ID updates. `mods order` reads priorities; `mods order ID... --dry-run` reviews every
 installed ID once from lowest to highest, and `mods order ID... --expect TICKET` applies it. Last wins on

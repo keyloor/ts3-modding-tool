@@ -41,7 +41,10 @@ def check(mods, cache_path=None, force=False, fetch=fetch_latest, now=None):
     cache = {}
     if cache_path and os.path.isfile(cache_path):
         try:
-            cache = json.load(open(cache_path, encoding='utf-8'))
+            with open(cache_path, encoding='utf-8') as stream:
+                cache = json.load(stream)
+            if not isinstance(cache, dict):
+                cache = {}
         except (OSError, ValueError):
             cache = {}
     out = []
@@ -51,6 +54,8 @@ def check(mods, cache_path=None, force=False, fetch=fetch_latest, now=None):
         if not repo:
             continue
         entry = cache.get(repo)
+        if not isinstance(entry, dict) or not isinstance(entry.get('time'), (int, float)):
+            entry = None
         if fetch is None and not entry:
             continue
         stale = not entry or now - entry.get('time', 0) >= (RETRY if 'error' in entry else DAY)

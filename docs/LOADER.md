@@ -9,6 +9,14 @@ o [GitHub Releases](https://github.com/keyloor/ts3-modding-tool/releases). Extra
 Abre `Toy Story 3 Mod Loader.exe`. La aplicación busca el juego en Steam; si no lo encuentra,
 elige su carpeta con «Elegir carpeta». No necesitas Python.
 
+El Loader también busca una nueva versión de la aplicación al abrirse, sin bloquear la ventana. Si hay una,
+el aviso ofrece «Descargar en GitHub». Puedes comprobarlo desde «Más opciones → Buscar actualizaciones de la aplicación».
+Es una consulta distinta de las actualizaciones de mods y funciona sin encontrar el juego. La consulta automática
+se guarda durante un día. La manual vuelve a consultar GitHub. Sin conexión puedes seguir usando el Loader.
+Para actualizar, descarga el ZIP de Mod Loader, cierra la aplicación, extrae el ZIP fuera del juego y abre el nuevo
+ejecutable. Las preferencias, mods y copias se conservan. Si usas un acceso directo, apúntalo al ejecutable nuevo.
+Las versiones antiguas sin este aviso necesitan actualizarse manualmente una vez.
+
 Para instalar, pulsa «Instalar mod…» o arrastra el ZIP del mod a la ventana. También puedes
 elegir «Más opciones → Instalar desde carpeta». Revisa su nombre, autor y archivos antes
 de pulsar «Instalar este mod». Cierra el juego antes de instalar o quitar mods.
@@ -53,6 +61,13 @@ Para crear personajes, explorar niveles o editar texturas, usa la descarga separ
 Download **Toy Story 3 Mod Loader** from [Nexus Mods, Files tab](https://www.nexusmods.com/toystory3completeedition/mods/30?tab=files)
 or [GitHub Releases](https://github.com/keyloor/ts3-modding-tool/releases). Extract the ZIP outside the game folder.
 Open `Toy Story 3 Mod Loader.exe`. It finds the game in Steam; otherwise choose its folder.
+
+Startup checks for a newer application release without blocking the window. The notice offers Download on GitHub.
+More options → Check for application updates checks again, independently of mod updates and without needing the game.
+Automatic checks are cached for a day; a manual check asks GitHub again. Offline checks do not stop the Loader.
+To update, download the Mod Loader ZIP, close the application, extract outside the game folder and open the new
+executable. Preferences, installed mods and backups remain available. Point any shortcut at the new executable.
+Older releases without this notice need one manual update first.
 Install a mod ZIP with Install mod or by dropping it onto the window. Folders are accepted
 through More options. Review the package before installing. Close the game for changes.
 

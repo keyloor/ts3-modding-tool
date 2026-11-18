@@ -6,6 +6,12 @@ are `docs/GUIA_MANUAL.md` (manual, every map table explained) and the skill in `
 
 ## What you are doing
 
+Both apps check their own version at startup, separately from installed-mod updates. The manual action is under
+Help (Tool) or More options (Loader). `mods updates --app --json` checks without a game; `--force` bypasses the
+daily cache beside the settings file (`TS3TOOL_SETTINGS` redirects it too). Read `data.application.error` before
+treating `update=false` as current. The notice opens the official GitHub latest-release page. Download/install
+remain manual; keep the same product and preserve game backups/settings. Older releases need one manual update.
+
 The Tool home has six equal task cards. Character projects moved to Open characters, with new/open actions
 and a read-only recent-project list. Textures, Models and objects, and Music and sounds open the existing
 Explorer with a task title and initial filter; language changes retain that context. These are navigation

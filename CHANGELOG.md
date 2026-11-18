@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Both apps check for new application releases on startup without blocking, and offer a manual check under
+  Help (Tool) or More options (Loader). Notices open the official GitHub release page; Nexus files need not be
+  updated for each later release. Downloads/installations remain manual. CLI: mods updates --app [--force] --json.
+  Checks work without the game, cache separately beside the settings, and preserve installed mods/preferences.
+
 - Exported mod READMEs recommend Mod Loader and link its Nexus download. Player, release and authoring guides
   include download links and current installation instructions. Removed obsolete one-mod-per-archive claims
   for the shared manager and corrected the texture-workspace menu path.

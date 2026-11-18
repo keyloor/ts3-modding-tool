@@ -12,6 +12,21 @@ siguen siendo independientes de estos controles.
 
 ## Ejecutar
 
+Para comprobar la versión de la propia aplicación, sin buscar ni modificar el juego:
+
+```text
+python -I kit/cli.py mods updates --app --json
+python -I kit/loadercli.py mods updates --app --force --json
+```
+
+Los dos ejecutables de consola aceptan los mismos argumentos. `data.application` contiene `installed`, `latest`,
+`update`, `url` (la página oficial de la última release en GitHub) y `error` si la consulta falló.
+La consulta comparte el número de versión de Tool y Loader. La caché vive junto a los ajustes, con extensión
+`.app-updates.json` y respeta `TS3TOOL_SETTINGS`. Dura 24 horas tras éxito y una hora tras error.
+`--force` consulta de nuevo. Sin `--app`, `mods updates` sigue comprobando los mods instalados.
+No descarga, ejecuta ni instala aplicaciones. Si `error` tiene contenido, no se debe interpretar `update=false`
+como confirmación de que la aplicación está al día.
+
 Con Python, desde la carpeta de la herramienta:
 
 ```text

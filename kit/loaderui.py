@@ -16,6 +16,7 @@ import loaderprefs
 from modfile import ModError
 from modstore import Store, JOURNAL
 import modupdate
+import appupdateui
 import modpriorityui
 import modview
 
@@ -122,6 +123,7 @@ class LoaderApp:
         self.root = root
         prefs = loaderprefs.read()
         self.lang = prefs.get('lang') if prefs.get('lang') in TEXT else 'es'
+        self.app_updates = appupdateui.Notice(root, LOADER, lambda: self.lang)
         self.game = prefs.get('game')
         self.records, self.updates = {}, {}
         self.health = {}
@@ -188,6 +190,7 @@ class LoaderApp:
         self.language.current(0 if self.lang == 'es' else 1); self.language.pack(side='right', padx=(8, 0))
         self.language.bind('<<ComboboxSelected>>', lambda e: self.set_language())
         self.button(header, self.t('about'), self.about).pack(side='right')
+        self.app_updates.mount(main)
         gamecard = ttk.Frame(main, style='Card.TFrame', padding=(16, 12)); gamecard.pack(fill='x', pady=(20, 16))
         self.game_button = self.button(gamecard, self.t('change'), self.choose_game)
         self.game_button.pack(side='right', padx=(16, 0))
@@ -203,6 +206,7 @@ class LoaderApp:
         menu = tk.Menu(more, tearoff=False)
         menu.add_command(label=self.t('folder'), command=lambda: self.choose_package(folder=True))
         menu.add_command(label=self.t('refresh'), command=self.reload)
+        menu.add_command(label=self.app_updates.text('check'), command=lambda: self.app_updates.check(force=True))
         more.config(menu=menu); more.pack(side='right'); self.controls.append(more)
         self.update_button = self.button(actions, self.t('updates'), self.check_updates)
         self.update_button.pack(side='right', padx=(0, 8))

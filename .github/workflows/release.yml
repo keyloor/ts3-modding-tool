@@ -43,12 +43,15 @@ jobs:
       - run: python -I tests/test_textures.py
       - run: python -I tests/test_cli.py --loader
       - run: python -I tests/test_loader.py
+      - run: python -I tests/test_appupdate.py
       - run: python -I kit/build_kit.py
       - name: The console .exe answers like the source
         shell: pwsh
         run: |
           $exe = Get-ChildItem release -Recurse -Filter 'TS3 Modding CLI.exe' | Select-Object -First 1
           python -I tests/test_cli.py --exe $exe.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_appupdate.py --exe $exe.FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -I tests/test_layers.py --exe $exe.FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -76,6 +79,8 @@ jobs:
           python -I tests/test_cli.py --exe $loader.FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -I tests/test_loader.py --exe $loader.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -I tests/test_appupdate.py --exe $loader.FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -I tests/test_layers.py --exe $loader.FullName
       - name: Notes for this version (its section of CHANGELOG.md)

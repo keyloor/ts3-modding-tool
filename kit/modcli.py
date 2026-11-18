@@ -22,7 +22,7 @@ COMMANDS = {
     'remove': 'Remove a registered mod, or preview removal with --dry-run.',
     'order': 'Read or apply all installed IDs from lowest to highest priority; last wins.',
     'recover': 'Restore the state before an interrupted manager operation.',
-    'updates': 'Check installed mods with update.github for a newer GitHub release (never downloads).'}
+    'updates': 'Check installed mods, or --app for the application, for a newer GitHub release (never downloads).'}
 EXIT_CODES = {'success': 0, 'invalid_arguments': 2, 'operation_failed': 3, 'verification_failed': 4,
               'internal_error': 5, 'interrupted': 130}
 
@@ -57,6 +57,7 @@ def parser():
             sub.add_argument('--game', help='game folder; agents should pass it explicitly')
         if action == 'updates':
             sub.add_argument('--force', action='store_true', help='ask GitHub now, not the once-a-day cache')
+            sub.add_argument('--app', action='store_true', help='check the application instead of mods; no game needed')
         if action in ('install', 'remove', 'order'):
             sub.add_argument('--dry-run', action='store_true', help='validate and describe changes without applying them')
             sub.add_argument('--expect', type=ticket, help='require the ticket returned by plan / remove --dry-run')
@@ -96,6 +97,9 @@ def dispatch(a, game_resolver=None):
     if a.action == 'inspect':
         with Package(a.package) as package:
             return {'metadata': package.metadata, 'package': str(package.source)}, 0
+    if a.action == 'updates' and a.app:
+        import appupdate
+        return {'application': appupdate.check(force=a.force)}, 0
     game = a.game
     if not game:
         if game_resolver is None:

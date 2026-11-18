@@ -22,6 +22,16 @@ MOD PRIORITIES
   CLI: mods plan/install PACKAGE --layer; mods order ID... --dry-run, then --expect TICKET.
   Use current versions of both apps with layered registries. External edits and declared conflicts stay blocked.
 
+APPLICATION UPDATES
+  Both apps check GitHub for a newer application version at startup, without blocking the window.
+  A notice opens the official GitHub release page. Download the ZIP for the same product (Tool or Loader).
+  To check manually: Tool > Help > Check for application updates, or Loader > More options > the same action.
+  Automatic checks are cached for a day; manual checks ask GitHub again. Offline checks do not stop your work.
+  Close the app, extract the new ZIP outside the game folder and open its executable. Repoint your shortcut if needed.
+  Settings, installed mods and backups are shared. Nothing is downloaded, run or replaced automatically.
+  Older releases without this notice need one manual update. Nexus can remain the initial download entry point.
+  CLI: mods updates --app --json (no game required); add --force to ask GitHub again.
+
 MOD MANAGER AND VERIFICATION
   The Tool groups global actions under Options and searches installed mods by name, author, description or ID.
   Select a mod for its actions. Both products offer Verify files with readable game-file/backup/layer results.
@@ -171,6 +181,15 @@ EMPEZAR
   Seis tarjetas del mismo tamaño abren el Explorador, Texturas, Modelos y objetos, Música y sonidos, Personajes
   y Gestionar mods. Carpetas contiene las opciones de trabajo. Personajes tiene su propia lista de proyectos
   recientes, con el personaje y el nombre del modelo, incluida su extensión.
+
+ACTUALIZAR LA APLICACIÓN
+  Ambas aplicaciones consultan GitHub al abrirse sin bloquear la ventana. Si hay una versión nueva, el aviso
+  ofrece «Descargar en GitHub». No depende de que se actualicen los archivos de Nexus.
+  Para comprobarlo manualmente: Ayuda en Modding Tool o Más opciones en Mod Loader >
+  «Buscar actualizaciones de la aplicación». Las consultas automáticas se guardan un día; la manual consulta de nuevo.
+  Descarga el ZIP de la misma aplicación, ciérrala, extrae el ZIP fuera del juego y abre el nuevo ejecutable.
+  Si usas un acceso directo, apúntalo al nuevo ejecutable. Se comparten preferencias, mods y copias anteriores.
+  Las versiones antiguas sin este aviso necesitan una primera actualización manual. La descarga e instalación son manuales.
 
 TU PROPIO PERSONAJE
   Inicio > "Abrir personajes" > "Nuevo proyecto de personaje", ponle un nombre, y luego:

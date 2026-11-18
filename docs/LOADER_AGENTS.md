@@ -16,6 +16,12 @@ JSON: `{schema_version: 1, ok, command, data, error: {code, message}}`. Exit 0 s
 2 arguments, 3 refused operation, 4 failed verification, 5 unexpected error, 130 interrupted.
 All operations are noninteractive. Updates only checks release metadata, never downloads.
 
+`mods updates --app --json` checks the application's shared Tool/Loader version without resolving a game.
+Read `data.application` (`installed`, `latest`, `update`, `url`, `error`); a non-null error is not proof the app is
+current. Automatic checks cache for a day beside the settings (`TS3TOOL_SETTINGS` applies); `--force` checks again.
+The GUI starts this check without blocking and offers it under More options. Its notice opens GitHub's official
+latest release. Users download/extract the matching product manually; no executable is replaced or run automatically.
+
 To replace a package with the same ID, review `mods plan PACKAGE --replace --game GAME --json`,
 then `mods install PACKAGE --replace --game GAME --expect TICKET --json` within the authorized scope.
 Read `replaces` (installed metadata), `restores` (retired targets) and all `files` before applying.
