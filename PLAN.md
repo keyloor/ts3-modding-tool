@@ -34,7 +34,7 @@ diálogos de packs.
 
 ## Próxima fase (pedida por keyloor el 03/11/2026)
 
-**Aviso de nuevas versiones de la aplicación (17/11/2026, pendiente de publicar).** Tool y Loader consultan
+**Aviso de nuevas versiones de la aplicación (17/11/2026, versión 0.4).** Tool y Loader consultan
 la última release estable de GitHub en segundo plano al abrirse, con caché diaria junto a los ajustes.
 Ayuda/Más opciones permiten forzar la consulta. Un aviso independiente del estado de los mods abre GitHub;
 las siguientes descargas pueden publicarse allí sin renovar cada archivo de Nexus. Las versiones antiguas

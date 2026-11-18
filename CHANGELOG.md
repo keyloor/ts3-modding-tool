@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4
 
 - Both apps check for new application releases on startup without blocking, and offer a manual check under
   Help (Tool) or More options (Loader). Notices open the official GitHub release page; Nexus files need not be

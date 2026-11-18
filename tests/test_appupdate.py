@@ -29,6 +29,9 @@ if '--exe' in sys.argv:
 
 class Updates(unittest.TestCase):
     def setUp(self):
+        version = patch.object(appupdate, 'VERSION', '0.3')
+        version.start()
+        self.addCleanup(version.stop)
         self.temp = tempfile.TemporaryDirectory(prefix='ts3-appupdate-')
         self.root = Path(self.temp.name)
         self.settings = self.root / 'settings.json'
